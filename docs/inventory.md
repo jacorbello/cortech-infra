@@ -6,8 +6,8 @@ This document captures the current Proxmox cluster, nodes, and guest workloads. 
 - cortech — 12 CPU, 188.6 GiB RAM, status: online
 - cortech-node1 — 4 CPU, 30.3 GiB RAM, status: online
 - cortech-node2 — 4 CPU, 30.3 GiB RAM, status: online
-- cortech-node3 — 96 CPU, 566.2 GiB RAM, status: online
-- cortech-node5 — 8 CPU, 31.0 GiB RAM, status: online (Tesla T4 GPU available; usually powered off)
+- cortech-node3 — 96 CPU, 566.2 GiB RAM, status: online (Dell R640 with NVIDIA Tesla T4 GPU)
+- cortech-node5 — 8 CPU, 31.0 GiB RAM, status: online (usually powered off for cost savings)
 
 ## Running Guests
 - QEMU
@@ -39,6 +39,7 @@ This document captures the current Proxmox cluster, nodes, and guest workloads. 
 - DNS: Namecheap; manage via IaC to avoid drift.
 
 ## How To Refresh
+- Run: `scripts/inventory/refresh.sh` on the master node.
 - Nodes: `pvesh get /cluster/resources --type node --output-format json`
 - Guests: `pvesh get /cluster/resources --type vm --output-format json`
 - VM list: `qm list`  |  LXC list: `pct list`

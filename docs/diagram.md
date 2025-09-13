@@ -22,11 +22,11 @@ graph TD
     subgraph cortech-node2 [cortech-node2 (4c/30.3GiB)]
       lxc111[(LXC 111 wordpress-ff)]:::stopped
     end
-    subgraph cortech-node3 [cortech-node3 (96c/566.2GiB)]
+    subgraph cortech-node3 [cortech-node3 (96c/566.2GiB) GPU]
       lxc103[(LXC 103 plotlens-ollama tmpl)]:::stopped
       lxc104[(LXC 104 plotlens-ollama tmpl)]:::stopped
     end
-    subgraph cortech-node5 [cortech-node5 (8c/31.0GiB) GPU]
+    subgraph cortech-node5 [cortech-node5 (8c/31.0GiB)]
       lxc112[(LXC 112 n8n)]:::stopped
     end
   end

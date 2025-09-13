@@ -40,7 +40,7 @@
 - No secrets in git. Use SOPS/Vault; commit only encrypted files.
 - Certs managed by certbot on `proxy` (PCT 100); route 80/443 there.
 - DNS: manage via `dns/` and apply at Namecheap; avoid manual drift.
-- GPU node `cortech-node5` is usually off—note requirements before enabling.
+- GPU workloads run on `cortech-node3` (Dell R640 with NVIDIA Tesla T4). `cortech-node5` is usually powered off for cost savings.
 
 ## Agent-Specific Instructions
 - Make minimal, surgical changes; don’t refactor unrelated code.
