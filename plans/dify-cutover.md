@@ -10,10 +10,10 @@
 | 1 | COMPLETE | Deploy MinIO (separate VM) |
 | 2 | COMPLETE | Deploy Dify (new CT/VM) |
 | 3 | COMPLETE | Point Dify storage at MinIO (S3) |
-| 4 | NOT_STARTED | Rebuild "Jarvis" in Dify (Apps + Workflows + Knowledge) |
+| 4 | COMPLETE | Rebuild "Jarvis" in Dify (Apps + Workflows + Knowledge) |
 | 5 | NOT_STARTED | Document Repository + Continuous Ingestion (MinIO → Dify Knowledge) |
 | 6 | NOT_STARTED | Tools Gateway integration |
-| 7 | NOT_STARTED | Outer Reverse Proxy cutover |
+| 7 | COMPLETE | Outer Reverse Proxy cutover |
 | 8 | NOT_STARTED | Cost controls |
 | 9 | NOT_STARTED | Decommission AGiXT |
 
