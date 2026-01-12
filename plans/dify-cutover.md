@@ -6,10 +6,10 @@
 
 | Phase | Status | Description |
 |-------|--------|-------------|
-| 0 | NOT_STARTED | Pre-flight & Freeze |
-| 1 | NOT_STARTED | Deploy MinIO (separate VM) |
-| 2 | NOT_STARTED | Deploy Dify (new CT/VM) |
-| 3 | NOT_STARTED | Point Dify storage at MinIO (S3) |
+| 0 | COMPLETE | Pre-flight & Freeze |
+| 1 | COMPLETE | Deploy MinIO (separate VM) |
+| 2 | COMPLETE | Deploy Dify (new CT/VM) |
+| 3 | COMPLETE | Point Dify storage at MinIO (S3) |
 | 4 | NOT_STARTED | Rebuild "Jarvis" in Dify (Apps + Workflows + Knowledge) |
 | 5 | NOT_STARTED | Document Repository + Continuous Ingestion (MinIO → Dify Knowledge) |
 | 6 | NOT_STARTED | Tools Gateway integration |
@@ -327,8 +327,22 @@ Dify provides dataset API access from the Knowledge UI.
 
 | Component | VMID | Type | IP | Node | Specs |
 |-----------|------|------|-----|------|-------|
-| MinIO | TBD | VM | TBD | cortech | 4 vCPU, 8GB RAM, 500GB disk |
-| Dify | TBD | CT | TBD | cortech | 8 vCPU, 16GB RAM, 100GB disk |
+| MinIO | 123 | CT | 192.168.1.118 | cortech | 4 vCPU, 8GB RAM, 500GB disk |
+| Dify | 124 | CT | 192.168.1.119 | cortech | 8 vCPU, 16GB RAM, 100GB disk |
+
+## Service Accounts (stored securely, not in repo)
+
+### MinIO Root
+- User: `minio-admin`
+- Console: `http://192.168.1.118:9001`
+
+### MinIO Service Accounts
+| Service | Bucket | Access Key |
+|---------|--------|------------|
+| Dify | dify-storage | 4O865CF3W09KL5JGMU89 |
+| DocSync | jarvis-docrepo | LGAM2QDJY0K1EZVDJ6XZ |
+
+*Secret keys stored in respective service .env files*
 
 ---
 

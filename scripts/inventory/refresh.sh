@@ -22,8 +22,8 @@ GUESTS_JSON=$(pvesh get /cluster/resources --type vm --output-format json)
 
 ts() { date -u +"%Y-%m-%d %H:%M:%SZ"; }
 
-# jq helper to convert bytes to GiB (floor)
-to_gib_int='def gib: ((. / 1073741824) | floor);'
+# jq helper to convert bytes to GiB (floor), handles null
+to_gib_int='def gib: if . == null then 0 else ((. / 1073741824) | floor) end;'
 
 echo "Writing $INV_FILE" >&2
 {
