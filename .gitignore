@@ -1,0 +1,55 @@
+# General
+.DS_Store
+*.log
+*.tmp
+*.swp
+.vscode/
+.idea/
+tmp/
+.tmp/
+
+# Environment files (do not commit secrets)
+.env
+.env.*
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+override.tf
+override.tf.json
+*.tfplan
+.terragrunt-cache/
+
+# Ansible
+*.retry
+.ansible/
+
+# Go / Terratest
+bin/
+dist/
+build/
+coverage/
+*.out
+*.test
+go.work
+go.work.sum
+
+# Kubernetes and TLS artifacts (keep out of git)
+*.kubeconfig
+*.key
+*.pem
+*.crt
+*.pfx
+
+# Proxmox/Images/Backups (large artifacts)
+*.iso
+*.img
+*.qcow2
+*.vma
+*.vma.*
+*.tar
+*.tgz
+*.zst
+

@@ -22,6 +22,7 @@ GUESTS_JSON=$(pvesh get /cluster/resources --type vm --output-format json)
 
 ts() { date -u +"%Y-%m-%d %H:%M:%SZ"; }
 
+# jq helper to convert bytes to GiB (floor)
 to_gib_int='def gib: ((. / 1073741824) | floor);'
 
 echo "Writing $INV_FILE" >&2
@@ -31,19 +32,19 @@ echo "Writing $INV_FILE" >&2
   echo "Generated: $(ts) from Proxmox API on the master node."
   echo
   echo "## Cluster Nodes"
-  echo "$NODES_JSON" | jq -r "$to_gib_int [.[] | {node, maxcpu, maxmem: (.maxmem|gib), status}] | sort_by(.node)[] | \n  \"- \(.node) — \(.maxcpu) CPU, \(.maxmem) GiB RAM, status: \(.status)\""
+  echo "$NODES_JSON" | jq -r "$to_gib_int [.[] | {node, maxcpu, maxmem: (.maxmem|gib), status}] | sort_by(.node)[] | \"- \(.node) — \(.maxcpu) CPU, \(.maxmem) GiB RAM, status: \(.status)\""
   echo
   echo "## Running Guests"
   echo "- QEMU"
-  echo "$GUESTS_JSON" | jq -r "$to_gib_int [.[] | select(.type==\"qemu\" and .status==\"running\") | {vmid,name,node,maxmem:(.maxmem|gib), maxdisk:(.maxdisk|gib)}] | sort_by(.vmid)[] | \n  \"  - \(.vmid) \(.name) @ \(.node) — \(.maxmem) GiB RAM, \(.maxdisk) GiB disk\""
+  echo "$GUESTS_JSON" | jq -r "$to_gib_int [.[] | select(.type==\"qemu\" and .status==\"running\") | {vmid,name,node,maxmem:(.maxmem|gib), maxdisk:(.maxdisk|gib)}] | sort_by(.vmid)[] | \"  - \(.vmid) \(.name) @ \(.node) — \(.maxmem) GiB RAM, \(.maxdisk) GiB disk\""
   echo "- LXC"
-  echo "$GUESTS_JSON" | jq -r "$to_gib_int [.[] | select(.type==\"lxc\" and .status==\"running\") | {vmid,name,node,tags}] | sort_by(.vmid)[] | \n  \"  - \(.vmid) \(.name) @ \(.node) — \(.tags // \"\")\""
+  echo "$GUESTS_JSON" | jq -r "$to_gib_int [.[] | select(.type==\"lxc\" and .status==\"running\") | {vmid,name,node,tags}] | sort_by(.vmid)[] | \"  - \(.vmid) \(.name) @ \(.node) — \(.tags // \"\")\""
   echo
   echo "## Stopped/Planned Guests"
   echo "- QEMU (stopped)"
-  echo "$GUESTS_JSON" | jq -r "$to_gib_int [.[] | select(.type==\"qemu\" and .status!=\"running\") | {vmid,name,node}] | sort_by(.vmid)[] | \n  \"  - \(.vmid) \(.name) @ \(.node)\"" | sed '/  - /!d' || true
+  echo "$GUESTS_JSON" | jq -r "$to_gib_int [.[] | select(.type==\"qemu\" and .status!=\"running\") | {vmid,name,node}] | sort_by(.vmid)[] | \"  - \(.vmid) \(.name) @ \(.node)\"" | sed '/  - /!d' || true
   echo "- LXC (stopped)"
-  echo "$GUESTS_JSON" | jq -r "$to_gib_int [.[] | select(.type==\"lxc\" and .status!=\"running\") | {vmid,name,node,tags}] | sort_by(.vmid)[] | \n  \"  - \(.vmid) \(.name) @ \(.node) — \(.tags // \"\")\"" | sed '/  - /!d' || true
+  echo "$GUESTS_JSON" | jq -r "$to_gib_int [.[] | select(.type==\"lxc\" and .status!=\"running\") | {vmid,name,node,tags}] | sort_by(.vmid)[] | \"  - \(.vmid) \(.name) @ \(.node) — \(.tags // \"\")\"" | sed '/  - /!d' || true
   echo
   echo "## Networking & Ingress"
   echo "- Public services via PCT 100 \`proxy\` (NGINX) → https://<service>.corbello.io"
@@ -62,8 +63,29 @@ echo "Writing $DGM_FILE_MD" >&2
   echo '```mermaid'
   echo 'graph TD'
   echo '  subgraph Proxmox_Cluster'
-  echo "$NODES_JSON" | jq -r "$to_gib_int [.[] | {node, maxcpu, maxmem:(.maxmem|gib)}] | sort_by(.node)[] | \n  \"    subgraph \(.node) [\(.node) (\(.maxcpu)c/\(.maxmem)GiB)]\n    end\""
-  echo "$GUESTS_JSON" | jq -r '[.[] | {type, vmid, name, node, status}] | sort_by(.node,.vmid)[] | \n  (if .type=="qemu" then \n    "    vm\(.vmid)[QEMU \(.vmid) \(.name)]" \n   else \n    "    lxc\(.vmid)[LXC \(.vmid) \(.name)]" \n   end) + (if .status=="running" then "" else ":::stopped" end)'
+
+  # Render each node as a subgraph with its guests
+  echo "$NODES_JSON" | jq -c "$to_gib_int [.[] | {node, maxcpu, maxmem:(.maxmem|gib)}] | sort_by(.node)[]" | while read -r n; do
+    node=$(echo "$n" | jq -r .node)
+    maxcpu=$(echo "$n" | jq -r .maxcpu)
+    maxmem=$(echo "$n" | jq -r .maxmem)
+    label="$node (${maxcpu}c/${maxmem}GiB)"
+    if [ "$node" = "cortech-node3" ]; then
+      label="$label GPU"
+    fi
+    echo "    subgraph $node [$label]"
+    echo "$GUESTS_JSON" | jq -r --arg NODE "$node" '[
+      .[] | select(.node==$NODE) | {type, vmid, name, status}
+    ] | sort_by(.vmid)[] | (
+      if .type=="qemu" then
+        "      vm\(.vmid)[QEMU \(.vmid) \(.name)]"
+      else
+        "      lxc\(.vmid)[LXC \(.vmid) \(.name)]"
+      end
+    ) + (if .status=="running" then "" else ":::stopped" end)'
+    echo "    end"
+  done
+
   echo '  end'
   echo
   echo 'classDef stopped fill:#eee,stroke:#999,stroke-dasharray: 3 3,color:#666;'
