@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: proxmox-exporter
+  namespace: observability
+  labels:
+    app.kubernetes.io/name: proxmox-exporter
+    app.kubernetes.io/component: exporter
+    release: prometheus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: proxmox-exporter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: proxmox-exporter
+        release: prometheus
+    spec:
+      containers:
+      - name: pve-exporter
+        image: prompve/prometheus-pve-exporter:3.4.5
+        ports:
+        - name: metrics
+          containerPort: 9221
+          protocol: TCP
+        env:
+        - name: PVE_USER
+          valueFrom:
+            secretKeyRef:
+              name: proxmox-exporter-credentials
+              key: user
+        - name: PVE_TOKEN_NAME
+          valueFrom:
+            secretKeyRef:
+              name: proxmox-exporter-credentials
+              key: token_name
+        - name: PVE_TOKEN_VALUE
+          valueFrom:
+            secretKeyRef:
+              name: proxmox-exporter-credentials
+              key: token_value
+        - name: PVE_VERIFY_SSL
+          value: "false"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: metrics
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: metrics
+          initialDelaySeconds: 5
+          periodSeconds: 10

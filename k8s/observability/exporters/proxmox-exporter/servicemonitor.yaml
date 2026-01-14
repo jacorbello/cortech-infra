@@ -1,0 +1,29 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: proxmox-exporter
+  namespace: observability
+  labels:
+    app.kubernetes.io/name: proxmox-exporter
+    app.kubernetes.io/component: exporter
+    release: prometheus
+spec:
+  endpoints:
+  - port: metrics
+    scheme: http
+    path: /pve
+    params:
+      target:
+      - "192.168.1.52"
+      cluster:
+      - "1"
+      node:
+      - "1"
+    interval: 30s
+    scrapeTimeout: 25s
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: proxmox-exporter
+  namespaceSelector:
+    matchNames:
+    - observability
