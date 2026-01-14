@@ -9,7 +9,7 @@ metadata:
     app.kubernetes.io/component: infrastructure
     release: prometheus
   annotations:
-    grafana_folder: "Infrastructure"
+    grafana_folder: "Cortech"
 data:
   proxmox-node-resources.json: |-
     {
