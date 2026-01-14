@@ -33,7 +33,7 @@ data:
       "links": [],
       "panels": [
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "thresholds"},
@@ -45,12 +45,12 @@ data:
           "id": 1,
           "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
           "pluginVersion": "11.0.0",
-          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "count(pve_up{id=~\"qemu/.*\"} == 1)", "legendFormat": "Running VMs", "refId": "A"}],
+          "targets": [{"datasource": "$datasource", "expr": "count(pve_up{id=~\"qemu/.*\"} == 1)", "legendFormat": "Running VMs", "refId": "A"}],
           "title": "Running VMs",
           "type": "stat"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "thresholds"},
@@ -62,12 +62,12 @@ data:
           "id": 2,
           "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
           "pluginVersion": "11.0.0",
-          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "count(pve_up{id=~\"lxc/.*\"} == 1)", "legendFormat": "Running Containers", "refId": "A"}],
+          "targets": [{"datasource": "$datasource", "expr": "count(pve_up{id=~\"lxc/.*\"} == 1)", "legendFormat": "Running Containers", "refId": "A"}],
           "title": "Running Containers",
           "type": "stat"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "thresholds"},
@@ -79,12 +79,12 @@ data:
           "id": 3,
           "options": {"colorMode": "value", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
           "pluginVersion": "11.0.0",
-          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "count(pve_up{id=~\"qemu/.*\"} == 0)", "legendFormat": "Stopped VMs", "refId": "A"}],
+          "targets": [{"datasource": "$datasource", "expr": "count(pve_up{id=~\"qemu/.*\"} == 0)", "legendFormat": "Stopped VMs", "refId": "A"}],
           "title": "Stopped VMs",
           "type": "stat"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "thresholds"},
@@ -96,12 +96,12 @@ data:
           "id": 4,
           "options": {"colorMode": "value", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
           "pluginVersion": "11.0.0",
-          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "count(pve_up{id=~\"lxc/.*\"} == 0)", "legendFormat": "Stopped Containers", "refId": "A"}],
+          "targets": [{"datasource": "$datasource", "expr": "count(pve_up{id=~\"lxc/.*\"} == 0)", "legendFormat": "Stopped Containers", "refId": "A"}],
           "title": "Stopped Containers",
           "type": "stat"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "palette-classic"},
@@ -118,12 +118,12 @@ data:
           "id": 5,
           "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
           "pluginVersion": "11.0.0",
-          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "pve_cpu_usage_ratio{id=~\"$guesttype/.*\"}", "legendFormat": "{{name}}", "refId": "A"}],
+          "targets": [{"datasource": "$datasource", "expr": "pve_cpu_usage_ratio{id=~\"$guesttype/.*\"}", "legendFormat": "{{name}}", "refId": "A"}],
           "title": "Guest CPU Usage",
           "type": "timeseries"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "palette-classic"},
@@ -138,12 +138,12 @@ data:
           "id": 6,
           "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
           "pluginVersion": "11.0.0",
-          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "pve_memory_usage_bytes{id=~\"$guesttype/.*\"}", "legendFormat": "{{name}}", "refId": "A"}],
+          "targets": [{"datasource": "$datasource", "expr": "pve_memory_usage_bytes{id=~\"$guesttype/.*\"}", "legendFormat": "{{name}}", "refId": "A"}],
           "title": "Guest Memory Usage",
           "type": "timeseries"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "palette-classic"},
@@ -158,12 +158,12 @@ data:
           "id": 7,
           "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
           "pluginVersion": "11.0.0",
-          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "rate(pve_network_receive_bytes{id=~\"$guesttype/.*\"}[5m])", "legendFormat": "{{name}} RX", "refId": "A"}],
+          "targets": [{"datasource": "$datasource", "expr": "rate(pve_network_receive_bytes{id=~\"$guesttype/.*\"}[5m])", "legendFormat": "{{name}} RX", "refId": "A"}],
           "title": "Guest Network RX",
           "type": "timeseries"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "palette-classic"},
@@ -178,12 +178,12 @@ data:
           "id": 8,
           "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
           "pluginVersion": "11.0.0",
-          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "rate(pve_network_transmit_bytes{id=~\"$guesttype/.*\"}[5m])", "legendFormat": "{{name}} TX", "refId": "A"}],
+          "targets": [{"datasource": "$datasource", "expr": "rate(pve_network_transmit_bytes{id=~\"$guesttype/.*\"}[5m])", "legendFormat": "{{name}} TX", "refId": "A"}],
           "title": "Guest Network TX",
           "type": "timeseries"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "thresholds"},
@@ -202,9 +202,9 @@ data:
           "options": {"cellHeight": "sm", "footer": {"countRows": false, "fields": "", "reducer": ["sum"], "show": false}, "showHeader": true, "sortBy": [{"desc": false, "displayName": "Name"}]},
           "pluginVersion": "11.0.0",
           "targets": [
-            {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "pve_up{id=~\"$guesttype/.*\"}", "format": "table", "instant": true, "legendFormat": "", "refId": "A"},
-            {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "pve_cpu_usage_ratio{id=~\"$guesttype/.*\"}", "format": "table", "instant": true, "legendFormat": "", "refId": "B"},
-            {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "pve_memory_usage_bytes{id=~\"$guesttype/.*\"}", "format": "table", "instant": true, "legendFormat": "", "refId": "C"}
+            {"datasource": "$datasource", "expr": "pve_up{id=~\"$guesttype/.*\"}", "format": "table", "instant": true, "legendFormat": "", "refId": "A"},
+            {"datasource": "$datasource", "expr": "pve_cpu_usage_ratio{id=~\"$guesttype/.*\"}", "format": "table", "instant": true, "legendFormat": "", "refId": "B"},
+            {"datasource": "$datasource", "expr": "pve_memory_usage_bytes{id=~\"$guesttype/.*\"}", "format": "table", "instant": true, "legendFormat": "", "refId": "C"}
           ],
           "title": "Guest Status Table",
           "transformations": [

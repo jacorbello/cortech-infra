@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  docsync:
+    build: .
+    container_name: docsync
+    restart: unless-stopped
+    env_file:
+      - .env
+    # Run every 5 minutes by default
+    command: ["--daemon", "--interval", "300"]

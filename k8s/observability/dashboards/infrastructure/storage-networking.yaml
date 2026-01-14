@@ -41,7 +41,7 @@ data:
           "type": "row"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "thresholds"},
@@ -57,12 +57,12 @@ data:
           "id": 1,
           "options": {"displayMode": "gradient", "minVizHeight": 10, "minVizWidth": 0, "orientation": "horizontal", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "showUnfilled": true, "valueMode": "color"},
           "pluginVersion": "11.0.0",
-          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "pve_disk_usage_bytes{id=~\"storage/.*\"} / pve_disk_size_bytes{id=~\"storage/.*\"}", "legendFormat": "{{id}}", "refId": "A"}],
+          "targets": [{"datasource": "$datasource", "expr": "pve_disk_usage_bytes{id=~\"storage/.*\"} / pve_disk_size_bytes{id=~\"storage/.*\"}", "legendFormat": "{{id}}", "refId": "A"}],
           "title": "Proxmox Storage Utilization",
           "type": "bargauge"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "palette-classic"},
@@ -77,12 +77,12 @@ data:
           "id": 2,
           "options": {"legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "right", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
           "pluginVersion": "11.0.0",
-          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "pve_disk_usage_bytes{id=~\"storage/.*\"}", "legendFormat": "{{id}}", "refId": "A"}],
+          "targets": [{"datasource": "$datasource", "expr": "pve_disk_usage_bytes{id=~\"storage/.*\"}", "legendFormat": "{{id}}", "refId": "A"}],
           "title": "Storage Usage Over Time",
           "type": "timeseries"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "thresholds"},
@@ -101,8 +101,8 @@ data:
           "options": {"cellHeight": "sm", "footer": {"countRows": false, "fields": "", "reducer": ["sum"], "show": false}, "showHeader": true, "sortBy": [{"desc": true, "displayName": "Usage %"}]},
           "pluginVersion": "11.0.0",
           "targets": [
-            {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "pve_disk_usage_bytes{id=~\"storage/.*\"}", "format": "table", "instant": true, "refId": "A"},
-            {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "pve_disk_size_bytes{id=~\"storage/.*\"}", "format": "table", "instant": true, "refId": "B"}
+            {"datasource": "$datasource", "expr": "pve_disk_usage_bytes{id=~\"storage/.*\"}", "format": "table", "instant": true, "refId": "A"},
+            {"datasource": "$datasource", "expr": "pve_disk_size_bytes{id=~\"storage/.*\"}", "format": "table", "instant": true, "refId": "B"}
           ],
           "title": "Storage Details",
           "transformations": [
@@ -121,7 +121,7 @@ data:
           "type": "row"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "thresholds"},
@@ -137,7 +137,7 @@ data:
           "id": 4,
           "options": {"displayMode": "gradient", "minVizHeight": 10, "minVizWidth": 0, "orientation": "horizontal", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "showUnfilled": true, "valueMode": "color"},
           "pluginVersion": "11.0.0",
-          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "kubelet_volume_stats_used_bytes / kubelet_volume_stats_capacity_bytes", "legendFormat": "{{namespace}}/{{persistentvolumeclaim}}", "refId": "A"}],
+          "targets": [{"datasource": "$datasource", "expr": "kubelet_volume_stats_used_bytes / kubelet_volume_stats_capacity_bytes", "legendFormat": "{{namespace}}/{{persistentvolumeclaim}}", "refId": "A"}],
           "title": "Kubernetes PVC Utilization",
           "type": "bargauge"
         },
@@ -150,7 +150,7 @@ data:
           "type": "row"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "palette-classic"},
@@ -165,12 +165,12 @@ data:
           "id": 5,
           "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
           "pluginVersion": "11.0.0",
-          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "sum(rate(pve_network_receive_bytes{id=~\"node/.*\"}[5m])) by (id)", "legendFormat": "{{id}} RX", "refId": "A"}],
+          "targets": [{"datasource": "$datasource", "expr": "sum(rate(pve_network_receive_bytes{id=~\"node/.*\"}[5m])) by (id)", "legendFormat": "{{id}} RX", "refId": "A"}],
           "title": "Proxmox Node Network RX",
           "type": "timeseries"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "palette-classic"},
@@ -185,12 +185,12 @@ data:
           "id": 6,
           "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
           "pluginVersion": "11.0.0",
-          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "sum(rate(pve_network_transmit_bytes{id=~\"node/.*\"}[5m])) by (id)", "legendFormat": "{{id}} TX", "refId": "A"}],
+          "targets": [{"datasource": "$datasource", "expr": "sum(rate(pve_network_transmit_bytes{id=~\"node/.*\"}[5m])) by (id)", "legendFormat": "{{id}} TX", "refId": "A"}],
           "title": "Proxmox Node Network TX",
           "type": "timeseries"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "palette-classic"},
@@ -205,12 +205,12 @@ data:
           "id": 7,
           "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
           "pluginVersion": "11.0.0",
-          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "sum(rate(node_network_receive_bytes_total{device!=\"lo\"}[5m])) by (instance)", "legendFormat": "{{instance}} RX", "refId": "A"}],
+          "targets": [{"datasource": "$datasource", "expr": "sum(rate(node_network_receive_bytes_total{device!=\"lo\"}[5m])) by (instance)", "legendFormat": "{{instance}} RX", "refId": "A"}],
           "title": "K3s Node Network RX",
           "type": "timeseries"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "palette-classic"},
@@ -225,7 +225,7 @@ data:
           "id": 8,
           "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
           "pluginVersion": "11.0.0",
-          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "sum(rate(node_network_transmit_bytes_total{device!=\"lo\"}[5m])) by (instance)", "legendFormat": "{{instance}} TX", "refId": "A"}],
+          "targets": [{"datasource": "$datasource", "expr": "sum(rate(node_network_transmit_bytes_total{device!=\"lo\"}[5m])) by (instance)", "legendFormat": "{{instance}} TX", "refId": "A"}],
           "title": "K3s Node Network TX",
           "type": "timeseries"
         },
@@ -238,7 +238,7 @@ data:
           "type": "row"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "palette-classic"},
@@ -253,12 +253,12 @@ data:
           "id": 9,
           "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
           "pluginVersion": "11.0.0",
-          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "sum(rate(traefik_entrypoint_requests_total[5m])) by (entrypoint, code)", "legendFormat": "{{entrypoint}} {{code}}", "refId": "A"}],
+          "targets": [{"datasource": "$datasource", "expr": "sum(rate(traefik_entrypoint_requests_total[5m])) by (entrypoint, code)", "legendFormat": "{{entrypoint}} {{code}}", "refId": "A"}],
           "title": "Traefik Request Rate",
           "type": "timeseries"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "palette-classic"},
@@ -273,7 +273,7 @@ data:
           "id": 10,
           "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
           "pluginVersion": "11.0.0",
-          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "histogram_quantile(0.99, sum(rate(traefik_entrypoint_request_duration_seconds_bucket[5m])) by (le, entrypoint))", "legendFormat": "{{entrypoint}} p99", "refId": "A"}],
+          "targets": [{"datasource": "$datasource", "expr": "histogram_quantile(0.99, sum(rate(traefik_entrypoint_request_duration_seconds_bucket[5m])) by (le, entrypoint))", "legendFormat": "{{entrypoint}} p99", "refId": "A"}],
           "title": "Traefik Request Latency (p99)",
           "type": "timeseries"
         }

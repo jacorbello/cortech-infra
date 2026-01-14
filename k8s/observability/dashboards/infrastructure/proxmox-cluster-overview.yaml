@@ -33,7 +33,7 @@ data:
       "links": [],
       "panels": [
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "thresholds"},
@@ -49,12 +49,12 @@ data:
           "id": 1,
           "options": {"colorMode": "value", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
           "pluginVersion": "11.0.0",
-          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "count(pve_up{id=~\"node/.*\"} == 1)", "legendFormat": "Nodes Online", "refId": "A"}],
+          "targets": [{"datasource": "$datasource", "expr": "count(pve_up{id=~\"node/.*\"} == 1)", "legendFormat": "Nodes Online", "refId": "A"}],
           "title": "Nodes Online",
           "type": "stat"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "thresholds"},
@@ -66,12 +66,12 @@ data:
           "id": 2,
           "options": {"colorMode": "value", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
           "pluginVersion": "11.0.0",
-          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "count(pve_up{id=~\"qemu/.*\"} == 1)", "legendFormat": "VMs Running", "refId": "A"}],
+          "targets": [{"datasource": "$datasource", "expr": "count(pve_up{id=~\"qemu/.*\"} == 1)", "legendFormat": "VMs Running", "refId": "A"}],
           "title": "VMs Running",
           "type": "stat"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "thresholds"},
@@ -83,12 +83,12 @@ data:
           "id": 3,
           "options": {"colorMode": "value", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
           "pluginVersion": "11.0.0",
-          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "count(pve_up{id=~\"lxc/.*\"} == 1)", "legendFormat": "Containers Running", "refId": "A"}],
+          "targets": [{"datasource": "$datasource", "expr": "count(pve_up{id=~\"lxc/.*\"} == 1)", "legendFormat": "Containers Running", "refId": "A"}],
           "title": "Containers Running",
           "type": "stat"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "thresholds"},
@@ -103,12 +103,12 @@ data:
           "id": 4,
           "options": {"orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "showThresholdLabels": false, "showThresholdMarkers": true},
           "pluginVersion": "11.0.0",
-          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "avg(pve_cpu_usage_ratio{id=~\"node/.*\"})", "legendFormat": "Cluster CPU", "refId": "A"}],
+          "targets": [{"datasource": "$datasource", "expr": "avg(pve_cpu_usage_ratio{id=~\"node/.*\"})", "legendFormat": "Cluster CPU", "refId": "A"}],
           "title": "Cluster CPU Usage",
           "type": "gauge"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "thresholds"},
@@ -123,12 +123,12 @@ data:
           "id": 5,
           "options": {"orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "showThresholdLabels": false, "showThresholdMarkers": true},
           "pluginVersion": "11.0.0",
-          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "sum(pve_memory_usage_bytes{id=~\"node/.*\"}) / sum(pve_memory_size_bytes{id=~\"node/.*\"})", "legendFormat": "Cluster Memory", "refId": "A"}],
+          "targets": [{"datasource": "$datasource", "expr": "sum(pve_memory_usage_bytes{id=~\"node/.*\"}) / sum(pve_memory_size_bytes{id=~\"node/.*\"})", "legendFormat": "Cluster Memory", "refId": "A"}],
           "title": "Cluster Memory Usage",
           "type": "gauge"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "palette-classic"},
@@ -145,12 +145,12 @@ data:
           "id": 6,
           "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
           "pluginVersion": "11.0.0",
-          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "pve_cpu_usage_ratio{id=~\"node/.*\"}", "legendFormat": "{{id}}", "refId": "A"}],
+          "targets": [{"datasource": "$datasource", "expr": "pve_cpu_usage_ratio{id=~\"node/.*\"}", "legendFormat": "{{id}}", "refId": "A"}],
           "title": "Node CPU Usage Over Time",
           "type": "timeseries"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "palette-classic"},
@@ -165,12 +165,12 @@ data:
           "id": 7,
           "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
           "pluginVersion": "11.0.0",
-          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "pve_memory_usage_bytes{id=~\"node/.*\"}", "legendFormat": "{{id}}", "refId": "A"}],
+          "targets": [{"datasource": "$datasource", "expr": "pve_memory_usage_bytes{id=~\"node/.*\"}", "legendFormat": "{{id}}", "refId": "A"}],
           "title": "Node Memory Usage Over Time",
           "type": "timeseries"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "thresholds"},
@@ -186,7 +186,7 @@ data:
           "id": 8,
           "options": {"displayMode": "gradient", "minVizHeight": 10, "minVizWidth": 0, "orientation": "horizontal", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "showUnfilled": true, "valueMode": "color"},
           "pluginVersion": "11.0.0",
-          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "pve_disk_usage_bytes / pve_disk_size_bytes", "legendFormat": "{{id}}", "refId": "A"}],
+          "targets": [{"datasource": "$datasource", "expr": "pve_disk_usage_bytes / pve_disk_size_bytes", "legendFormat": "{{id}}", "refId": "A"}],
           "title": "Storage Utilization",
           "type": "bargauge"
         }

@@ -1,49 +1,76 @@
 # Infrastructure Inventory
 
-Generated: 2026-01-12 14:10:54Z from Proxmox API on the master node.
+Generated: 2026-01-14 19:50:00Z from Proxmox API on the master node.
 
 ## Cluster Nodes
 - cortech — 12 CPU, 188 GiB RAM, status: online
 - cortech-node1 — 4 CPU, 30 GiB RAM, status: online
 - cortech-node2 — 4 CPU, 30 GiB RAM, status: online
-- cortech-node3 — null CPU, 0 GiB RAM, status: offline
+- cortech-node3 — 96 CPU, 566 GiB RAM, status: offline (GPU node, cost-saving)
 - cortech-node5 — 8 CPU, 30 GiB RAM, status: online
 
 ## Running Guests
-- QEMU
-  - 101 homeassistant @ cortech — 4 GiB RAM, 32 GiB disk
-- LXC
-  - 100 proxy @ cortech — critical
-  - 102 wireguard @ cortech — community-script;network;vpn
-  - 105 minecraft-bedrock @ cortech — games
-  - 112 n8n @ cortech-node5 — 
-  - 114 postgres @ cortech — db
-  - 116 redis @ cortech — critical;db
-  - 118 gha-runner-trading @ cortech — 
-  - 119 legal-api @ cortech — 
-  - 120 ai-trader @ cortech — 
-  - 121 jarvis @ cortech — ai;assistant;critical
-  - 122 jarvis-obs @ cortech — 
-  - 123 minio-01 @ cortech — minio;storage
-  - 124 dify-01 @ cortech — ai;critical;dify
+
+### QEMU VMs
+- 101 homeassistant @ cortech — 4 GiB RAM, 32 GiB disk
+- 200 k3s-srv-1 @ cortech — 8 GiB RAM, 40 GiB disk (K3s control-plane)
+- 201 k3s-srv-2 @ cortech-node1 — 4 GiB RAM, 40 GiB disk (K3s control-plane)
+- 202 k3s-srv-3 @ cortech-node2 — 4 GiB RAM, 40 GiB disk (K3s control-plane)
+- 203 k3s-wrk-1 @ cortech-node5 — 8 GiB RAM, 60 GiB disk (K3s worker)
+- 204 k3s-wrk-2 @ cortech — 8 GiB RAM, 60 GiB disk (K3s worker)
+
+### LXC Containers
+- 100 proxy @ cortech — critical
+- 102 wireguard @ cortech — community-script;network;vpn
+- 105 minecraft-bedrock @ cortech — games
+- 112 n8n @ cortech-node5 — automation
+- 114 postgres @ cortech — db
+- 116 redis @ cortech — critical;db
+- 119 legal-api @ cortech — api
+- 123 minio-01 @ cortech — minio;storage
 
 ## Stopped/Planned Guests
-- QEMU (stopped)
 - LXC (stopped)
-  - 103 null @ cortech-node3 — gpu;ollama
-  - 104 null @ cortech-node3 — gpu;ollama
   - 111 wordpress-ff @ cortech-node2 — family-friendly;website
-  - 113 postal @ cortech-node1 — 
-  - 115 infisical @ cortech-node1 — critical
-  - 117 gha-runner-personal @ cortech — 
+  - 113 postal @ cortech-node1 — mail
+  - 115 infisical @ cortech-node1 — critical;secrets
+  - 117 gha-runner-personal @ cortech — ci
+
+## K3s Kubernetes Cluster
+
+| Component | Value |
+|-----------|-------|
+| API VIP | 192.168.1.90 (kube-vip) |
+| K3s Version | v1.34.3+k3s1 |
+| HA Mode | Embedded etcd (3 servers) |
+
+### Nodes
+| Node | IP | Role | Proxmox Host |
+|------|----|------|--------------|
+| k3s-srv-1 | 192.168.1.91 | control-plane, etcd | cortech |
+| k3s-srv-2 | 192.168.1.92 | control-plane, etcd | cortech-node1 |
+| k3s-srv-3 | 192.168.1.93 | control-plane, etcd | cortech-node2 |
+| k3s-wrk-1 | 192.168.1.94 | worker (core-app) | cortech-node5 |
+| k3s-wrk-2 | 192.168.1.95 | worker (compute) | cortech |
+
+### Services
+| Service | URL |
+|---------|-----|
+| Rancher | https://rancher.corbello.io |
+| Grafana | https://grafana.corbello.io |
+
+### Backups
+- etcd snapshots: Every 6 hours → MinIO (`cortech/k3s-snapshots`)
 
 ## Networking & Ingress
 - Public services via PCT 100 `proxy` (NGINX) → https://<service>.corbello.io
-- TLS: certbot (Let’s Encrypt) on `proxy` handles 80/443.
+- TLS: certbot (Let's Encrypt) on `proxy` handles 80/443.
 - DNS: Namecheap; manage via IaC to avoid drift.
+- K3s ingress: Traefik (internal), proxied through PCT 100 for public access
 
 ## How To Refresh
 - Run: `scripts/inventory/refresh.sh` on the master node.
 - Nodes: `pvesh get /cluster/resources --type node --output-format json`
 - Guests: `pvesh get /cluster/resources --type vm --output-format json`
 - VM list: `qm list`  |  LXC list: `pct list`
+- K3s nodes: `kubectl get nodes`

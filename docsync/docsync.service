@@ -1,0 +1,11 @@
+[Unit]
+Description=DocSync - MinIO to Dify Knowledge sync
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/repos/infrastructure/docsync
+EnvironmentFile=/root/repos/infrastructure/docsync/.env
+ExecStart=/usr/bin/python3 /root/repos/infrastructure/docsync/docsync.py
+StandardOutput=journal
+StandardError=journal

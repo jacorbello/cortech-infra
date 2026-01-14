@@ -33,7 +33,7 @@ data:
       "links": [],
       "panels": [
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "thresholds"},
@@ -49,12 +49,12 @@ data:
           "id": 1,
           "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
           "pluginVersion": "11.0.0",
-          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "pve_up{id=\"node/$node\"}", "legendFormat": "Status", "refId": "A"}],
+          "targets": [{"datasource": "$datasource", "expr": "pve_up{id=\"node/$node\"}", "legendFormat": "Status", "refId": "A"}],
           "title": "Node Status",
           "type": "stat"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "thresholds"},
@@ -67,12 +67,12 @@ data:
           "id": 2,
           "options": {"colorMode": "value", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
           "pluginVersion": "11.0.0",
-          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "pve_uptime_seconds{id=\"node/$node\"}", "legendFormat": "Uptime", "refId": "A"}],
+          "targets": [{"datasource": "$datasource", "expr": "pve_uptime_seconds{id=\"node/$node\"}", "legendFormat": "Uptime", "refId": "A"}],
           "title": "Uptime",
           "type": "stat"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "thresholds"},
@@ -84,12 +84,12 @@ data:
           "id": 3,
           "options": {"colorMode": "value", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
           "pluginVersion": "11.0.0",
-          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "pve_cpu_usage_limit{id=\"node/$node\"}", "legendFormat": "CPU Cores", "refId": "A"}],
+          "targets": [{"datasource": "$datasource", "expr": "pve_cpu_usage_limit{id=\"node/$node\"}", "legendFormat": "CPU Cores", "refId": "A"}],
           "title": "CPU Cores",
           "type": "stat"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "thresholds"},
@@ -102,12 +102,12 @@ data:
           "id": 4,
           "options": {"colorMode": "value", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
           "pluginVersion": "11.0.0",
-          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "pve_memory_size_bytes{id=\"node/$node\"}", "legendFormat": "Total Memory", "refId": "A"}],
+          "targets": [{"datasource": "$datasource", "expr": "pve_memory_size_bytes{id=\"node/$node\"}", "legendFormat": "Total Memory", "refId": "A"}],
           "title": "Total Memory",
           "type": "stat"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "thresholds"},
@@ -122,12 +122,12 @@ data:
           "id": 5,
           "options": {"orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "showThresholdLabels": false, "showThresholdMarkers": true},
           "pluginVersion": "11.0.0",
-          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "pve_cpu_usage_ratio{id=\"node/$node\"}", "legendFormat": "CPU", "refId": "A"}],
+          "targets": [{"datasource": "$datasource", "expr": "pve_cpu_usage_ratio{id=\"node/$node\"}", "legendFormat": "CPU", "refId": "A"}],
           "title": "CPU Usage",
           "type": "gauge"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "thresholds"},
@@ -142,12 +142,12 @@ data:
           "id": 6,
           "options": {"orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "showThresholdLabels": false, "showThresholdMarkers": true},
           "pluginVersion": "11.0.0",
-          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "pve_memory_usage_bytes{id=\"node/$node\"} / pve_memory_size_bytes{id=\"node/$node\"}", "legendFormat": "Memory", "refId": "A"}],
+          "targets": [{"datasource": "$datasource", "expr": "pve_memory_usage_bytes{id=\"node/$node\"} / pve_memory_size_bytes{id=\"node/$node\"}", "legendFormat": "Memory", "refId": "A"}],
           "title": "Memory Usage",
           "type": "gauge"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "palette-classic"},
@@ -164,12 +164,12 @@ data:
           "id": 7,
           "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
           "pluginVersion": "11.0.0",
-          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "pve_cpu_usage_ratio{id=\"node/$node\"}", "legendFormat": "CPU Usage", "refId": "A"}],
+          "targets": [{"datasource": "$datasource", "expr": "pve_cpu_usage_ratio{id=\"node/$node\"}", "legendFormat": "CPU Usage", "refId": "A"}],
           "title": "CPU Usage Over Time",
           "type": "timeseries"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "palette-classic"},
@@ -185,14 +185,14 @@ data:
           "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
           "pluginVersion": "11.0.0",
           "targets": [
-            {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "pve_memory_usage_bytes{id=\"node/$node\"}", "legendFormat": "Used", "refId": "A"},
-            {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "pve_memory_size_bytes{id=\"node/$node\"}", "legendFormat": "Total", "refId": "B"}
+            {"datasource": "$datasource", "expr": "pve_memory_usage_bytes{id=\"node/$node\"}", "legendFormat": "Used", "refId": "A"},
+            {"datasource": "$datasource", "expr": "pve_memory_size_bytes{id=\"node/$node\"}", "legendFormat": "Total", "refId": "B"}
           ],
           "title": "Memory Usage Over Time",
           "type": "timeseries"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "palette-classic"},
@@ -208,14 +208,14 @@ data:
           "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
           "pluginVersion": "11.0.0",
           "targets": [
-            {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "rate(pve_network_receive_bytes{id=\"node/$node\"}[5m])", "legendFormat": "RX", "refId": "A"},
-            {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "rate(pve_network_transmit_bytes{id=\"node/$node\"}[5m])", "legendFormat": "TX", "refId": "B"}
+            {"datasource": "$datasource", "expr": "rate(pve_network_receive_bytes{id=\"node/$node\"}[5m])", "legendFormat": "RX", "refId": "A"},
+            {"datasource": "$datasource", "expr": "rate(pve_network_transmit_bytes{id=\"node/$node\"}[5m])", "legendFormat": "TX", "refId": "B"}
           ],
           "title": "Network I/O",
           "type": "timeseries"
         },
         {
-          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "datasource": "$datasource",
           "fieldConfig": {
             "defaults": {
               "color": {"mode": "palette-classic"},
@@ -231,8 +231,8 @@ data:
           "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
           "pluginVersion": "11.0.0",
           "targets": [
-            {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "rate(pve_disk_read_bytes{id=\"node/$node\"}[5m])", "legendFormat": "Read", "refId": "A"},
-            {"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "rate(pve_disk_write_bytes{id=\"node/$node\"}[5m])", "legendFormat": "Write", "refId": "B"}
+            {"datasource": "$datasource", "expr": "rate(pve_disk_read_bytes{id=\"node/$node\"}[5m])", "legendFormat": "Read", "refId": "A"},
+            {"datasource": "$datasource", "expr": "rate(pve_disk_write_bytes{id=\"node/$node\"}[5m])", "legendFormat": "Write", "refId": "B"}
           ],
           "title": "Disk I/O",
           "type": "timeseries"
@@ -260,7 +260,7 @@ data:
           },
           {
             "current": {},
-            "datasource": {"type": "prometheus", "uid": "${datasource}"},
+            "datasource": "$datasource",
             "definition": "label_values(pve_node_info, name)",
             "hide": 0,
             "includeAll": false,
