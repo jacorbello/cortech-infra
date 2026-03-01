@@ -53,3 +53,11 @@ go.work.sum
 *.tgz
 *.zst
 
+# AI Workspace Specifics
+memory/heartbeat-state.json
+memory/qa-agent-status.json
+homelab-dashboard-live.png
+.openclaw/
+logs/
+canvas/analytics-data.json
+
