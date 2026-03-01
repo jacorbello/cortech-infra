@@ -69,3 +69,12 @@ yarn-error.log*
 package-lock.json
 .npm
 
+# Workspace-specific subdirectories that are submodules or not part of infra
+workflows/
+plotlens/
+projects/boomid/
+projects/clawdbot-analysis/
+projects/jarvis/
+projects/moltbot-pr/
+projects/moltbot-trading/
+
