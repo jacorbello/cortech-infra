@@ -1,0 +1,37 @@
+{
+  "_comment": "Proactive task queue - items you can work on during quiet heartbeats",
+  "_schema": {
+    "id": "unique identifier",
+    "title": "short description",
+    "priority": "high | medium | low",
+    "category": "docs | code | research | maintenance | investigation",
+    "source": "where this came from (heartbeat discovery, user request, CI failure, etc.)",
+    "status": "queued | in-progress | blocked | completed",
+    "addedAt": "ISO timestamp",
+    "startedAt": "ISO timestamp or null",
+    "completedAt": "ISO timestamp or null",
+    "notes": "any context or progress notes",
+    "blockedReason": "why blocked, if applicable"
+  },
+  "queue": [
+    {
+      "id": "example-001",
+      "title": "Example: Update TOOLS.md with new n8n workflows",
+      "priority": "low",
+      "category": "docs",
+      "source": "template-example",
+      "status": "queued",
+      "addedAt": "2024-01-15T10:00:00Z",
+      "startedAt": null,
+      "completedAt": null,
+      "notes": "Remove this example after reviewing the queue format",
+      "blockedReason": null
+    }
+  ],
+  "completed": [],
+  "stats": {
+    "totalQueued": 1,
+    "totalCompleted": 0,
+    "lastUpdated": "2024-01-15T10:00:00Z"
+  }
+}
