@@ -61,3 +61,11 @@ homelab-dashboard-live.png
 logs/
 canvas/analytics-data.json
 
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+.npm
+
