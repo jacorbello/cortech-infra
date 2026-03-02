@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: gotify
+  namespace: osint
+  labels:
+    app: gotify
+    app.kubernetes.io/part-of: osint-platform
+spec:
+  type: ClusterIP
+  selector:
+    app: gotify
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP

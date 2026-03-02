@@ -12,3 +12,15 @@ resources:
   - rbac/priority-classes.yaml
   - rbac/service-account.yaml
   - network-policies/default-deny.yaml
+  - osint-core/deployment.yaml
+  - osint-core/service.yaml
+  - osint-core/ingress.yaml
+  - osint-worker/deployment.yaml
+  - osint-beat/deployment.yaml
+  - qdrant/statefulset.yaml
+  - qdrant/service.yaml
+  - qdrant/pvc.yaml
+  - gotify/deployment.yaml
+  - gotify/service.yaml
+  - gotify/pvc.yaml
+  - monitoring/service-monitor.yaml
