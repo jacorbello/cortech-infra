@@ -71,15 +71,18 @@ Generated: 2026-03-01 from Proxmox API on the master node.
 | cattle-system | Rancher management |
 | argocd | ArgoCD GitOps |
 | harbor | Container registry |
-| jarvis | Dify chat platform |
-| plotlens | PlotLens application |
+| jarvis | Jarvis — API, UI, worker, scheduler, Discord bot, Qdrant |
+| plotlens | PlotLens — API, frontend, gateway, realtime, worker, Qdrant |
 | plotlens-website | PlotLens public site (plotlens.ai) |
 | sonarqube | Code quality analysis |
-| infisical | Secrets management |
+| infisical | Infisical secrets management (v0.96.1-postgres) |
 | actions-runner-system | GitHub Actions Runner Controller (ARC) |
 | cert-manager | TLS certificate automation |
 | platform | Shared platform services |
 | security | Security tools |
+| alastar | Bull Board, webhook-receiver, Qdrant |
+| investigations | ArchiveBox, theHarvester |
+| trading | moltbot-trading |
 | alastar | Personal project namespace |
 | investigations | Investigation tools |
 | trading | Trading applications |

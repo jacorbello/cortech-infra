@@ -51,7 +51,7 @@ You can run remote commands via `ssh root@192.168.1.52 "<command>"`. Inventory r
 - **3 server VMs** (200-202): k3s-srv-{1,2,3} at `.91-.93`, spread across cortech/node1/node2
 - **2 worker VMs** (203-204): k3s-wrk-1 (`.94`, `role=core-app`), k3s-wrk-2 (`.95`, `role=compute`)
 - **1 ephemeral worker** (206): k3s-wrk-3 (`.97`, GPU node, tainted `NoSchedule`)
-- **K8s namespaces:** `observability`, `cattle-system` (Rancher), `argocd`, `harbor`, `jarvis` (Dify/chat), `plotlens`, `plotlens-website`, `sonarqube`, `infisical`, `actions-runner-system`, `platform`, `security`, `cert-manager`, plus project namespaces (`alastar`, `investigations`, `trading`)
+- **K8s namespaces:** `observability`, `cattle-system` (Rancher), `argocd`, `harbor`, `jarvis`, `plotlens`, `plotlens-website`, `sonarqube`, `infisical`, `actions-runner-system`, `platform`, `security`, `cert-manager`, plus project namespaces (`alastar`, `investigations`, `trading`)
 - **Kubeconfig** at `/root/.kube/config` on cortech master
 
 ### Traffic Flow
@@ -80,24 +80,34 @@ All public services route through **LXC 100 (`proxy`)** which terminates TLS. K3
 | 123 | LXC | MinIO (S3) | cortech | etcd backups + doc storage |
 | 205 | VM | Ollama LLM | cortech-node3 | GPU passthrough, Tesla T4 |
 
-### K8s Services (Ingress → Traefik)
+### K8s Workloads
 
-| Service | URL | Namespace | Notes |
-|---------|-----|-----------|-------|
+**Platform services:**
+
+| Service | URL | Namespace | Components |
+|---------|-----|-----------|------------|
 | Rancher | https://rancher.corbello.io | cattle-system | Cluster management UI |
 | Grafana | https://grafana.corbello.io | observability | Prometheus + Loki dashboards |
-| ArgoCD | https://argocd.corbello.io | argocd | GitOps continuous delivery |
-| Harbor | https://harbor.corbello.io | harbor | Container registry |
-| Chat (Dify) | https://chat.corbello.io | jarvis | LLM chat platform |
-| Dify API | https://api.chat.corbello.io | jarvis | Dify backend API |
+| ArgoCD | https://argocd.corbello.io | argocd | GitOps (server, repo-server, redis, dex, notifications) |
+| Harbor | https://harbor.corbello.io | harbor | Container registry (core, portal, registry, jobservice, trivy, redis) |
+| Infisical | https://infisical.corbello.io | infisical | Secrets management (v0.96.1-postgres, uses external Postgres + Redis) |
 | SonarQube | https://sonarqube.corbello.io | sonarqube | Code quality analysis |
-| Infisical | https://infisical.corbello.io | infisical | Secrets management |
-| PlotLens | https://plotlens.corbello.io | plotlens | Internal app |
-| PlotLens site | https://plotlens.ai | plotlens-website | Public website (own domain) |
+| ARC | — | actions-runner-system | GitHub Actions self-hosted runner controller |
 
-**Observability stack:** Prometheus (kube-prometheus-stack), Alertmanager, Loki, Promtail, Blackbox Exporter, Node Exporter — all in `observability` namespace.
+**Application services:**
 
-**CI/CD:** GitHub Actions Runner Controller (ARC) in `actions-runner-system` with self-hosted runners. ArgoCD for GitOps deployments. NFS CSI driver for persistent storage.
+| Service | URL | Namespace | Components |
+|---------|-----|-----------|------------|
+| Jarvis | https://chat.corbello.io, https://api.chat.corbello.io | jarvis | API (2r), UI (2r), worker (2r), scheduler, discord bot, Qdrant vector DB |
+| PlotLens | https://plotlens.corbello.io, https://api.plotlens.corbello.io | plotlens | API (2r), frontend (2r), gateway (2r), realtime (2r), worker (3r), Qdrant |
+| PlotLens site | https://plotlens.ai | plotlens-website | Static site |
+| Alastar | — | alastar | Bull Board, webhook-receiver, Qdrant |
+| Investigations | — | investigations | ArchiveBox, theHarvester |
+| Trading | — | trading | moltbot-trading |
+
+**Observability stack** (all in `observability`): Prometheus (kube-prometheus-stack), Alertmanager, Loki, Promtail, Blackbox Exporter, Node Exporter, Proxmox Exporter.
+
+**Storage:** NFS CSI driver (`csi-driver-nfs` in `kube-system`) for persistent volumes.
 
 ### Backups
 
