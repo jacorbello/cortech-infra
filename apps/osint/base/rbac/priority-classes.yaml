@@ -1,0 +1,15 @@
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: osint-core
+value: 100
+globalDefault: false
+description: "Priority class for OSINT core services (API, worker, beat)"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: osint-batch
+value: 10
+globalDefault: false
+description: "Priority class for OSINT batch jobs (feed ingestion, enrichment)"
