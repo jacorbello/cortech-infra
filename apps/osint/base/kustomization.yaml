@@ -3,6 +3,7 @@ kind: Kustomization
 namespace: osint
 resources:
   - namespace.yaml
+  - secrets.yaml
   - external-services/postgres.yaml
   - external-services/redis.yaml
   - external-services/minio.yaml

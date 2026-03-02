@@ -40,11 +40,20 @@ spec:
             - name: OSINT_DATABASE_URL
               value: "postgresql+asyncpg://osint:osint@postgres:5432/osint"
             - name: OSINT_REDIS_URL
-              value: "redis://redis:6379/0"
+              valueFrom:
+                secretKeyRef:
+                  name: osint-secrets
+                  key: redis-url
             - name: OSINT_CELERY_BROKER_URL
-              value: "redis://redis:6379/1"
+              valueFrom:
+                secretKeyRef:
+                  name: osint-secrets
+                  key: celery-broker-url
             - name: OSINT_CELERY_RESULT_BACKEND
-              value: "redis://redis:6379/2"
+              valueFrom:
+                secretKeyRef:
+                  name: osint-secrets
+                  key: celery-result-backend
             - name: OSINT_QDRANT_HOST
               value: "qdrant"
             - name: OSINT_OLLAMA_URL
