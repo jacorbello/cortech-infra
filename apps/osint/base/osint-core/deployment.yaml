@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: osint-core
+  namespace: osint
+  labels:
+    app: osint-core
+    app.kubernetes.io/part-of: osint-platform
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: osint-core
+  template:
+    metadata:
+      labels:
+        app: osint-core
+        app.kubernetes.io/part-of: osint-platform
+    spec:
+      serviceAccountName: osint-core
+      priorityClassName: osint-core
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: role
+                    operator: In
+                    values:
+                      - core-app
+                      - compute
+      containers:
+        - name: osint-core
+          image: harbor.corbello.io/osint/osint-core:latest
+          ports:
+            - containerPort: 8000
+              name: http
+              protocol: TCP
+          env:
+            - name: OSINT_DATABASE_URL
+              value: "postgresql+asyncpg://osint:osint@postgres:5432/osint"
+            - name: OSINT_REDIS_URL
+              value: "redis://redis:6379/0"
+            - name: OSINT_CELERY_BROKER_URL
+              value: "redis://redis:6379/1"
+            - name: OSINT_CELERY_RESULT_BACKEND
+              value: "redis://redis:6379/2"
+            - name: OSINT_QDRANT_HOST
+              value: "qdrant"
+            - name: OSINT_OLLAMA_URL
+              value: "http://ollama:11434"
+            - name: OSINT_MINIO_ENDPOINT
+              value: "minio:9000"
+            - name: OSINT_GOTIFY_URL
+              value: "http://gotify/message"
+            - name: OSINT_KEYCLOAK_URL
+              value: "https://keycloak.corbello.io"
+            - name: OSINT_PLAN_DIR
+              value: "/app/plans"
+            - name: OSINT_LOG_LEVEL
+              value: "INFO"
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: "1000m"
+              memory: 512Mi

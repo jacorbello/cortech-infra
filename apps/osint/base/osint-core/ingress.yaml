@@ -1,0 +1,14 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: osint-core
+  namespace: osint
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: Host(`osint.corbello.io`)
+      kind: Rule
+      services:
+        - name: osint-core
+          port: 8000
