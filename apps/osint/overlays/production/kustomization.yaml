@@ -4,4 +4,4 @@ resources:
 - ../../base
 images:
 - name: harbor.corbello.io/osint/osint-core
-  newTag: 3fe3e4b
+  newTag: c8034a0
