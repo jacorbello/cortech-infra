@@ -211,12 +211,14 @@ Standard ArgoCD Application pointing at `apps/inference/overlays/production`, sa
     --dtype float16 \
     --max-model-len 8192 \
     --gpu-memory-utilization 0.85 \
+    --enable-prefix-caching \
     --port 8000
   ```
 - **Key flags:**
   - `--dtype float16`: T4 supports FP16 natively (Tensor Cores)
   - `--max-model-len 8192`: Generous context window, fits in T4 VRAM with 3B model
   - `--gpu-memory-utilization 0.85`: Reserves ~2.4GB for future embedding model co-serving
+  - `--enable-prefix-caching`: Reuses KV cache for shared system prompt prefixes — OSINT briefs use the same system prompt across requests, so this provides free speedup on prompt evaluation
 - **Resources:**
   - Requests: 2 CPU, 4Gi memory, 1 `nvidia.com/gpu`
   - Limits: 4 CPU, 8Gi memory, 1 `nvidia.com/gpu`
@@ -314,9 +316,10 @@ When ready to self-host embeddings:
 
 ### Phase 1: Parallel Running
 
-1. VM 205 (Ollama) stays running and serving traffic
-2. VM 207 created, joins K3s cluster, GPU verified
-3. vLLM deployed to `inference` namespace
+1. VM 207 created **without GPU passthrough**, joins K3s cluster, NVIDIA drivers installed
+2. Stop VM 205 (`qm stop 205`) to release GPU PCI device — Jinja2 fallback covers OSINT during this window
+3. Add GPU passthrough to VM 207 (`qm set 207 --hostpci0 0000:3b:00.0,pcie=1,rombar=0,x-vga=0`), reboot VM 207, verify `nvidia-smi` and `nvidia.com/gpu: 1` in K8s
+4. vLLM deployed to `inference` namespace
 4. Validate health: `curl http://vllm.inference.svc.cluster.local:8000/health`
 5. Manual test requests against `/v1/chat/completions` to confirm output quality
 
