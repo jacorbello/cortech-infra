@@ -20,6 +20,7 @@ spec:
         app.kubernetes.io/part-of: inference-platform
     spec:
       serviceAccountName: vllm
+      runtimeClassName: nvidia
       priorityClassName: inference-gpu
       nodeSelector:
         role: gpu-inference

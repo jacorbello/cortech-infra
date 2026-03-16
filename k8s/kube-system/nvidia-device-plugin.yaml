@@ -20,6 +20,7 @@ spec:
         - key: nvidia.com/gpu
           operator: Exists
           effect: NoSchedule
+      runtimeClassName: nvidia
       priorityClassName: system-node-critical
       containers:
         - name: nvidia-device-plugin
