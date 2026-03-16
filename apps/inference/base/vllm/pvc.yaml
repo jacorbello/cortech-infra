@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vllm-model-cache
+  namespace: inference
+  labels:
+    app: vllm
+    app.kubernetes.io/part-of: inference-platform
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nfs-node3
+  resources:
+    requests:
+      storage: 50Gi
