@@ -7,7 +7,6 @@ resources:
   - external-services/postgres.yaml
   - external-services/redis.yaml
   - external-services/minio.yaml
-  - external-services/ollama.yaml
   - rbac/resource-quota.yaml
   - rbac/limit-range.yaml
   - rbac/priority-classes.yaml
