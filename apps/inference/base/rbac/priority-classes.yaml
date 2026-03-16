@@ -1,0 +1,7 @@
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: inference-gpu
+value: 200
+globalDefault: false
+description: "Priority class for GPU inference workloads (expensive to restart, slow to load models)"
