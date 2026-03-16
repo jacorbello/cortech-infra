@@ -40,9 +40,9 @@ Migrate the GPU inference workload from Ollama (VM 205) to vLLM running as a Kub
 
 ### Consumers
 
-The OSINT platform is the sole consumer, connecting via K8s ExternalName service:
+The OSINT platform is the sole consumer, connecting via a K8s ClusterIP service with manual Endpoints:
 
-- **K8s Service:** `ollama.osint.svc.cluster.local` → `192.168.1.114:11434`
+- **K8s Service:** `ollama.osint.svc.cluster.local` → Endpoints point to `192.168.1.114:11434` (cortech-node3 host IP, not the VM IP at `.96` — Ollama binds to `0.0.0.0:11434` inside the VM, and traffic routes via the Proxmox bridge network)
 - **Deployments using it:** osint-core, osint-worker, osint-beat
 - **Env var:** `OSINT_OLLAMA_URL=http://ollama:11434`
 - **API calls:** `POST /api/generate` with `{"model": "llama3.2:3b", "prompt": "...", "stream": false}`
@@ -150,9 +150,12 @@ apps/inference/
 │   ├── rbac/
 │   │   ├── service-account.yaml
 │   │   ├── resource-quota.yaml
-│   │   └── limit-range.yaml
+│   │   ├── limit-range.yaml
+│   │   └── priority-classes.yaml
 │   ├── network-policies/
 │   │   └── default-deny.yaml
+│   ├── monitoring/
+│   │   └── service-monitor.yaml
 │   └── vllm/
 │       ├── deployment.yaml
 │       ├── service.yaml
@@ -175,18 +178,25 @@ metadata:
 
 ### Resource Quota
 
-- GPU: 1 (only one T4)
-- Memory: 14Gi
+- GPU: `requests.nvidia.com/gpu: 1`, `limits.nvidia.com/gpu: 1`
+- Memory: 20Gi (accounts for vLLM 8Gi + future embedding model ~8Gi + overhead)
 - CPU: 16 cores
+
+### Priority Class
+
+- `inference-gpu` at value 200 (higher than `osint-core` at 100 — GPU workloads are expensive to restart and take 2+ minutes to load models)
 
 ### Network Policy
 
-- Default deny all ingress
+Default deny all ingress, with explicit allow rules using `namespaceSelector.matchLabels` on `kubernetes.io/metadata.name` (auto-applied by K3s v1.34):
+
 - Allow ingress on port 8000 from namespaces: `osint`, `jarvis`, `plotlens`
+- Allow ingress on port 8000 from namespace: `observability` (Prometheus scraping `/metrics`)
+- Allow intra-namespace traffic from namespace: `inference`
 
 ### ArgoCD Application
 
-Standard ArgoCD Application pointing at `apps/inference/base/`, same pattern as the OSINT app. Auto-sync enabled with prune.
+Standard ArgoCD Application pointing at `apps/inference/overlays/production`, same pattern as the OSINT app (`apps/osint/overlays/production`). Auto-sync enabled with prune.
 
 ---
 
@@ -194,14 +204,13 @@ Standard ArgoCD Application pointing at `apps/inference/base/`, same pattern as 
 
 ### Deployment Spec
 
-- **Image:** `vllm/vllm-openai:latest` (pin to specific tag for production stability)
+- **Image:** `vllm/vllm-openai:<pinned-tag>` — look up the latest stable release tag at deploy time (do not use `latest`)
 - **Command:**
   ```
   vllm serve meta-llama/Llama-3.2-3B-Instruct \
     --dtype float16 \
     --max-model-len 8192 \
     --gpu-memory-utilization 0.85 \
-    --host 0.0.0.0 \
     --port 8000
   ```
 - **Key flags:**
@@ -217,7 +226,7 @@ Standard ArgoCD Application pointing at `apps/inference/base/`, same pattern as 
 
 ### Volumes
 
-- **PVC (50Gi, NFS storageclass):** Mounted at `/root/.cache/huggingface` — persists model weights across pod restarts. Llama 3.2 3B is ~6GB, leaves room for embedding model.
+- **PVC (50Gi, `storageClassName: nfs-node3`):** Mounted at `/root/.cache/huggingface` — persists model weights across pod restarts. Llama 3.2 3B is ~6GB, leaves room for embedding model. Uses the same NFS storageclass as OSINT's Qdrant PVC.
 - **emptyDir (Memory, 2Gi):** Mounted at `/dev/shm` — shared memory for tensor operations.
 
 ### Health Probes
@@ -230,6 +239,8 @@ Standard ArgoCD Application pointing at `apps/inference/base/`, same pattern as 
 
 - `hf-token-secret` in `inference` namespace — HuggingFace token for gated model access
 - Stored via SOPS/Infisical (per repo conventions — never committed in plaintext)
+- **Important:** The HuggingFace account associated with this token must have accepted Meta's Llama 3.2 license agreement at https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct
+- Env var in deployment: `HF_TOKEN` sourced from `secretKeyRef` to `hf-token-secret`
 
 ### Service
 
@@ -340,17 +351,19 @@ This works because VM 205 hasn't been touched.
 
 ### Prometheus Metrics
 
-vLLM exposes metrics at `/metrics` natively. Key metrics:
+vLLM exposes metrics at `/metrics` natively. A ServiceMonitor (`apps/inference/base/monitoring/service-monitor.yaml`) scrapes this endpoint. Key metrics:
 
-- `vllm:request_latency_seconds` — end-to-end request latency
-- `vllm:num_requests_running` — current concurrent requests
-- `vllm:num_requests_waiting` — queued requests
-- `vllm:gpu_cache_usage_perc` — KV cache utilization
-- `vllm:avg_generation_throughput_toks_per_s` — tokens per second
+- `vllm_request_latency_seconds` — end-to-end request latency
+- `vllm_num_requests_running` — current concurrent requests
+- `vllm_num_requests_waiting` — queued requests
+- `vllm_gpu_cache_usage_perc` — KV cache utilization
+- `vllm_avg_generation_throughput_toks_per_s` — tokens per second
+
+Note: vLLM uses underscores (not colons) in metric names. Verify exact names against the deployed version.
 
 ### Grafana Dashboard
 
-New ConfigMap in `k8s/observability/dashboards/` with label `grafana_dashboard: "1"` for sidecar auto-discovery. Panels:
+New ConfigMap in `k8s/observability/dashboards/applications/vllm-inference.yaml` with label `grafana_dashboard: "1"` for sidecar auto-discovery (matching the existing dashboard location pattern under `applications/`). Panels:
 
 - Request throughput (tok/s)
 - Request latency (P50, P95, P99)
@@ -405,13 +418,15 @@ The primary win is **concurrent throughput**. When multiple OSINT Celery workers
 | `apps/inference/base/rbac/service-account.yaml` | vLLM service account |
 | `apps/inference/base/rbac/resource-quota.yaml` | GPU/memory/CPU quotas |
 | `apps/inference/base/rbac/limit-range.yaml` | Default container limits |
-| `apps/inference/base/network-policies/default-deny.yaml` | Ingress rules |
+| `apps/inference/base/rbac/priority-classes.yaml` | Inference GPU priority class |
+| `apps/inference/base/network-policies/default-deny.yaml` | Ingress rules (osint, jarvis, plotlens, observability) |
+| `apps/inference/base/monitoring/service-monitor.yaml` | Prometheus ServiceMonitor for vLLM metrics |
 | `apps/inference/base/vllm/deployment.yaml` | vLLM Deployment |
 | `apps/inference/base/vllm/service.yaml` | ClusterIP Service |
-| `apps/inference/base/vllm/pvc.yaml` | HuggingFace cache PVC |
+| `apps/inference/base/vllm/pvc.yaml` | HuggingFace cache PVC (nfs-node3) |
 | `apps/inference/overlays/production/kustomization.yaml` | Production overlay |
 | `k8s/kube-system/nvidia-device-plugin.yaml` | GPU device plugin DaemonSet |
-| `k8s/observability/dashboards/vllm-dashboard.yaml` | Grafana dashboard ConfigMap |
+| `k8s/observability/dashboards/applications/vllm-inference.yaml` | Grafana dashboard ConfigMap |
 
 ### Modified Files
 
@@ -440,5 +455,7 @@ The primary win is **concurrent throughput**. When multiple OSINT Celery workers
 | API response format differences | Medium | Medium | Test thoroughly in Phase 1 before cutover |
 | cortech-node3 offline | Known | Medium | Jinja2 fallback unchanged — same resilience |
 | GPU PCI device conflict (both VMs) | Low | High | VM 205 must be stopped before VM 207 gets GPU; only one VM can hold the passthrough at a time during parallel phase, resolved by stopping 205 first |
+| Egress for model download | Low | Low | vLLM needs egress to huggingface.co on first startup to pull model weights. PVC cache eliminates this need on subsequent restarts. No egress network policy restriction needed (default deny is ingress-only). |
+| Shared-fate: node3 offline takes both wrk-3 and wrk-4 | Known | Medium | Same risk as today. Jinja2 fallback covers inference. Batch compute (wrk-3) and inference (wrk-4) both go down if node3 is offline. |
 
 **Note on GPU sharing during parallel phase:** The T4 can only be passed through to one VM at a time. During Phase 1, we must stop VM 205 before starting VM 207 with the GPU. This means there's a brief window where Ollama is unavailable — the Jinja2 fallback covers this. Once VM 207 is up and vLLM is verified, VM 205 can be restarted *without* the GPU passthrough if we want it running for non-GPU purposes, or simply left stopped.
