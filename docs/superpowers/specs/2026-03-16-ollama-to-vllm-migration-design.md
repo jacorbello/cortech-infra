@@ -320,8 +320,8 @@ When ready to self-host embeddings:
 2. Stop VM 205 (`qm stop 205`) to release GPU PCI device — Jinja2 fallback covers OSINT during this window
 3. Add GPU passthrough to VM 207 (`qm set 207 --hostpci0 0000:3b:00.0,pcie=1,rombar=0,x-vga=0`), reboot VM 207, verify `nvidia-smi` and `nvidia.com/gpu: 1` in K8s
 4. vLLM deployed to `inference` namespace
-4. Validate health: `curl http://vllm.inference.svc.cluster.local:8000/health`
-5. Manual test requests against `/v1/chat/completions` to confirm output quality
+5. Validate health: `curl http://vllm.inference.svc.cluster.local:8000/health`
+6. Manual test requests against `/v1/chat/completions` to confirm output quality
 
 ### Phase 2: OSINT Cutover
 
