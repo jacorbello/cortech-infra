@@ -7,11 +7,12 @@ metadata:
     app: vllm
     app.kubernetes.io/part-of: inference-platform
 spec:
-  type: ClusterIP
+  type: NodePort
   selector:
     app: vllm
   ports:
     - port: 8000
-      targetPort: http
+      targetPort: 8000
+      nodePort: 30850
       protocol: TCP
       name: http
