@@ -85,11 +85,11 @@ jobs:
       - name: Sync whitelist files to proxy
         run: |
           rsync -av \
-            -e "ssh -i /secrets/id_ed25519 -o UserKnownHostsFile=/secrets/known_hosts" \
+            -e "ssh -i /ssh-keys/id_ed25519 -o UserKnownHostsFile=/ssh-keys/known_hosts" \
             proxy/conf.d/whitelist*.conf \
             root@192.168.1.100:/etc/nginx/conf.d/
 
       - name: Test and reload NGINX
         run: |
-          ssh -i /secrets/id_ed25519 -o UserKnownHostsFile=/secrets/known_hosts \
+          ssh -i /ssh-keys/id_ed25519 -o UserKnownHostsFile=/ssh-keys/known_hosts \
             root@192.168.1.100 "nginx -t && nginx -s reload"
