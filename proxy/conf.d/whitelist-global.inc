@@ -3,4 +3,3 @@
 # Managed via GitHub Actions add-ip-whitelist / remove-ip-whitelist workflows.
 # Format: <ip>  1;  # <reason>
 # managed by GitHub Actions — entries appended here
-24.28.98.7  1;  # home
