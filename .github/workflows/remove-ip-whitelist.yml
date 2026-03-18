@@ -55,9 +55,9 @@ jobs:
         id: target
         run: |
           if [ "$INPUT_SERVICE" = "global" ]; then
-            echo "file=proxy/conf.d/whitelist-global.conf" >> "$GITHUB_OUTPUT"
+            echo "file=proxy/conf.d/whitelist-global.inc" >> "$GITHUB_OUTPUT"
           else
-            echo "file=proxy/conf.d/whitelist-${INPUT_SERVICE}-ips.conf" >> "$GITHUB_OUTPUT"
+            echo "file=proxy/conf.d/whitelist-${INPUT_SERVICE}-ips.inc" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Check IP is present
@@ -86,8 +86,13 @@ jobs:
         run: |
           rsync -av \
             -e "ssh -i /ssh-keys/id_ed25519 -o UserKnownHostsFile=/ssh-keys/known_hosts" \
-            proxy/conf.d/whitelist*.conf \
+            proxy/conf.d/whitelist*.conf proxy/conf.d/whitelist*.inc \
             root@192.168.1.100:/etc/nginx/conf.d/
+
+      - name: Remove legacy IP conf files from proxy
+        run: |
+          ssh -i /ssh-keys/id_ed25519 -o UserKnownHostsFile=/ssh-keys/known_hosts \
+            root@192.168.1.100 "rm -f /etc/nginx/conf.d/whitelist-global.conf /etc/nginx/conf.d/whitelist-*-ips.conf"
 
       - name: Test and reload NGINX
         run: |
