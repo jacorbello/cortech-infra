@@ -116,9 +116,9 @@ Models downloaded from HuggingFace `rhasspy/piper-voices` during image build.
 
 - Name: `piper-voices-extra`
 - Size: 1Gi
-- Storage class: NFS (`nfs-csi`)
+- Storage class: NFS (`nfs-node3`)
 - Access mode: ReadWriteMany
-- Mount path: `/extra-voices`
+- Mount path: `/models/extra`
 - Purpose: drop additional voice models without rebuilding the image; passed to Piper via `--data-dir`
 
 ### Piper Dockerfile
