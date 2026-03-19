@@ -98,6 +98,8 @@ Agent(
 
 PRs with zero unresolved threads are skipped (no agent dispatched).
 
+**Note on `isolation: "worktree"`:** The existing manager (Step 5) warns against using `isolation: "worktree"` for `epic-worker` agents because `epic-worker` manages its own worktree internally and the double-worktree causes permission issues. Steps 7 and 8 use `isolation: "worktree"` intentionally — `address-pr-review` is designed for that execution model, and CI-watcher agents need an isolated workspace for fixes.
+
 #### After Round 1
 
 Re-request Copilot review on all PRs:
@@ -227,3 +229,5 @@ Sequential because later PRs in overlap chains depend on earlier ones being land
 - `--skip-ci`: Skip Step 8, go straight from reviews to merge phase
 
 These flags allow partial runs — e.g., if you already addressed reviews manually and just want CI-watch + merge.
+
+**PR discovery when skipping steps:** When `--skip-reviews` or `--skip-ci` is used, the manager may not have an in-memory PR list from earlier steps. In this case, it re-derives the PR list by querying GitHub for open PRs on branches matching the epic's label/phase pattern, or by looking for PRs whose body contains `Closes #N` referencing issues with the epic label. This ensures the manager can pick up mid-flow without requiring a full run from Step 0.
