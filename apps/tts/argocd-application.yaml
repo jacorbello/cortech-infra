@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tts-platform
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/jacorbello/cortech-infra.git
+    targetRevision: main
+    path: apps/tts/overlays/production
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: tts
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
