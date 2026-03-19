@@ -19,7 +19,7 @@ Consumers: Alastar (OpenClaw), n8n automations, various scripts. Accessible from
 
 ```
 LAN clients (Mac Mini, n8n, Alastar)
-  ├── http://192.168.1.90:30880/v1/audio/speech  → Kokoro (OpenAI-compatible)
+  ├── http://192.168.1.90:30881/v1/audio/speech  → Kokoro (OpenAI-compatible)
   └── http://192.168.1.90:30500/                  → Piper (POST with text/voice)
 ```
 
@@ -64,7 +64,7 @@ ArgoCD Application targets `apps/tts/overlays/production`, auto-sync with prune,
 | Image | `ghcr.io/remsky/kokoro-fastapi-cpu:v0.2.4` |
 | Replicas | 1 |
 | Container port | 8880 |
-| NodePort | 30880 |
+| NodePort | 30881 |
 | Node affinity | `role in [core-app, compute]` |
 | CPU request/limit | 500m / 2 |
 | Memory request/limit | 1Gi / 2Gi |
