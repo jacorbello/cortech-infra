@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: piper-voices-extra
+  namespace: tts
+  labels:
+    app: piper
+    app.kubernetes.io/part-of: tts-platform
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs-node3
+  resources:
+    requests:
+      storage: 1Gi
