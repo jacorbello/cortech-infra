@@ -20,6 +20,8 @@ spec:
         app.kubernetes.io/part-of: tts-platform
     spec:
       serviceAccountName: tts
+      imagePullSecrets:
+        - name: harbor-pull-secret
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
