@@ -14,5 +14,5 @@ spec:
     - name: http
       port: 8880
       targetPort: http
-      nodePort: 30880
+      nodePort: 30881
       protocol: TCP
