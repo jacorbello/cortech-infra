@@ -34,6 +34,7 @@ apps/tts/
 │   ├── kustomization.yaml
 │   ├── namespace.yaml
 │   ├── rbac/
+│   │   ├── service-account.yaml
 │   │   ├── limit-range.yaml
 │   │   └── resource-quota.yaml
 │   ├── kokoro/
@@ -43,7 +44,10 @@ apps/tts/
 │   │   ├── deployment.yaml
 │   │   ├── service.yaml
 │   │   └── pvc.yaml
-│   └── Dockerfile.piper
+│   └── monitoring/           # Future: ServiceMonitor if needed
+├── images/
+│   └── piper/
+│       └── Dockerfile
 └── overlays/
     └── production/
         └── kustomization.yaml
@@ -64,8 +68,10 @@ ArgoCD Application targets `apps/tts/overlays/production`, auto-sync with prune,
 | Node affinity | `role in [core-app, compute]` |
 | CPU request/limit | 500m / 2 |
 | Memory request/limit | 1Gi / 2Gi |
-| Liveness probe | `GET /docs` |
-| Readiness probe | `GET /v1/audio/voices` |
+| Liveness probe | `GET /docs`, initialDelay 90s, period 30s, failure 3 |
+| Readiness probe | `GET /v1/audio/voices`, initialDelay 60s, period 10s, failure 3 |
+| Labels | `app.kubernetes.io/part-of: tts-platform` |
+| Service account | `tts` |
 
 **API endpoints:**
 
@@ -87,8 +93,10 @@ ArgoCD Application targets `apps/tts/overlays/production`, auto-sync with prune,
 | Node affinity | `role in [core-app, compute]` |
 | CPU request/limit | 100m / 500m |
 | Memory request/limit | 256Mi / 512Mi |
-| Liveness probe | `GET /voices` |
-| Readiness probe | `GET /voices` |
+| Liveness probe | `GET /voices`, initialDelay 15s, period 30s, failure 3 |
+| Readiness probe | `GET /voices`, initialDelay 10s, period 10s, failure 3 |
+| Labels | `app.kubernetes.io/part-of: tts-platform` |
+| Service account | `tts` |
 
 **API endpoints:**
 
@@ -120,11 +128,20 @@ Built from the official `OHF-Voice/piper1-gpl` Dockerfile with modifications:
 - Base: `python:3.12-slim` runtime
 - Install `piper-tts[http]`
 - Download the two British English voice models from HuggingFace at build time
-- Default entrypoint: `python3 -m piper.http_server -m /models/en_GB-aru-medium.onnx --data-dir /extra-voices --host 0.0.0.0 --port 5000`
+- Both voice models placed in `/models/` directory
+- Default entrypoint: `python3 -m piper.http_server -m /models/en_GB-aru-medium.onnx --data-dir /models --host 0.0.0.0 --port 5000`
+- The `--data-dir /models` flag allows Piper to discover all baked-in voices (both aru and northern_english_male)
+- The `/extra-voices` PVC mount provides a second data directory for additional voices added at runtime
+
+**Prerequisites:** Create a `tts` project in Harbor (`harbor.corbello.io`) before the first image push.
 
 Image pushed to Harbor: `harbor.corbello.io/tts/piper:1.0.0`
 
 ## RBAC & Resource Quotas
+
+### Service Account
+
+A dedicated `tts` ServiceAccount used by both deployments. No special RBAC bindings needed initially, but follows the established convention from inference and osint namespaces.
 
 ### LimitRange
 
@@ -134,15 +151,17 @@ Image pushed to Harbor: `harbor.corbello.io/tts/piper:1.0.0`
 | Default memory | 512Mi |
 | Default request CPU | 100m |
 | Default request memory | 128Mi |
+| Max CPU | 4 |
+| Max memory | 4Gi |
 
 ### ResourceQuota
 
 | Resource | Value |
 |----------|-------|
-| requests.cpu | 6 |
-| limits.cpu | 6 |
-| requests.memory | 6Gi |
-| limits.memory | 6Gi |
+| requests.cpu | 4 |
+| limits.cpu | 8 |
+| requests.memory | 4Gi |
+| limits.memory | 8Gi |
 | pods | 6 |
 
 Headroom accounts for rolling updates (briefly 2 pods per service) and a potential future third service.
