@@ -53,3 +53,8 @@ go.work.sum
 *.tgz
 *.zst
 
+
+# Python
+__pycache__/
+*.pyc
+.venv/
