@@ -43,10 +43,10 @@ spec:
             httpGet:
               path: /docs
               port: http
-            initialDelaySeconds: 90
+            initialDelaySeconds: 150
             periodSeconds: 30
             timeoutSeconds: 5
-            failureThreshold: 3
+            failureThreshold: 5
           readinessProbe:
             httpGet:
               path: /v1/audio/voices
@@ -61,4 +61,4 @@ spec:
               memory: 1Gi
             limits:
               cpu: "2"
-              memory: 2Gi
+              memory: 3Gi
