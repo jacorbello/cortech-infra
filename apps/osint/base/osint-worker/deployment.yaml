@@ -39,7 +39,7 @@ spec:
             - worker
             - "--loglevel=info"
             - "-Q"
-            - "osint,ingest,enrich,score,notify"
+            - "osint,ingest,enrich,score,notify,digest"
           env:
             - name: OSINT_DATABASE_URL
               value: "postgresql+asyncpg://osint:osint@postgres:5432/osint"
