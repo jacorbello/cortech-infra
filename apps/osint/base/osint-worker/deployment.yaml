@@ -72,6 +72,16 @@ spec:
               value: "https://keycloak.corbello.io"
             - name: OSINT_PLAN_DIR
               value: "/app/plans"
+            - name: OSINT_ACLED_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: osint-secrets
+                  key: acled-email
+            - name: OSINT_ACLED_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: osint-secrets
+                  key: acled-password
             - name: OSINT_LOG_LEVEL
               value: "INFO"
           resources:
