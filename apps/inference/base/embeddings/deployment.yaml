@@ -24,7 +24,7 @@ spec:
           image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.7
           args:
             - --model-id
-            - nomic-ai/nomic-embed-text-v1.5
+            - BAAI/bge-small-en-v1.5
             - --port
             - "8080"
           ports:
@@ -33,11 +33,11 @@ spec:
               protocol: TCP
           resources:
             requests:
-              cpu: "2"
-              memory: 4Gi
+              cpu: "1"
+              memory: 1Gi
             limits:
-              cpu: "4"
-              memory: 8Gi
+              cpu: "2"
+              memory: 2Gi
           readinessProbe:
             httpGet:
               path: /health
@@ -60,4 +60,4 @@ spec:
       volumes:
         - name: model-cache
           emptyDir:
-            sizeLimit: 4Gi
+            sizeLimit: 1Gi
