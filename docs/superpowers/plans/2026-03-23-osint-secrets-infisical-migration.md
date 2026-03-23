@@ -144,7 +144,7 @@ Expected: `infisicalsecrets.secrets.infisical.com` CRD present.
 
 ```bash
 ssh root@192.168.1.52 "kubectl -n infisical-operator create secret generic infisical-machine-identity \
-  --from-literal=clientId='d091297e-9918-480a-812f-1eef7ef96cab' \
+  --from-literal=clientId='<client-id>' \
   --from-literal=clientSecret='<retrieve from Infisical UI or password manager>'"
 ```
 
@@ -177,11 +177,12 @@ metadata:
   namespace: osint
 spec:
   hostAPI: http://infisical.infisical.svc.cluster.local
-  resyncInterval: 60
+  syncConfig:
+    resyncInterval: "60s"
   authentication:
     universalAuth:
       secretsScope:
-        projectSlug: homelab
+        projectId: c00e26a9-9389-4cc8-9b74-75f936dfeb81
         envSlug: prod
         secretsPath: /osint
       credentialsRef:
@@ -192,11 +193,6 @@ spec:
     secretNamespace: osint
     secretType: Opaque
     creationPolicy: Orphan
-  autoReload:
-    deployments:
-      - name: osint-worker
-      - name: osint-beat
-      - name: osint-core
 ```
 
 - [ ] **Step 2: Update kustomization.yaml to reference the new file**

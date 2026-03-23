@@ -133,7 +133,7 @@ digraph manager {
     "Dispatch CI-watcher agents" -> "CI results";
     "CI results" -> "Present merge order";
     "Present merge order" -> "User approves?";
-    "User approves?" -> "Done" [label="no, user adjusts"];
+    "User approves?" -> "Present merge order" [label="no, user adjusts"];
     "User approves?" -> "Merge PRs sequentially" [label="yes"];
     "Merge PRs sequentially" -> "Done";
 }
@@ -172,7 +172,7 @@ If this step runs as part of a full lifecycle (after Step 6), use the PR list fr
 
 \```bash
 gh pr list --label "LABEL" --state open --json number,title,headRefName,url \
-  --jq '[.[] | select(.title | test("LABEL|phase"))]'
+  --jq '[.[]]'
 \```
 
 Alternatively, find PRs whose body contains `Closes #N` for issues carrying the epic label.

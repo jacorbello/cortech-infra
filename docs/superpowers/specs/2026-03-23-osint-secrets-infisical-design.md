@@ -22,7 +22,7 @@ Install the **Infisical Secrets Operator** (Infisical's native K8s operator) and
 
 ### Components
 
-1. **Infisical Secrets Operator** -- Helm chart (`infisical-helm-charts/infisical-operator`) deployed to `infisical-operator` namespace, managed by ArgoCD.
+1. **Infisical Secrets Operator** -- Helm chart (`secrets-operator` from Infisical's Cloudsmith Helm repo) deployed to `infisical-operator` namespace, managed by ArgoCD.
 
 2. **Bootstrap secret** -- One-time `kubectl apply` of machine identity credentials (`clientId` + `clientSecret`) into `infisical-operator` namespace. Not committed to git.
 
@@ -83,7 +83,7 @@ spec:
   source:
     repoURL: https://dl.cloudsmith.io/public/infisical/helm-charts/helm/charts/
     chart: secrets-operator
-    targetRevision: "*"
+    targetRevision: "0.*"
     helm:
       releaseName: infisical-operator
   destination:
@@ -102,8 +102,9 @@ spec:
 ```bash
 kubectl create namespace infisical-operator
 kubectl -n infisical-operator create secret generic infisical-machine-identity \
-  --from-literal=clientId="d091297e-9918-480a-812f-1eef7ef96cab" \
+  --from-literal=clientId="<client-id>" \
   --from-literal=clientSecret="<client-secret>"
+# Retrieve clientId and clientSecret from the Infisical UI under Machine Identities
 ```
 
 ### 4. InfisicalSecret CR
@@ -118,11 +119,12 @@ metadata:
   namespace: osint
 spec:
   hostAPI: http://infisical.infisical.svc.cluster.local
-  resyncInterval: 60
+  syncConfig:
+    resyncInterval: "60s"
   authentication:
     universalAuth:
       secretsScope:
-        projectSlug: homelab
+        projectId: c00e26a9-9389-4cc8-9b74-75f936dfeb81
         envSlug: prod
         secretsPath: /osint
       credentialsRef:
@@ -133,11 +135,6 @@ spec:
     secretNamespace: osint
     secretType: Opaque
     creationPolicy: Orphan
-  autoReload:
-    deployments:
-      - name: osint-worker
-      - name: osint-beat
-      - name: osint-core
 ```
 
 ### 5. Update deployment secretKeyRef keys
