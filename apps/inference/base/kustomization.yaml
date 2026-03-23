@@ -11,4 +11,6 @@ resources:
   - vllm/pvc.yaml
   - vllm/service.yaml
   - vllm/deployment.yaml
+  - embeddings/deployment.yaml
+  - embeddings/service.yaml
   - monitoring/service-monitor.yaml

@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: text-embeddings
+  labels:
+    app: text-embeddings
+    app.kubernetes.io/part-of: inference-platform
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: text-embeddings
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: text-embeddings
+        app.kubernetes.io/part-of: inference-platform
+    spec:
+      serviceAccountName: vllm
+      containers:
+        - name: tei
+          image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.7
+          args:
+            - --model-id
+            - nomic-ai/nomic-embed-text-v1.5
+            - --port
+            - "8080"
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          resources:
+            requests:
+              cpu: "1"
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            failureThreshold: 3
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 6
+            timeoutSeconds: 5
+          volumeMounts:
+            - name: model-cache
+              mountPath: /data
+      volumes:
+        - name: model-cache
+          emptyDir:
+            sizeLimit: 2Gi
