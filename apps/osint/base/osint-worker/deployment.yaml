@@ -39,7 +39,7 @@ spec:
             - worker
             - "--loglevel=info"
             - "-Q"
-            - "osint,ingest,enrich,score,notify"
+            - "osint,ingest,enrich,score,notify,digest"
           env:
             - name: OSINT_DATABASE_URL
               value: "postgresql+asyncpg://osint:osint@postgres:5432/osint"
@@ -47,17 +47,17 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: osint-secrets
-                  key: redis-url
+                  key: REDIS_URL
             - name: OSINT_CELERY_BROKER_URL
               valueFrom:
                 secretKeyRef:
                   name: osint-secrets
-                  key: celery-broker-url
+                  key: CELERY_BROKER_URL
             - name: OSINT_CELERY_RESULT_BACKEND
               valueFrom:
                 secretKeyRef:
                   name: osint-secrets
-                  key: celery-result-backend
+                  key: CELERY_RESULT_BACKEND
             - name: OSINT_QDRANT_HOST
               value: "qdrant"
             - name: OSINT_VLLM_URL
@@ -72,6 +72,16 @@ spec:
               value: "https://keycloak.corbello.io"
             - name: OSINT_PLAN_DIR
               value: "/app/plans"
+            - name: OSINT_ACLED_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: osint-secrets
+                  key: ACLED_EMAIL
+            - name: OSINT_ACLED_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: osint-secrets
+                  key: ACLED_PASSWORD
             - name: OSINT_LOG_LEVEL
               value: "INFO"
           resources:
