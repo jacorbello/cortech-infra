@@ -11,6 +11,7 @@ tmp/
 # Environment files (do not commit secrets)
 .env
 .env.*
+.infisical.json
 
 # Terraform
 .terraform/
