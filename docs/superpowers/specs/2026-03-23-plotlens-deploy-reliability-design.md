@@ -321,7 +321,7 @@ The old `plotlens-config` ConfigMap is removed. Since `envFrom` references are u
 
 | File | Repo | Change |
 |------|------|--------|
-| `.github/workflows/build-push.yaml` | plotlens | Add `resolve-tags` job, update deploy step, increase timeout to 20m |
+| `.github/workflows/build-push.yaml` | plotlens | Add `resolve-tags` job, update deploy step, increase timeout to 25m |
 | `infra/helm/plotlens/values.yaml` | plotlens | Change default tags to `""`, pullPolicy to `IfNotPresent` |
 | `infra/helm/plotlens/values-production.yaml` | plotlens | Same tag/pullPolicy changes |
 | `infra/helm/plotlens/templates/configmap.yaml` | plotlens | Remove (replaced by per-component configmaps) |
@@ -349,5 +349,5 @@ The old `plotlens-config` ConfigMap is removed. Since `envFrom` references are u
 
 - **Fix 1 (tags):** If `crane` tag fails, the deploy step won't have tags and will fail fast. Rollback: revert to `:latest` defaults
 - **Fix 2 (timeout):** Zero risk — strictly more permissive
-- **Fix 3 (models):** If PVC mount fails, worker can't load models. Mitigation: keep a fallback `SPACY_DATA` that checks local paths first. Rollback: revert Dockerfile to bake models back in
+- **Fix 3 (models):** If PVC mount fails, worker can't load models. Mitigation: worker startup probe (Celery inspect ping) will prevent traffic to broken pods. Rollback: revert Dockerfile to bake models back in and remove PYTHONPATH/PVC mount
 - **Fix 4 (configmaps):** Atomic swap in a single Helm release. If something breaks, `helm rollback` restores the old single configmap
