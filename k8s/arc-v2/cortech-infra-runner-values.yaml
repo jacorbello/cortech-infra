@@ -1,0 +1,57 @@
+githubConfigUrl: "https://github.com/jacorbello/cortech-infra"
+
+githubConfigSecret: arc-github-pat
+
+minRunners: 1
+maxRunners: 3
+
+containerMode:
+  type: "dind"
+
+template:
+  spec:
+    initContainers:
+      - name: setup-ssh-keys
+        image: busybox
+        command:
+          - sh
+          - -c
+          - |
+            cp /secret-mount/id_ed25519 /ssh-keys/id_ed25519
+            cp /secret-mount/known_hosts /ssh-keys/known_hosts
+            chmod 600 /ssh-keys/id_ed25519
+            chmod 644 /ssh-keys/known_hosts
+            chown 1001:1001 /ssh-keys/id_ed25519 /ssh-keys/known_hosts
+        volumeMounts:
+          - name: proxy-ssh-key
+            mountPath: /secret-mount
+            readOnly: true
+          - name: ssh-keys
+            mountPath: /ssh-keys
+    containers:
+      - name: runner
+        image: ghcr.io/actions/actions-runner:latest
+        command: ["/home/runner/run.sh"]
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+            ephemeral-storage: 1Gi
+          limits:
+            cpu: "1"
+            memory: 1Gi
+            ephemeral-storage: 4Gi
+        volumeMounts:
+          - name: ssh-keys
+            mountPath: /ssh-keys
+    volumes:
+      - name: proxy-ssh-key
+        secret:
+          secretName: cortech-infra-proxy-ssh-key
+          defaultMode: 0400
+      - name: ssh-keys
+        emptyDir: {}
+
+controllerServiceAccount:
+  namespace: arc-systems
+  name: arc-v2-gha-rs-controller
