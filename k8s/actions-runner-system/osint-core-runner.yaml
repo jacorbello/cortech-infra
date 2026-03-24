@@ -1,0 +1,61 @@
+apiVersion: actions.summerwind.dev/v1alpha1
+kind: RunnerDeployment
+metadata:
+  name: osint-core-runner
+  namespace: actions-runner-system
+spec:
+  replicas: 1
+  template:
+    spec:
+      repository: jacorbello/osint-core
+      labels:
+        - self-hosted
+        - linux
+        - osint-deploy
+      hostAliases:
+        - hostnames:
+            - harbor.corbello.io
+          ip: 192.168.1.100
+      resources:
+        requests:
+          cpu: 200m
+          memory: 256Mi
+          ephemeral-storage: 1Gi
+        limits:
+          cpu: "1"
+          memory: 1Gi
+          ephemeral-storage: 4Gi
+      dockerdContainerResources:
+        requests:
+          cpu: 500m
+          memory: 1Gi
+          ephemeral-storage: 4Gi
+        limits:
+          cpu: "2"
+          memory: 4Gi
+          ephemeral-storage: 12Gi
+      initContainers:
+        - name: install-kubectl
+          image: curlimages/curl:8.5.0
+          command:
+            - sh
+            - -c
+            - |
+              set -euo pipefail
+              KUBECTL_VERSION="v1.31.0"
+              BASE_URL="https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64"
+              curl -fL --retry 3 --retry-delay 5 -o kubectl "${BASE_URL}/kubectl"
+              curl -fL --retry 3 --retry-delay 5 -o kubectl.sha256 "${BASE_URL}/kubectl.sha256"
+              echo "$(cat kubectl.sha256)  kubectl" | sha256sum -c -
+              chmod +x kubectl
+              mv kubectl /tools/kubectl
+          volumeMounts:
+            - name: tools
+              mountPath: /tools
+      volumeMounts:
+        - name: tools
+          mountPath: /usr/local/bin/kubectl
+          subPath: kubectl
+      volumes:
+        - name: tools
+          emptyDir: {}
