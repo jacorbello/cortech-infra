@@ -547,7 +547,7 @@ resolve-tags:
     realtime-tag: ${{ steps.tags.outputs.realtime }}
     frontend-tag: ${{ steps.tags.outputs.frontend }}
     website-tag: ${{ steps.tags.outputs.website }}
-    word-addin-tag: ${{ steps.tags.outputs.word-addin }}
+    word-addin-tag: ${{ steps.tags.outputs['word-addin'] }}
   steps:
     - name: Install crane
       run: |
@@ -608,13 +608,13 @@ helm upgrade plotlens infra/helm/plotlens/ \
   --install --atomic --cleanup-on-fail \
   --history-max 5 --timeout 25m \
   "${FORCE_FLAGS[@]}" \
-  --set api.image.tag=${{ needs.resolve-tags.outputs.api-tag }} \
-  --set gateway.image.tag=${{ needs.resolve-tags.outputs.gateway-tag }} \
-  --set worker.image.tag=${{ needs.resolve-tags.outputs.worker-tag }} \
-  --set realtime.image.tag=${{ needs.resolve-tags.outputs.realtime-tag }} \
-  --set frontend.image.tag=${{ needs.resolve-tags.outputs.frontend-tag }} \
-  --set website.image.tag=${{ needs.resolve-tags.outputs.website-tag }} \
-  --set wordAddin.image.tag=${{ needs.resolve-tags.outputs.word-addin-tag }}
+  --set api.image.tag=${{ needs['resolve-tags'].outputs['api-tag'] }} \
+  --set gateway.image.tag=${{ needs['resolve-tags'].outputs['gateway-tag'] }} \
+  --set worker.image.tag=${{ needs['resolve-tags'].outputs['worker-tag'] }} \
+  --set realtime.image.tag=${{ needs['resolve-tags'].outputs['realtime-tag'] }} \
+  --set frontend.image.tag=${{ needs['resolve-tags'].outputs['frontend-tag'] }} \
+  --set website.image.tag=${{ needs['resolve-tags'].outputs['website-tag'] }} \
+  --set wordAddin.image.tag=${{ needs['resolve-tags'].outputs['word-addin-tag'] }}
 ```
 
 **Important:** Keep the existing `FORCE_FLAGS` logic. Find and remove the `SET_FLAGS` loop and `HELM_KEY` map:

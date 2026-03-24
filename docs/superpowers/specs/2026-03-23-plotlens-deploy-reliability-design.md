@@ -29,7 +29,7 @@ Add a **`resolve-tags`** job after `build` and before `deploy`:
 ```yaml
 resolve-tags:
   needs: [build]
-  runs-on: [self-hosted, plotlens]
+  runs-on: [self-hosted, plotlens-deploy]
   outputs:
     api-tag: ${{ steps.tags.outputs.api }}
     gateway-tag: ${{ steps.tags.outputs.gateway }}
@@ -37,7 +37,7 @@ resolve-tags:
     realtime-tag: ${{ steps.tags.outputs.realtime }}
     frontend-tag: ${{ steps.tags.outputs.frontend }}
     website-tag: ${{ steps.tags.outputs.website }}
-    word-addin-tag: ${{ steps.tags.outputs.word-addin }}
+    word-addin-tag: ${{ steps.tags.outputs['word-addin'] }}
   steps:
     - name: Resolve image tags
       id: tags
