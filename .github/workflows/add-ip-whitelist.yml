@@ -24,7 +24,7 @@ permissions:
 
 jobs:
   add-ip:
-    runs-on: [self-hosted, linux, cortech-infra-deploy]
+    runs-on: cortech-infra-runner
     env:
       INPUT_IP: ${{ inputs.ip }}
       INPUT_SERVICE: ${{ inputs.service }}

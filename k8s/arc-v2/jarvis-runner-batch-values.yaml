@@ -1,0 +1,67 @@
+githubConfigUrl: "https://github.com/jacorbello/jarvis"
+
+githubConfigSecret: arc-github-pat
+
+runnerScaleSetName: "jarvis-runner-batch"
+
+minRunners: 1
+maxRunners: 4
+
+containerMode:
+  type: "dind"
+
+template:
+  spec:
+    nodeSelector:
+      role: batch-compute
+    tolerations:
+      - effect: NoSchedule
+        key: node.kubernetes.io/lifecycle
+        operator: Equal
+        value: ephemeral
+    hostAliases:
+      - hostnames:
+          - harbor.corbello.io
+        ip: 192.168.1.100
+    initContainers:
+      - name: install-kubectl
+        image: curlimages/curl:8.5.0
+        command:
+          - sh
+          - -c
+          - |
+            set -euo pipefail
+            KUBECTL_VERSION="v1.31.0"
+            BASE_URL="https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64"
+            curl -fL --retry 3 --retry-delay 5 -o kubectl "${BASE_URL}/kubectl"
+            curl -fL --retry 3 --retry-delay 5 -o kubectl.sha256 "${BASE_URL}/kubectl.sha256"
+            echo "$(cat kubectl.sha256)  kubectl" | sha256sum -c -
+            chmod +x kubectl
+            mv kubectl /tools/kubectl
+        volumeMounts:
+          - name: tools
+            mountPath: /tools
+    containers:
+      - name: runner
+        image: ghcr.io/actions/actions-runner:latest
+        command: ["/home/runner/run.sh"]
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+            ephemeral-storage: 1Gi
+          limits:
+            cpu: "1"
+            memory: 1Gi
+            ephemeral-storage: 4Gi
+        volumeMounts:
+          - name: tools
+            mountPath: /usr/local/bin/kubectl
+            subPath: kubectl
+    volumes:
+      - name: tools
+        emptyDir: {}
+
+controllerServiceAccount:
+  namespace: arc-systems
+  name: arc-v2-gha-rs-controller
