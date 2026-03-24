@@ -12,7 +12,6 @@ spec:
         - self-hosted
         - linux
         - plotlens-deploy
-        - jarvis-deploy
       hostAliases:
         - hostnames:
             - harbor.corbello.io
