@@ -1,0 +1,17 @@
+apiVersion: actions.summerwind.dev/v1alpha1
+kind: HorizontalRunnerAutoscaler
+metadata:
+  name: jarvis-runner-batch-autoscaler
+  namespace: actions-runner-system
+spec:
+  scaleTargetRef:
+    name: jarvis-runner-batch
+  minReplicas: 1
+  maxReplicas: 4
+  scaleDownDelaySecondsAfterScaleOut: 600
+  metrics:
+    - type: PercentageRunnersBusy
+      scaleUpThreshold: "0.75"
+      scaleDownThreshold: "0.25"
+      scaleUpFactor: "2"
+      scaleDownFactor: "0.5"
