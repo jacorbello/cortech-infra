@@ -24,7 +24,7 @@ A DaemonSet running on every node (including tainted nodes like GPU workers) tha
 
 ### Container
 
-- **Image:** `debian:bookworm-slim` (ships `journalctl` natively via systemd, avoids Alpine dependency issues)
+- **Image:** `debian:bookworm-slim` (provides bash and coreutils; does not include systemd, so journal cleanup uses `find` instead of `journalctl`)
 - **Privileged:** Yes (requires host access for containerd socket and journal)
 - **Resources:** 50m CPU / 128Mi memory (requests and limits) — crictl image prune can spike briefly on nodes with many stale layers
 
@@ -36,10 +36,10 @@ A DaemonSet running on every node (including tainted nodes like GPU workers) tha
 ### Environment Variables
 
 ```
-CONTAINER_RUNTIME_ENDPOINT=unix:///run/k3s/containerd/containerd.sock
+CONTAINER_RUNTIME_ENDPOINT=unix:///run/containerd/containerd.sock
 ```
 
-Required for `crictl` to find the K3s containerd socket (K3s uses a non-standard path).
+Required for `crictl` to find the containerd socket inside the container. The host socket at `/run/k3s/containerd/containerd.sock` is bind-mounted to `/run/containerd/containerd.sock` in the container.
 
 ### Schedule
 

@@ -4,7 +4,7 @@
 
 **Goal:** Deploy automated node cleanup (image prune + journal vacuum every 12h) and PrometheusRule alerts for disk/memory/node health across all K3s nodes.
 
-**Architecture:** A privileged DaemonSet in the `platform` namespace runs a shell script on a 12h sleep loop performing `crictl rmi --prune` and `journalctl --vacuum-size=200M` on each node. A PrometheusRule CR in the `observability` namespace fires alerts at 80%/90% disk and 10%/5% memory thresholds.
+**Architecture:** A privileged DaemonSet in the `platform` namespace runs a shell script on a 12h sleep loop performing `crictl rmi --prune` and `find`-based journal cleanup (removing `.journal` files older than 7 days) on each node. A PrometheusRule CR in the `observability` namespace fires alerts at 80%/90% disk and 10%/5% memory thresholds.
 
 **Tech Stack:** Kubernetes DaemonSet, ConfigMap, PrometheusRule CR (kube-prometheus-stack), debian:bookworm-slim, shell scripting.
 
@@ -70,14 +70,16 @@ data:
         done
       fi
 
-      log "JOURNAL_VACUUM: vacuuming journal logs to 200M"
-      if output=$(journalctl --vacuum-size=200M 2>&1); then
-        log "JOURNAL_VACUUM: completed successfully"
-        echo "$output" | while IFS= read -r line; do
-          [ -n "$line" ] && log "JOURNAL_VACUUM: $line"
-        done
+      log "JOURNAL_VACUUM: removing journal files older than 7 days"
+      # Use find instead of journalctl since debian:bookworm-slim lacks systemd
+      deleted=0
+      if [ -d /var/log/journal ]; then
+        while IFS= read -r f; do
+          rm -f "$f" && deleted=$((deleted + 1))
+        done < <(find /var/log/journal -name '*.journal' -mtime +7 2>/dev/null)
+        log "JOURNAL_VACUUM: removed $deleted journal files older than 7 days"
       else
-        log "JOURNAL_VACUUM: failed with exit code $?"
+        log "JOURNAL_VACUUM: /var/log/journal not found, skipping"
       fi
 
       log "CLEANUP_END: node maintenance complete on $(hostname)"

@@ -31,7 +31,7 @@ data:
         done
       fi
 
-      log "JOURNAL_VACUUM: removing journal files older than 7 days, capping at 200M"
+      log "JOURNAL_VACUUM: removing journal files older than 7 days"
       # Use find instead of journalctl since debian:bookworm-slim lacks systemd
       deleted=0
       if [ -d /var/log/journal ]; then
