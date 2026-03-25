@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-maintenance
+  namespace: platform
+  labels:
+    app.kubernetes.io/name: node-maintenance
+    app.kubernetes.io/component: cleanup
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: node-maintenance
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: node-maintenance
+        app.kubernetes.io/component: cleanup
+    spec:
+      priorityClassName: system-node-critical
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: cleanup
+          image: debian:bookworm-slim
+          command: ["/bin/bash", "/scripts/cleanup.sh"]
+          env:
+            - name: CONTAINER_RUNTIME_ENDPOINT
+              value: "unix:///run/containerd/containerd.sock"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 50m
+              memory: 128Mi
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: cleanup-script
+              mountPath: /scripts
+              readOnly: true
+            - name: containerd-sock
+              mountPath: /run/containerd/containerd.sock
+              readOnly: true
+            - name: crictl-config
+              mountPath: /etc/crictl.yaml
+              readOnly: true
+            - name: journal
+              mountPath: /var/log/journal
+            - name: k3s-binary
+              mountPath: /usr/local/bin/k3s
+              readOnly: true
+            - name: crictl-binary
+              mountPath: /usr/local/bin/crictl
+              readOnly: true
+      volumes:
+        - name: cleanup-script
+          configMap:
+            name: node-maintenance-script
+            defaultMode: 0755
+        - name: containerd-sock
+          hostPath:
+            path: /run/k3s/containerd/containerd.sock
+            type: Socket
+        - name: crictl-config
+          hostPath:
+            path: /var/lib/rancher/k3s/agent/etc/crictl.yaml
+            type: File
+        - name: journal
+          hostPath:
+            path: /var/log/journal
+            type: Directory
+        - name: k3s-binary
+          hostPath:
+            path: /usr/local/bin/k3s
+            type: File
+        - name: crictl-binary
+          hostPath:
+            # Note: this is a symlink to k3s on K3s nodes
+            path: /usr/local/bin/crictl
+            type: File
