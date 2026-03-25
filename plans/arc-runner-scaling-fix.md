@@ -1,5 +1,9 @@
 # ARC Runner Scaling Fix
 
+> **Status: COMPLETED (2026-03-25)**
+> Both phases implemented. ARC v1 decommissioned, ARC v2 fully operational
+> with listener-based per-job autoscaling across all repos.
+
 ## Problem Statement
 
 PlotLens GitHub Actions runners are chronically under-scaled. The root cause is
