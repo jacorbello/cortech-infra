@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: node-maintenance-script
+  namespace: platform
+  labels:
+    app.kubernetes.io/name: node-maintenance
+    app.kubernetes.io/component: cleanup
+data:
+  cleanup.sh: |
+    #!/bin/bash
+    set -Eeuo pipefail
+
+    log() {
+      echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+    }
+
+    run_cleanup() {
+      log "CLEANUP_START: beginning node maintenance on $(hostname)"
+
+      log "IMAGE_PRUNE: pruning unused container images"
+      if output=$(crictl rmi --prune 2>&1); then
+        log "IMAGE_PRUNE: completed successfully"
+        echo "$output" | while IFS= read -r line; do
+          [ -n "$line" ] && log "IMAGE_PRUNE: $line"
+        done
+      else
+        log "IMAGE_PRUNE: failed with exit code $?"
+        echo "$output" | while IFS= read -r line; do
+          [ -n "$line" ] && log "IMAGE_PRUNE_ERROR: $line"
+        done
+      fi
+
+      log "JOURNAL_VACUUM: vacuuming journal logs to 200M"
+      if output=$(journalctl --vacuum-size=200M 2>&1); then
+        log "JOURNAL_VACUUM: completed successfully"
+        echo "$output" | while IFS= read -r line; do
+          [ -n "$line" ] && log "JOURNAL_VACUUM: $line"
+        done
+      else
+        log "JOURNAL_VACUUM: failed with exit code $?"
+      fi
+
+      log "CLEANUP_END: node maintenance complete on $(hostname)"
+    }
+
+    log "INIT: node-maintenance daemon starting, interval=12h"
+    while true; do
+      run_cleanup || log "ERROR: cleanup failed, continuing"
+      log "SLEEP: next run in 12 hours"
+      sleep 43200
+    done
