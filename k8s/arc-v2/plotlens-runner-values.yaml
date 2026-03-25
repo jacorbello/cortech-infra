@@ -2,6 +2,13 @@ githubConfigUrl: "https://github.com/Family-Friendly-Inc/plotlens"
 
 githubConfigSecret: arc-github-pat
 
+runnerScaleSetName: "plotlens-runner"
+
+scaleSetLabels:
+  - "plotlens-runner"
+  - "self-hosted"
+  - "linux"
+
 minRunners: 3
 maxRunners: 10
 
