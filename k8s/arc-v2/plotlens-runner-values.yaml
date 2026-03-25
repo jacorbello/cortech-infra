@@ -17,6 +17,8 @@ containerMode:
 
 template:
   spec:
+    imagePullSecrets:
+      - name: harbor-registry
     tolerations:
       - effect: NoSchedule
         key: node.kubernetes.io/lifecycle
@@ -46,17 +48,17 @@ template:
             mountPath: /tools
     containers:
       - name: runner
-        image: ghcr.io/actions/actions-runner:latest
+        image: harbor.corbello.io/arc/plotlens-runner:v1
         command: ["/home/runner/run.sh"]
         resources:
           requests:
             cpu: "1"
-            memory: 2Gi
-            ephemeral-storage: 1Gi
+            memory: 3Gi
+            ephemeral-storage: 2Gi
           limits:
             cpu: "4"
-            memory: 8Gi
-            ephemeral-storage: 4Gi
+            memory: 12Gi
+            ephemeral-storage: 10Gi
         volumeMounts:
           - name: tools
             mountPath: /usr/local/bin/kubectl
