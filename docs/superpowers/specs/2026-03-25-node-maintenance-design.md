@@ -31,7 +31,7 @@ A DaemonSet running on every node (including tainted nodes like GPU workers) tha
 ### Cleanup Actions
 
 1. `crictl rmi --prune` — remove unused container images
-2. `journalctl --vacuum-size=200M` — cap journal logs at 200M per node
+2. `find /var/log/journal -name '*.journal' -mtime +7 -delete` — remove journal files older than 7 days (using `find` instead of `journalctl` since `debian:bookworm-slim` lacks systemd)
 
 ### Environment Variables
 
