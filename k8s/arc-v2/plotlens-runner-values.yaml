@@ -51,11 +51,11 @@ template:
         resources:
           requests:
             cpu: "1"
-            memory: 2Gi
+            memory: 3Gi
             ephemeral-storage: 1Gi
           limits:
             cpu: "4"
-            memory: 8Gi
+            memory: 12Gi
             ephemeral-storage: 4Gi
         volumeMounts:
           - name: tools
