@@ -8,10 +8,11 @@ Python library for controlling home devices. Currently supports Somfy TaHoma hub
 pip install -e /path/to/cortech-infra/home_automation
 ```
 
-Or add to your `requirements.txt`:
+This requires the `pyproject.toml` included in this directory. Alternatively, install
+the dependency directly:
 
-```
--e /path/to/cortech-infra/home_automation
+```bash
+pip install requests
 ```
 
 ## Quick Start
@@ -19,6 +20,7 @@ Or add to your `requirements.txt`:
 Token is stored in Infisical as `SOMFY_TAHOMA_TOKEN`.
 
 ```python
+import os
 import subprocess
 from home_automation import TaHomaClient
 
@@ -27,7 +29,8 @@ token = subprocess.check_output(
     text=True,
 ).strip()
 
-client = TaHomaClient(host="192.168.1.37", token=token)
+host = os.environ.get("TAHOMA_HOST", "192.168.1.x")
+client = TaHomaClient(host=host, token=token, verify_ssl=False)
 
 # List all blinds
 blinds = client.get_blinds()
@@ -49,7 +52,7 @@ client.stop(exec_id)
 
 ## API Reference
 
-### `TaHomaClient(host, token, port=8443, verify_ssl=False)`
+### `TaHomaClient(host, token, port=8443, verify_ssl=True, request_timeout=10.0)`
 
 | Method | Description |
 |---|---|
@@ -79,7 +82,8 @@ client.stop(exec_id)
 
 ## Hub Details
 
-- **IP:** 192.168.1.37
+> **Note:** These are internal/lab-specific defaults. Replace with your own hub configuration.
+
+- **IP:** Set via `TAHOMA_HOST` environment variable
 - **Port:** 8443
-- **SSL:** Self-signed cert (verify_ssl=False by default)
-- **Devices:** 7 RTS blinds — 3 bedroom, 3 living room, 1 backdoor shade
+- **SSL:** Self-signed cert on local hubs — pass `verify_ssl=False` to disable verification

@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, ClassVar
 
 
 @dataclass
@@ -26,7 +26,10 @@ class Device:
             states=states,
         )
 
+    BLIND_CLASSES: ClassVar[frozenset[str]] = frozenset(
+        {"ExteriorScreen", "RollerShutter", "Awning", "Blind", "Screen", "Pergola"}
+    )
+
     @property
     def is_blind(self) -> bool:
-        blind_classes = {"ExteriorScreen", "RollerShutter", "Awning", "Blind", "Screen", "Pergola"}
-        return self.device_type in blind_classes or self.protocol == "rts"
+        return self.device_type in self.BLIND_CLASSES or self.protocol == "rts"

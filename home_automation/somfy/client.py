@@ -7,29 +7,37 @@ from .models import Device
 
 
 class TaHomaClient:
-    def __init__(self, host: str, token: str, port: int = 8443, verify_ssl: bool = False) -> None:
+    def __init__(
+        self,
+        host: str,
+        token: str,
+        port: int = 8443,
+        verify_ssl: bool = True,
+        request_timeout: float = 10.0,
+    ) -> None:
         self._base_url = f"https://{host}:{port}/enduser-mobile-web/1/enduserAPI"
         self._session = requests.Session()
         self._session.headers["Authorization"] = f"Bearer {token}"
         self._session.verify = verify_ssl
-        if not verify_ssl:
-            import urllib3
-            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        self._timeout = request_timeout
 
     def _get(self, path: str) -> Any:
-        r = self._session.get(f"{self._base_url}{path}")
+        r = self._session.get(f"{self._base_url}{path}", timeout=self._timeout)
         if not r.ok:
             raise TaHomaAPIError(r.status_code, r.text)
         return r.json()
 
     def _post(self, path: str, body: Any = None) -> Any:
-        r = self._session.post(f"{self._base_url}{path}", json=body)
+        kwargs: dict[str, Any] = {"timeout": self._timeout}
+        if body is not None:
+            kwargs["json"] = body
+        r = self._session.post(f"{self._base_url}{path}", **kwargs)
         if not r.ok:
             raise TaHomaAPIError(r.status_code, r.text)
         return r.json()
 
     def _delete(self, path: str) -> None:
-        r = self._session.delete(f"{self._base_url}{path}")
+        r = self._session.delete(f"{self._base_url}{path}", timeout=self._timeout)
         if not r.ok:
             raise TaHomaAPIError(r.status_code, r.text)
 
