@@ -1,0 +1,16 @@
+FROM ghcr.io/actions/actions-runner:latest
+
+USER root
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libwebkit2gtk-4.1-dev \
+        libappindicator3-dev \
+        librsvg2-dev \
+        patchelf \
+        libgtk-3-dev \
+        libsoup-3.0-dev \
+        libjavascriptcoregtk-4.1-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+USER runner
