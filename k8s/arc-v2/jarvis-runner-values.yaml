@@ -2,6 +2,13 @@ githubConfigUrl: "https://github.com/jacorbello/jarvis"
 
 githubConfigSecret: arc-github-pat
 
+runnerScaleSetName: "jarvis-runner"
+
+scaleSetLabels:
+  - "jarvis-runner"
+  - "self-hosted"
+  - "linux"
+
 minRunners: 2
 maxRunners: 5
 

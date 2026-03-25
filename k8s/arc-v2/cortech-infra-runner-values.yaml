@@ -2,6 +2,13 @@ githubConfigUrl: "https://github.com/jacorbello/cortech-infra"
 
 githubConfigSecret: arc-github-pat
 
+runnerScaleSetName: "cortech-infra-runner"
+
+scaleSetLabels:
+  - "cortech-infra-runner"
+  - "self-hosted"
+  - "linux"
+
 minRunners: 1
 maxRunners: 3
 

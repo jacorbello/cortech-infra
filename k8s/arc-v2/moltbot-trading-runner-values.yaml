@@ -2,6 +2,13 @@ githubConfigUrl: "https://github.com/jacorbello/moltbot-trading"
 
 githubConfigSecret: arc-github-pat
 
+runnerScaleSetName: "moltbot-trading-runner"
+
+scaleSetLabels:
+  - "moltbot-trading-runner"
+  - "self-hosted"
+  - "linux"
+
 minRunners: 1
 maxRunners: 3
 
