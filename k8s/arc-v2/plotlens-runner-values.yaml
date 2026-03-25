@@ -54,11 +54,11 @@ template:
           requests:
             cpu: "1"
             memory: 3Gi
-            ephemeral-storage: 1Gi
+            ephemeral-storage: 2Gi
           limits:
             cpu: "4"
             memory: 12Gi
-            ephemeral-storage: 4Gi
+            ephemeral-storage: 10Gi
         volumeMounts:
           - name: tools
             mountPath: /usr/local/bin/kubectl
