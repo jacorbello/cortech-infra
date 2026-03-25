@@ -1,0 +1,79 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: node-health-alerts
+  namespace: observability
+  labels:
+    app.kubernetes.io/name: node-health-alerts
+    app.kubernetes.io/component: alerting
+    release: prometheus
+spec:
+  groups:
+    - name: node-disk
+      rules:
+        - alert: NodeDiskPressure
+          expr: >
+            (1 - node_filesystem_avail_bytes{mountpoint="/",fstype!="tmpfs"}
+            / node_filesystem_size_bytes{mountpoint="/",fstype!="tmpfs"}) * 100 > 80
+          for: 5m
+          labels:
+            severity: warning
+            cluster: cortech
+          annotations:
+            summary: "Node {{ $labels.instance }} disk usage above 80%"
+            description: "{{ $labels.instance }} root filesystem is {{ printf \"%.1f\" $value }}% full."
+        - alert: NodeDiskCritical
+          expr: >
+            (1 - node_filesystem_avail_bytes{mountpoint="/",fstype!="tmpfs"}
+            / node_filesystem_size_bytes{mountpoint="/",fstype!="tmpfs"}) * 100 > 90
+          for: 2m
+          labels:
+            severity: critical
+            cluster: cortech
+          annotations:
+            summary: "Node {{ $labels.instance }} disk usage above 90%"
+            description: "{{ $labels.instance }} root filesystem is {{ printf \"%.1f\" $value }}% full. Eviction imminent."
+    - name: node-memory
+      rules:
+        - alert: NodeMemoryPressure
+          expr: >
+            (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 < 10
+          for: 5m
+          labels:
+            severity: warning
+            cluster: cortech
+          annotations:
+            summary: "Node {{ $labels.instance }} memory available below 10%"
+            description: "{{ $labels.instance }} has {{ printf \"%.1f\" $value }}% memory available."
+        - alert: NodeMemoryCritical
+          expr: >
+            (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 < 5
+          for: 2m
+          labels:
+            severity: critical
+            cluster: cortech
+          annotations:
+            summary: "Node {{ $labels.instance }} memory available below 5%"
+            description: "{{ $labels.instance }} has {{ printf \"%.1f\" $value }}% memory available. OOM risk."
+    - name: node-health
+      rules:
+        - alert: NodeNotReady
+          expr: >
+            kube_node_status_condition{condition="Ready",status="true"} == 0
+          for: 3m
+          labels:
+            severity: critical
+            cluster: cortech
+          annotations:
+            summary: "Node {{ $labels.node }} is not ready"
+            description: "{{ $labels.node }} has been in a non-ready state for more than 3 minutes."
+        - alert: NodeMaintenanceFailed
+          expr: >
+            kube_daemonset_status_number_unavailable{daemonset="node-maintenance",namespace="platform"} > 0
+          for: 10m
+          labels:
+            severity: warning
+            cluster: cortech
+          annotations:
+            summary: "Node maintenance DaemonSet has unavailable pods"
+            description: "{{ $value }} node-maintenance pod(s) are unavailable for more than 10 minutes."
