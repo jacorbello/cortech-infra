@@ -1,13 +1,11 @@
 githubConfigUrl: "https://github.com/Family-Friendly-Inc/plotlens"
 
-githubConfigSecret: arc-github-pat
+githubConfigSecret: arc-github-app-fff
 
 runnerScaleSetName: "plotlens-runner"
 
 scaleSetLabels:
   - "plotlens-runner"
-  - "self-hosted"
-  - "linux"
 
 minRunners: 3
 maxRunners: 10
@@ -17,6 +15,9 @@ containerMode:
 
 template:
   spec:
+    terminationGracePeriodSeconds: 30
+    nodeSelector:
+      node-type: worker
     imagePullSecrets:
       - name: harbor-registry
     tolerations:
@@ -50,6 +51,9 @@ template:
       - name: runner
         image: harbor.corbello.io/arc/plotlens-runner:v1
         command: ["/home/runner/run.sh"]
+        env:
+          - name: RUNNER_GRACEFUL_STOP_TIMEOUT
+            value: "15"
         resources:
           requests:
             cpu: "1"
@@ -58,7 +62,7 @@ template:
           limits:
             cpu: "4"
             memory: 12Gi
-            ephemeral-storage: 10Gi
+            ephemeral-storage: 20Gi
         volumeMounts:
           - name: tools
             mountPath: /usr/local/bin/kubectl

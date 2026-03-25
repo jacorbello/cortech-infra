@@ -1,13 +1,11 @@
 githubConfigUrl: "https://github.com/jacorbello/osint-core"
 
-githubConfigSecret: arc-github-pat
+githubConfigSecret: arc-github-app-jacorbello
 
 runnerScaleSetName: "osint-core-runner"
 
 scaleSetLabels:
   - "osint-core-runner"
-  - "self-hosted"
-  - "linux"
 
 minRunners: 1
 maxRunners: 3
@@ -17,6 +15,11 @@ containerMode:
 
 template:
   spec:
+    terminationGracePeriodSeconds: 30
+    nodeSelector:
+      node-type: worker
+    imagePullSecrets:
+      - name: harbor-registry
     hostAliases:
       - hostnames:
           - harbor.corbello.io
@@ -43,15 +46,18 @@ template:
       - name: runner
         image: ghcr.io/actions/actions-runner:latest
         command: ["/home/runner/run.sh"]
+        env:
+          - name: RUNNER_GRACEFUL_STOP_TIMEOUT
+            value: "15"
         resources:
           requests:
             cpu: 200m
-            memory: 256Mi
+            memory: 512Mi
             ephemeral-storage: 1Gi
           limits:
             cpu: "1"
-            memory: 1Gi
-            ephemeral-storage: 4Gi
+            memory: 2Gi
+            ephemeral-storage: 10Gi
         volumeMounts:
           - name: tools
             mountPath: /usr/local/bin/kubectl
