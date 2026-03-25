@@ -17,6 +17,8 @@ containerMode:
 
 template:
   spec:
+    imagePullSecrets:
+      - name: harbor-registry
     tolerations:
       - effect: NoSchedule
         key: node.kubernetes.io/lifecycle
@@ -46,7 +48,7 @@ template:
             mountPath: /tools
     containers:
       - name: runner
-        image: ghcr.io/actions/actions-runner:latest
+        image: harbor.corbello.io/arc/plotlens-runner:v1
         command: ["/home/runner/run.sh"]
         resources:
           requests:
