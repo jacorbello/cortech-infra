@@ -31,14 +31,16 @@ data:
         done
       fi
 
-      log "JOURNAL_VACUUM: vacuuming journal logs to 200M"
-      if output=$(journalctl --vacuum-size=200M 2>&1); then
-        log "JOURNAL_VACUUM: completed successfully"
-        echo "$output" | while IFS= read -r line; do
-          [ -n "$line" ] && log "JOURNAL_VACUUM: $line"
-        done
+      log "JOURNAL_VACUUM: removing journal files older than 7 days, capping at 200M"
+      # Use find instead of journalctl since debian:bookworm-slim lacks systemd
+      deleted=0
+      if [ -d /var/log/journal ]; then
+        while IFS= read -r f; do
+          rm -f "$f" && deleted=$((deleted + 1))
+        done < <(find /var/log/journal -name '*.journal' -mtime +7 2>/dev/null)
+        log "JOURNAL_VACUUM: removed $deleted journal files older than 7 days"
       else
-        log "JOURNAL_VACUUM: failed with exit code $?"
+        log "JOURNAL_VACUUM: /var/log/journal not found, skipping"
       fi
 
       log "CLEANUP_END: node maintenance complete on $(hostname)"
