@@ -1,0 +1,44 @@
+alertmanager:
+  enabled: true
+grafana:
+  adminPassword: qma!aqk1vtr6vum_AEK
+  ingress:
+    enabled: true
+    hosts:
+      - grafana.corbello.io
+    ingressClassName: traefik
+  sidecar:
+    dashboards:
+      folderAnnotation: grafana_folder
+      provider:
+        foldersFromFilesStructure: true
+    datasources:
+      skipReload: false
+kubeStateMetrics:
+  enabled: true
+nodeExporter:
+  enabled: true
+prometheus:
+  prometheusSpec:
+    retention: 7d
+    priorityClassName: system-cluster-critical
+    nodeSelector:
+      kubernetes.io/hostname: k3s-srv-1
+    resources:
+      requests:
+        cpu: 500m
+        memory: 2Gi
+      limits:
+        memory: 8Gi
+    startupProbe:
+      failureThreshold: 120
+      periodSeconds: 15
+      timeoutSeconds: 5
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 10Gi
