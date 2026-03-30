@@ -82,8 +82,33 @@ spec:
                 secretKeyRef:
                   name: osint-secrets
                   key: ACLED_PASSWORD
+            - name: OSINT_XAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: osint-secrets
+                  key: XAI_API_KEY
             - name: OSINT_LOG_LEVEL
               value: "INFO"
+            - name: OSINT_COURTLISTENER_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: osint-secrets
+                  key: COURTLISTENER_API_KEY
+            - name: OSINT_RESEND_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: osint-secrets
+                  key: RESEND_API_KEY
+            - name: CAL_REPORT_RECIPIENT_1
+              valueFrom:
+                secretKeyRef:
+                  name: osint-secrets
+                  key: CAL_REPORT_RECIPIENT_1
+            - name: CAL_REPORT_RECIPIENT_2
+              valueFrom:
+                secretKeyRef:
+                  name: osint-secrets
+                  key: CAL_REPORT_RECIPIENT_2
           resources:
             requests:
               cpu: 250m
