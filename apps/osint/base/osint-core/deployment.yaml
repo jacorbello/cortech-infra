@@ -80,6 +80,13 @@ spec:
               value: "/app/plans"
             - name: OSINT_LOG_LEVEL
               value: "INFO"
+            - name: OSINT_LLM_PROVIDER
+              value: "groq"
+            - name: OSINT_GROQ_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: osint-secrets
+                  key: GROQ_API_KEY
             - name: OSINT_XAI_API_KEY
               valueFrom:
                 secretKeyRef:
