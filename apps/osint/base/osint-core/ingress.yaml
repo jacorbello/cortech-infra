@@ -7,8 +7,23 @@ spec:
   entryPoints:
     - web
   routes:
-    - match: Host(`osint.corbello.io`)
+    - match: Host(`osint.corbello.io`) && PathPrefix(`/api`)
       kind: Rule
       services:
         - name: osint-core
           port: 8000
+    - match: Host(`osint.corbello.io`) && PathPrefix(`/healthz`)
+      kind: Rule
+      services:
+        - name: osint-core
+          port: 8000
+    - match: Host(`osint.corbello.io`) && PathPrefix(`/readyz`)
+      kind: Rule
+      services:
+        - name: osint-core
+          port: 8000
+    - match: Host(`osint.corbello.io`)
+      kind: Rule
+      services:
+        - name: osint-web
+          port: 80

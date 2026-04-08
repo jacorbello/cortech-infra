@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: osint-web
+  namespace: osint
+  labels:
+    app: osint-web
+    app.kubernetes.io/part-of: osint-platform
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: osint-web
+  template:
+    metadata:
+      labels:
+        app: osint-web
+        app.kubernetes.io/part-of: osint-platform
+    spec:
+      serviceAccountName: osint-core
+      priorityClassName: osint-core
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: role
+                    operator: In
+                    values:
+                      - core-app
+                      - compute
+      containers:
+        - name: osint-web
+          image: harbor.corbello.io/osint/osint-web:latest
+          ports:
+            - containerPort: 80
+              name: http
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
