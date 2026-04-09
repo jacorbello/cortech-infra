@@ -11,4 +11,4 @@ images:
 - name: harbor.corbello.io/osint/osint-core
   newTag: b8aef01
 - name: harbor.corbello.io/osint/osint-web
-  newTag: 26b9bcb
+  newTag: b2ec14f
