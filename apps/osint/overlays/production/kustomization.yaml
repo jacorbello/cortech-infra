@@ -9,6 +9,6 @@ patches:
     name: osint-worker
 images:
 - name: harbor.corbello.io/osint/osint-core
-  newTag: c28ab73
+  newTag: 98c40c6
 - name: harbor.corbello.io/osint/osint-web
   newTag: 9f61070
