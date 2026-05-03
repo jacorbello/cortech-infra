@@ -78,6 +78,8 @@ All public services route through **LXC 100 (`proxy`)** which terminates TLS. K3
 | 120 | LXC | Uptime-Kuma | cortech | Monitoring |
 | 121 | LXC | Keycloak (auth) | cortech | |
 | 123 | LXC | MinIO (S3) | cortech | etcd backups + doc storage |
+| 124 | LXC | nomad (Project N.O.M.A.D.) | cortech | Offline knowledge/education server |
+| 125 | LXC | timemachine | cortech | Samba 4.22 + Avahi for macOS Time Machine backups (1 TiB share) |
 | 205 | VM | Ollama LLM | cortech-node3 | GPU passthrough, Tesla T4 |
 
 ### K8s Workloads

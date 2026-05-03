@@ -4,48 +4,37 @@ graph TD
     subgraph cortech [cortech (12c/188GiB)]
       lxc100[LXC 100 proxy]
       vm101[QEMU 101 homeassistant]
-      lxc102[LXC 102 wireguard]
-      lxc105[LXC 105 minecraft-bedrock]
+      lxc102[LXC 102 wireguard]:::stopped
+      lxc103[LXC 103 wireguard-v2]
       lxc114[LXC 114 postgres]
       lxc116[LXC 116 redis]
-      lxc117[LXC 117 gha-runner-personal]:::stopped
       lxc119[LXC 119 legal-api]
       lxc120[LXC 120 uptime-kuma]
       lxc121[LXC 121 keycloak]
       lxc123[LXC 123 minio-01]
-      vm200[QEMU 200 k3s-srv-1]:::k3s
-      vm204[QEMU 204 k3s-wrk-2]:::k3s
+      lxc124[LXC 124 nomad]
+      lxc125[LXC 125 timemachine]
+      vm200[QEMU 200 k3s-srv-1]
+      vm204[QEMU 204 k3s-wrk-2]
+      vm9000[QEMU 9000 k3s-template]:::stopped
     end
     subgraph cortech-node1 [cortech-node1 (4c/30GiB)]
-      lxc113[LXC 113 postal]
-      vm201[QEMU 201 k3s-srv-2]:::k3s
+      vm201[QEMU 201 k3s-srv-2]
     end
     subgraph cortech-node2 [cortech-node2 (4c/30GiB)]
-      lxc111[LXC 111 wordpress-ff]:::stopped
-      vm202[QEMU 202 k3s-srv-3]:::k3s
+      vm202[QEMU 202 k3s-srv-3]
     end
     subgraph cortech-node3 [cortech-node3 (96c/566GiB) GPU]
-      vm205[QEMU 205 ollama]
-      vm206[QEMU 206 k3s-wrk-3]:::k3s
+      vm205[QEMU 205 ollama]:::stopped
+      vm206[QEMU 206 k3s-wrk-3]
+      vm207[QEMU 207 k3s-wrk-4]
     end
     subgraph cortech-node5 [cortech-node5 (8c/30GiB)]
       lxc112[LXC 112 n8n]
-      vm203[QEMU 203 k3s-wrk-1]:::k3s
+      vm203[QEMU 203 k3s-wrk-1]
     end
   end
 
-  subgraph K3s_Cluster [K3s Cluster - 192.168.1.90 VIP]
-    k3sapi[API VIP :6443]
-    vm200 --> k3sapi
-    vm201 --> k3sapi
-    vm202 --> k3sapi
-    vm203 -.-> k3sapi
-    vm204 -.-> k3sapi
-    vm206 -.->|ephemeral| k3sapi
-  end
-
 classDef stopped fill:#eee,stroke:#999,stroke-dasharray: 3 3,color:#666;
-classDef k3s fill:#326ce5,stroke:#fff,color:#fff;
 lxc100 -->|"TLS + ingress"| public[Public *.corbello.io]
-k3sapi -->|"Rancher/Grafana/ArgoCD/Harbor"| lxc100
 ```
