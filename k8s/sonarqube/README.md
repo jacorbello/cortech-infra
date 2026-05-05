@@ -3,8 +3,10 @@
 Self-hosted code-quality scanner exposed at <https://sonarqube.corbello.io>.
 
 Currently runs SonarQube **Community Build 26.4.0.121862** (`sonarqube:26.4.0.121862-community`)
-in namespace `sonarqube`, on K3s worker `k3s-wrk-1` (PVCs are `local-path`, so the
-deployment is pinned to that node by volume affinity).
+in namespace `sonarqube`, pinned to K3s worker `k3s-wrk-1` via an explicit
+`nodeSelector` in `deployment.yaml`. The PVCs use `local-path`; once they're bound
+on `k3s-wrk-1`, the volumes themselves carry node affinity, but the `nodeSelector`
+ensures a fresh install also lands on the right node so the bound volumes match.
 
 ## Layout
 

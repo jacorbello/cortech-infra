@@ -17,6 +17,8 @@ spec:
       labels:
         app: sonarqube
     spec:
+      nodeSelector:
+        kubernetes.io/hostname: k3s-wrk-1
       securityContext:
         fsGroup: 1000
       initContainers:
@@ -49,7 +51,7 @@ spec:
           readinessProbe:
             httpGet:
               path: /api/system/status
-              port: 9000
+              port: http
             initialDelaySeconds: 60
             periodSeconds: 10
             timeoutSeconds: 5
@@ -57,7 +59,7 @@ spec:
           livenessProbe:
             httpGet:
               path: /api/system/status
-              port: 9000
+              port: http
             initialDelaySeconds: 120
             periodSeconds: 30
             timeoutSeconds: 10
