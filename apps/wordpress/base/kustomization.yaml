@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: arboretum-health
+resources:
+  - namespace.yaml
+  - infisical-secret.yaml
+  - mariadb/pvc.yaml
+  - mariadb/service.yaml
+  - mariadb/deployment.yaml
+  - wordpress/pvc.yaml
+  - wordpress/configmap.yaml
+  - wordpress/service.yaml
+  - wordpress/deployment.yaml
+  - wordpress/ingress.yaml

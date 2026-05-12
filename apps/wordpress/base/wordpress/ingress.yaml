@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: wordpress
+  namespace: arboretum-health
+  labels:
+    app: wordpress
+    app.kubernetes.io/part-of: arboretum-health
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: arboretum-health.corbello.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: wordpress
+                port:
+                  number: 80
