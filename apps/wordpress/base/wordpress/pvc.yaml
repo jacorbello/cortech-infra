@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wordpress-content
+  namespace: arboretum-health
+  labels:
+    app: wordpress
+    app.kubernetes.io/part-of: arboretum-health
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nfs-node3
+  resources:
+    requests:
+      storage: 10Gi

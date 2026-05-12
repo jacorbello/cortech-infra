@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mariadb-data
+  namespace: arboretum-health
+  labels:
+    app: mariadb
+    app.kubernetes.io/part-of: arboretum-health
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nfs-node3
+  resources:
+    requests:
+      storage: 5Gi
