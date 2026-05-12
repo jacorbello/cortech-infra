@@ -6,6 +6,8 @@ metadata:
   labels:
     app: wordpress
     app.kubernetes.io/part-of: arboretum-health
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
 spec:
   accessModes:
     - ReadWriteOnce

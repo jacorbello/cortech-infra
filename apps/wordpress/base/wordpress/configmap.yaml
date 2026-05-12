@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wordpress-php-uploads
+  namespace: arboretum-health
+  labels:
+    app: wordpress
+    app.kubernetes.io/part-of: arboretum-health
+data:
+  uploads.ini: |
+    upload_max_filesize = 64M
+    post_max_size = 64M
+    memory_limit = 256M
+    max_execution_time = 120
+    max_input_time = 120

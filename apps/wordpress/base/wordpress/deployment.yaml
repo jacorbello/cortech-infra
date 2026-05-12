@@ -94,14 +94,16 @@ spec:
               cpu: "1"
               memory: 512Mi
           readinessProbe:
-            tcpSocket:
+            httpGet:
+              path: /wp-login.php
               port: http
             initialDelaySeconds: 15
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 3
           livenessProbe:
-            tcpSocket:
+            httpGet:
+              path: /wp-login.php
               port: http
             initialDelaySeconds: 60
             periodSeconds: 30
@@ -110,7 +112,17 @@ spec:
           volumeMounts:
             - name: wordpress-content
               mountPath: /var/www/html/wp-content
+            - name: php-uploads
+              mountPath: /usr/local/etc/php/conf.d/uploads.ini
+              subPath: uploads.ini
+              readOnly: true
       volumes:
         - name: wordpress-content
           persistentVolumeClaim:
             claimName: wordpress-content
+        - name: php-uploads
+          configMap:
+            name: wordpress-php-uploads
+            items:
+              - key: uploads.ini
+                path: uploads.ini

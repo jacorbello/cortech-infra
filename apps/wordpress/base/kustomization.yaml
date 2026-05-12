@@ -8,6 +8,7 @@ resources:
   - mariadb/service.yaml
   - mariadb/deployment.yaml
   - wordpress/pvc.yaml
+  - wordpress/configmap.yaml
   - wordpress/service.yaml
   - wordpress/deployment.yaml
   - wordpress/ingress.yaml
