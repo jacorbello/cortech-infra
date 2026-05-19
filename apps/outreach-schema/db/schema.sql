@@ -14,6 +14,52 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
+-- Name: drafts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.drafts (
+    id bigint NOT NULL,
+    outreach_item_id bigint NOT NULL,
+    variant text NOT NULL,
+    model_provider text NOT NULL,
+    model_name text NOT NULL,
+    prompt_version text NOT NULL,
+    draft_text text NOT NULL,
+    suggested_destination text NOT NULL,
+    suggested_post_type text NOT NULL,
+    claims_to_verify jsonb DEFAULT '[]'::jsonb NOT NULL,
+    risk_flags jsonb DEFAULT '[]'::jsonb NOT NULL,
+    risk_score smallint DEFAULT 50 NOT NULL,
+    manual_only boolean DEFAULT false NOT NULL,
+    content_hash text NOT NULL,
+    status text DEFAULT 'needs_human_review'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT drafts_risk_score_check CHECK (((risk_score >= 0) AND (risk_score <= 100))),
+    CONSTRAINT drafts_status_check CHECK ((status = ANY (ARRAY['needs_human_review'::text, 'approved'::text, 'rejected'::text, 'expired'::text]))),
+    CONSTRAINT drafts_variant_check CHECK ((variant = ANY (ARRAY['helpful_only'::text, 'founder_context'::text, 'soft_product'::text])))
+);
+
+
+--
+-- Name: drafts_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.drafts_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: drafts_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.drafts_id_seq OWNED BY public.drafts.id;
+
+
+--
 -- Name: outreach_items; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -66,10 +112,25 @@ CREATE TABLE public.schema_migrations (
 
 
 --
+-- Name: drafts id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drafts ALTER COLUMN id SET DEFAULT nextval('public.drafts_id_seq'::regclass);
+
+
+--
 -- Name: outreach_items id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.outreach_items ALTER COLUMN id SET DEFAULT nextval('public.outreach_items_id_seq'::regclass);
+
+
+--
+-- Name: drafts drafts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drafts
+    ADD CONSTRAINT drafts_pkey PRIMARY KEY (id);
 
 
 --
@@ -97,10 +158,25 @@ ALTER TABLE ONLY public.schema_migrations
 
 
 --
+-- Name: idx_drafts_status_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_drafts_status_created_at ON public.drafts USING btree (status, created_at);
+
+
+--
 -- Name: idx_outreach_items_status_discovered_at; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_outreach_items_status_discovered_at ON public.outreach_items USING btree (status, discovered_at);
+
+
+--
+-- Name: drafts drafts_outreach_item_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.drafts
+    ADD CONSTRAINT drafts_outreach_item_id_fkey FOREIGN KEY (outreach_item_id) REFERENCES public.outreach_items(id);
 
 
 --
@@ -113,4 +189,5 @@ CREATE INDEX idx_outreach_items_status_discovered_at ON public.outreach_items US
 --
 
 INSERT INTO public.schema_migrations (version) VALUES
-    ('20260519120000');
+    ('20260519120000'),
+    ('20260519120100');
