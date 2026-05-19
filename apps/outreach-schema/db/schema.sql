@@ -9,6 +9,32 @@ SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
 
+--
+-- Name: enforce_approval_match(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.enforce_approval_match() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE a approvals%ROWTYPE;
+BEGIN
+  SELECT * INTO a FROM approvals WHERE id = NEW.approval_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'publish_job approval_id=% not found', NEW.approval_id;
+  END IF;
+  IF a.decision <> 'approved' THEN
+    RAISE EXCEPTION 'publish_job approval_id=% has decision=%, must be approved', NEW.approval_id, a.decision;
+  END IF;
+  IF a.expires_at < now() THEN
+    RAISE EXCEPTION 'publish_job approval_id=% expired at %', NEW.approval_id, a.expires_at;
+  END IF;
+  IF NEW.payload_hash <> a.approved_content_hash THEN
+    RAISE EXCEPTION 'publish_job payload_hash does not match approved_content_hash';
+  END IF;
+  RETURN NEW;
+END $$;
+
+
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
@@ -340,6 +366,13 @@ CREATE INDEX idx_publish_jobs_status_scheduled ON public.publish_jobs USING btre
 
 
 --
+-- Name: publish_jobs trg_enforce_approval_match; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_enforce_approval_match BEFORE INSERT OR UPDATE OF payload_hash, approval_id ON public.publish_jobs FOR EACH ROW EXECUTE FUNCTION public.enforce_approval_match();
+
+
+--
 -- Name: approvals approvals_draft_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -385,4 +418,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260519120100'),
     ('20260519120200'),
     ('20260519120300'),
-    ('20260519120400');
+    ('20260519120400'),
+    ('20260519120500');
