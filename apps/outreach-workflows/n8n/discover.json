@@ -236,14 +236,14 @@
     },
     "Split In Batches": {
       "main": [
+        [],
         [
           {
             "node": "RSS Read",
             "type": "main",
             "index": 0
           }
-        ],
-        []
+        ]
       ]
     },
     "RSS Read": {
