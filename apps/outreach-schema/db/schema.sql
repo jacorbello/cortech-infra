@@ -142,6 +142,48 @@ ALTER SEQUENCE public.outreach_items_id_seq OWNED BY public.outreach_items.id;
 
 
 --
+-- Name: publish_jobs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.publish_jobs (
+    id bigint NOT NULL,
+    approval_id bigint NOT NULL,
+    destination_platform text NOT NULL,
+    destination_account text NOT NULL,
+    postiz_integration_id text,
+    scheduled_for timestamp with time zone,
+    publish_mode text NOT NULL,
+    status text DEFAULT 'ready'::text NOT NULL,
+    postiz_post_id text,
+    published_url text,
+    published_at timestamp with time zone,
+    failure_reason text,
+    payload_hash text NOT NULL,
+    CONSTRAINT publish_jobs_publish_mode_check CHECK ((publish_mode = ANY (ARRAY['postiz_scheduled'::text, 'postiz_immediate'::text, 'manual_required'::text]))),
+    CONSTRAINT publish_jobs_status_check CHECK ((status = ANY (ARRAY['ready'::text, 'sent_to_postiz'::text, 'scheduled'::text, 'published'::text, 'manual_post_required'::text, 'failed'::text, 'expired'::text])))
+);
+
+
+--
+-- Name: publish_jobs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.publish_jobs_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: publish_jobs_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.publish_jobs_id_seq OWNED BY public.publish_jobs.id;
+
+
+--
 -- Name: schema_migrations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -169,6 +211,13 @@ ALTER TABLE ONLY public.drafts ALTER COLUMN id SET DEFAULT nextval('public.draft
 --
 
 ALTER TABLE ONLY public.outreach_items ALTER COLUMN id SET DEFAULT nextval('public.outreach_items_id_seq'::regclass);
+
+
+--
+-- Name: publish_jobs id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.publish_jobs ALTER COLUMN id SET DEFAULT nextval('public.publish_jobs_id_seq'::regclass);
 
 
 --
@@ -204,6 +253,14 @@ ALTER TABLE ONLY public.outreach_items
 
 
 --
+-- Name: publish_jobs publish_jobs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.publish_jobs
+    ADD CONSTRAINT publish_jobs_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: schema_migrations schema_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -226,6 +283,13 @@ CREATE INDEX idx_outreach_items_status_discovered_at ON public.outreach_items US
 
 
 --
+-- Name: idx_publish_jobs_status_scheduled; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_publish_jobs_status_scheduled ON public.publish_jobs USING btree (status, scheduled_for);
+
+
+--
 -- Name: approvals approvals_draft_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -242,6 +306,14 @@ ALTER TABLE ONLY public.drafts
 
 
 --
+-- Name: publish_jobs publish_jobs_approval_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.publish_jobs
+    ADD CONSTRAINT publish_jobs_approval_id_fkey FOREIGN KEY (approval_id) REFERENCES public.approvals(id);
+
+
+--
 -- PostgreSQL database dump complete
 --
 
@@ -253,4 +325,5 @@ ALTER TABLE ONLY public.drafts
 INSERT INTO public.schema_migrations (version) VALUES
     ('20260519120000'),
     ('20260519120100'),
-    ('20260519120200');
+    ('20260519120200'),
+    ('20260519120300');
