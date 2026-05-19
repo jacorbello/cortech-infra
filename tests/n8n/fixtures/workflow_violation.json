@@ -1,0 +1,13 @@
+{
+  "name": "discover",
+  "nodes": [
+    {
+      "id": "claude-1",
+      "name": "Anthropic",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "credentials": {
+        "anthropicApi": {"id": "5", "name": "anthropic-api-key"}
+      }
+    }
+  ]
+}
