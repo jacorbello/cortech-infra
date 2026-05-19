@@ -1,0 +1,13 @@
+# Seed RSS feeds for Workflow A's scheduled discovery.
+# Mirrored into the n8n "rss-feed-list" credential JSON; this YAML is the source of truth for review.
+feeds:
+  - name: The Creative Penn
+    url: https://thecreativepenn.com/feed/
+  - name: Writers Helping Writers
+    url: https://writershelpingwriters.net/feed/
+  - name: Jane Friedman
+    url: https://janefriedman.com/feed/
+  - name: Helping Writers Become Authors
+    url: https://www.helpingwritersbecomeauthors.com/feed/
+  - name: Reedsy
+    url: https://blog.reedsy.com/feed/
