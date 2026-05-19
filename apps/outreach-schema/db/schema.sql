@@ -14,6 +14,45 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
+-- Name: approvals; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.approvals (
+    id bigint NOT NULL,
+    draft_id bigint NOT NULL,
+    approved_by text NOT NULL,
+    decision text NOT NULL,
+    edited_text text,
+    approved_destination text NOT NULL,
+    approved_post_type text NOT NULL,
+    approved_content_hash text NOT NULL,
+    approval_notes text,
+    approved_at timestamp with time zone DEFAULT now() NOT NULL,
+    expires_at timestamp with time zone DEFAULT (now() + '7 days'::interval) NOT NULL,
+    CONSTRAINT approvals_decision_check CHECK ((decision = ANY (ARRAY['approved'::text, 'rejected'::text, 'manual_only'::text, 'save_for_later'::text])))
+);
+
+
+--
+-- Name: approvals_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.approvals_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: approvals_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.approvals_id_seq OWNED BY public.approvals.id;
+
+
+--
 -- Name: drafts; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -112,6 +151,13 @@ CREATE TABLE public.schema_migrations (
 
 
 --
+-- Name: approvals id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.approvals ALTER COLUMN id SET DEFAULT nextval('public.approvals_id_seq'::regclass);
+
+
+--
 -- Name: drafts id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -123,6 +169,14 @@ ALTER TABLE ONLY public.drafts ALTER COLUMN id SET DEFAULT nextval('public.draft
 --
 
 ALTER TABLE ONLY public.outreach_items ALTER COLUMN id SET DEFAULT nextval('public.outreach_items_id_seq'::regclass);
+
+
+--
+-- Name: approvals approvals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.approvals
+    ADD CONSTRAINT approvals_pkey PRIMARY KEY (id);
 
 
 --
@@ -172,6 +226,14 @@ CREATE INDEX idx_outreach_items_status_discovered_at ON public.outreach_items US
 
 
 --
+-- Name: approvals approvals_draft_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.approvals
+    ADD CONSTRAINT approvals_draft_id_fkey FOREIGN KEY (draft_id) REFERENCES public.drafts(id);
+
+
+--
 -- Name: drafts drafts_outreach_item_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -190,4 +252,5 @@ ALTER TABLE ONLY public.drafts
 
 INSERT INTO public.schema_migrations (version) VALUES
     ('20260519120000'),
-    ('20260519120100');
+    ('20260519120100'),
+    ('20260519120200');
