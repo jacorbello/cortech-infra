@@ -99,6 +99,41 @@ ALTER SEQUENCE public.drafts_id_seq OWNED BY public.drafts.id;
 
 
 --
+-- Name: outcomes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.outcomes (
+    id bigint NOT NULL,
+    publish_job_id bigint NOT NULL,
+    impressions integer,
+    replies integer,
+    clicks integer,
+    signups integer,
+    notes text,
+    captured_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: outcomes_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.outcomes_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: outcomes_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.outcomes_id_seq OWNED BY public.outcomes.id;
+
+
+--
 -- Name: outreach_items; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -207,6 +242,13 @@ ALTER TABLE ONLY public.drafts ALTER COLUMN id SET DEFAULT nextval('public.draft
 
 
 --
+-- Name: outcomes id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.outcomes ALTER COLUMN id SET DEFAULT nextval('public.outcomes_id_seq'::regclass);
+
+
+--
 -- Name: outreach_items id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -234,6 +276,14 @@ ALTER TABLE ONLY public.approvals
 
 ALTER TABLE ONLY public.drafts
     ADD CONSTRAINT drafts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: outcomes outcomes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.outcomes
+    ADD CONSTRAINT outcomes_pkey PRIMARY KEY (id);
 
 
 --
@@ -306,6 +356,14 @@ ALTER TABLE ONLY public.drafts
 
 
 --
+-- Name: outcomes outcomes_publish_job_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.outcomes
+    ADD CONSTRAINT outcomes_publish_job_id_fkey FOREIGN KEY (publish_job_id) REFERENCES public.publish_jobs(id);
+
+
+--
 -- Name: publish_jobs publish_jobs_approval_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -326,4 +384,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260519120000'),
     ('20260519120100'),
     ('20260519120200'),
-    ('20260519120300');
+    ('20260519120300'),
+    ('20260519120400');
