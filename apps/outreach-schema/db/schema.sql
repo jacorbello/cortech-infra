@@ -130,7 +130,7 @@ ALTER SEQUENCE public.drafts_id_seq OWNED BY public.drafts.id;
 
 CREATE TABLE public.outcomes (
     id bigint NOT NULL,
-    publish_job_id bigint NOT NULL,
+    publish_job_id bigint,
     impressions integer,
     replies integer,
     clicks integer,
@@ -419,4 +419,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260519120200'),
     ('20260519120300'),
     ('20260519120400'),
-    ('20260519120500');
+    ('20260519120500'),
+    ('20260519120600');
