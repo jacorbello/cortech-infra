@@ -49,7 +49,7 @@
         "operation": "executeQuery",
         "query": "INSERT INTO outreach_items (source_platform, source_url, source_excerpt, source_author)\nVALUES ($1, $2, $3, $4)\nON CONFLICT (source_platform, source_url) DO NOTHING\nRETURNING id;",
         "options": {
-          "queryReplacement": "={{$json.source_platform}},={{$json.source_url}},={{$json.source_excerpt}},={{$json.source_author}}"
+          "queryReplacement": "={{ [$json.source_platform, $json.source_url, $json.source_excerpt, $json.source_author] }}"
         }
       },
       "id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
@@ -159,7 +159,7 @@
         "operation": "executeQuery",
         "query": "INSERT INTO outreach_items (source_platform, source_url, source_excerpt, source_author)\nVALUES ($1, $2, $3, $4)\nON CONFLICT (source_platform, source_url) DO NOTHING\nRETURNING id;",
         "options": {
-          "queryReplacement": "={{$json.source_platform}},={{$json.source_url}},={{$json.source_excerpt}},={{$json.source_author}}"
+          "queryReplacement": "={{ [$json.source_platform, $json.source_url, $json.source_excerpt, $json.source_author] }}"
         }
       },
       "id": "d0e1f2a3-b4c5-6789-defa-890123456789",
