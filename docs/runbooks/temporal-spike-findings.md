@@ -47,7 +47,7 @@
 
 ## Recommended Production Values
 
-Resource requests to bake into the Phase 2 ArgoCD-managed deploy (~1.5× observed idle, limits ~3× idle):
+Resource requests to bake into the Phase 2 ArgoCD-managed deploy. Values are rounded up to the next clean boundary (typically the nearest 32Mi or 64Mi step) with a 96Mi floor for all server components. `web` uses a 24Mi floor due to Go runtime baseline overhead (raw 1.5× of 8Mi idle = 12Mi is unrealistically low). Limits give 2–5× headroom above requests and are intentionally generous for Phase 2 until load-test data is available.
 
 | Component | requests.cpu | requests.memory | limits.cpu | limits.memory |
 |---|---|---|---|---|
@@ -56,7 +56,7 @@ Resource requests to bake into the Phase 2 ArgoCD-managed deploy (~1.5× observe
 | `server.matching` | `50m` | `96Mi` | `200m` | `256Mi` |
 | `server.worker` | `25m` | `96Mi` | `100m` | `256Mi` |
 | `web` | `10m` | `24Mi` | `50m` | `64Mi` |
-| `postgres` (external LXC 114) | `25m` | `256Mi` | `100m` | `512Mi` |
+| `postgres` | external — see LXC 114 provisioning notes below | — | — | — |
 
 > **Assumption:** `history` is memory-hungry at idle (187-200Mi) because it caches shard state. The 288Mi request gives 50% headroom; the 512Mi limit should absorb moderate workflow volume. Revisit after Phase 2 load testing.
 
@@ -106,13 +106,13 @@ web:
       memory: 64Mi
 ```
 
-For Postgres on LXC 114, provision a dedicated `temporal` database and user. No K8s resource values needed for the LXC-side service.
+For Postgres on LXC 114, provision a dedicated `temporal` database and user. No K8s resource values apply — LXC 114 is not a K8s workload. On the LXC side, reserve at least 1 GiB additional RAM for the `temporal` schema on top of the existing services already running on that container; the spike observed ~137–140Mi idle for the standalone `postgres:15` pod, but the shared LXC may see higher working-set pressure once existing tenants are co-located.
 
 ---
 
 ## Startup Behavior
 
-- **Cold-start time from `helm install` to STATUS=deployed:** ~2 seconds
+- **`helm install` API ack to STATUS=deployed (Helm release record written; pods not yet running):** ~2 seconds
 - **Time from `helm upgrade` (config fix) to all pods Running:** ~5 minutes (dominated by schema init job and Postgres readiness probe backoff)
 - **Total time from first attempt to fully healthy:** ~14 minutes (includes initial mis-config discovery and fix)
 - **Time to recover after `rollout restart` (frontend):** ~23 seconds (pod terminated + new pod reached Running)
@@ -124,7 +124,7 @@ For Postgres on LXC 114, provision a dedicated `temporal` database and user. No 
 
 1. **Postgres is not bundled.** The `temporal` chart's internal Cassandra/Postgres options are disabled in the working config. A standalone `postgres:15` Deployment + Service was deployed separately in `temporal-spike`. For Phase 2, use external LXC 114 (existing shared Postgres). Create a dedicated `temporal` database and user there; do not run Postgres inside K3s.
 
-2. **All pods landed on `k3s-wrk-3` (ephemeral GPU worker, tainted `nvidia.com/gpu:NoSchedule`).** The chart has no explicit tolerations for this taint — the pods landed there because the taint was either not enforced at schedule time or the scheduler chose the only available node. For Phase 2, add an explicit `nodeSelector` and/or `affinity` to pin pods to `k3s-wrk-1` (`role=core-app`):
+2. **All pods landed on `k3s-wrk-3` (ephemeral GPU worker).** The chart has no explicit `nodeSelector`. Pods were scheduled there because `k3s-wrk-3` carries **no `nvidia.com/gpu:NoSchedule` taint** at present (`kubectl get node k3s-wrk-3 -o jsonpath='{.spec.taints}'` returns empty) — the taint documented in the architecture notes is not actually applied, so nothing prevented the scheduler from using the node. For Phase 2, add an explicit `nodeSelector` and/or `affinity` to pin pods to `k3s-wrk-1` (`role=core-app`); do not rely on a taint that may or may not be present:
    ```yaml
    server:
      frontend:
@@ -156,6 +156,7 @@ For Postgres on LXC 114, provision a dedicated `temporal` database and user. No 
    kubectl -n temporal-spike exec deploy/temporal-spike-admintools -- \
      temporal --address temporal-spike-frontend:7233 \
      operator namespace create --namespace default --retention 72h
+     # 72h is appropriate for the spike; production should use 30d or more
    ```
 
 6. **Chart requires explicit config override to avoid Cassandra defaults.** Two values are critical to avoid the embedded Cassandra configuration path:
