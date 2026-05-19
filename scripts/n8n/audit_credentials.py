@@ -85,7 +85,9 @@ def audit_workflow_dir(workflow_dir: Path, matrix_path: Path) -> list[AuditViola
 
         workflow_name, spec = expected_files[json_file.name]
         allowed = set(spec.get("allow", []))
-        wf_json = json.loads(json_file.read_text())
+        wf_raw = json.loads(json_file.read_text())
+        # n8n export:workflow wraps in an array; unwrap if needed.
+        wf_json = wf_raw[0] if isinstance(wf_raw, list) else wf_raw
         for cred_name in _extract_credentials(wf_json):
             if cred_name in forbidden_phase1:
                 violations.append(
