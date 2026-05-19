@@ -1,0 +1,70 @@
+name: Outreach CI
+
+on:
+  pull_request:
+    paths:
+      - "apps/outreach-schema/**"
+      - "apps/outreach-workflows/**"
+      - "scripts/n8n/**"
+      - "tests/n8n/**"
+      - ".github/workflows/outreach-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/outreach-schema/**"
+      - "apps/outreach-workflows/**"
+      - "scripts/n8n/**"
+      - "tests/n8n/**"
+
+permissions:
+  contents: read
+
+jobs:
+  schema:
+    runs-on: cortech-infra-runner
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: outreach
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:ci@localhost:5432/outreach?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dbmate
+        run: |
+          sudo curl -fsSL -o /usr/local/bin/dbmate \
+            https://github.com/amacneil/dbmate/releases/latest/download/dbmate-linux-amd64
+          sudo chmod +x /usr/local/bin/dbmate
+      - name: Apply migrations
+        working-directory: apps/outreach-schema
+        run: dbmate up
+      - name: Rollback migrations (verify down paths work)
+        working-directory: apps/outreach-schema
+        run: |
+          for _ in $(seq 1 6); do dbmate rollback; done
+          dbmate up
+      - name: Run trigger enforcement tests
+        working-directory: apps/outreach-schema
+        run: ./db/tests/run_tests.sh
+
+  audit:
+    runs-on: cortech-infra-runner
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install deps
+        run: pip install -r requirements-test.txt
+      - name: Run audit tests
+        run: python -m pytest tests/n8n/ -v --no-cov
+      - name: Run audit against repo workflows
+        run: python -m scripts.n8n.audit_credentials apps/outreach-workflows/
