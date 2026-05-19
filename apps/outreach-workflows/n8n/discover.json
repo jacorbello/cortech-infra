@@ -1,0 +1,136 @@
+{
+  "updatedAt": "2026-05-19T17:47:06.000Z",
+  "createdAt": "2026-05-19T17:46:12.672Z",
+  "id": "dScvr0utReAcHW01",
+  "name": "outreach-discover",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "outreach-discover",
+        "authentication": "headerAuth",
+        "options": {
+          "responseMode": "lastNode"
+        }
+      },
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "outreach-discover-wh",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "R8FUCCmGLkzJdEPB",
+          "name": "discover-webhook-secret"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const url = $input.item.json.body.url;\nif (!url || !url.match(/^https?:\\/\\//)) {\n  throw new Error('invalid url');\n}\nreturn [{\n  json: {\n    source_platform: 'manual',\n    source_url: url,\n    source_excerpt: $input.item.json.body.notes || null,\n  }\n}];"
+      },
+      "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+      "name": "Normalize Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO outreach_items (source_platform, source_url, source_excerpt)\nVALUES ($1, $2, $3)\nON CONFLICT (source_platform, source_url) DO NOTHING\nRETURNING id;",
+        "options": {
+          "queryReplacement": "={{$json.source_platform}},={{$json.source_url}},={{$json.source_excerpt}}"
+        }
+      },
+      "id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
+      "name": "Insert Outreach Item",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        680,
+        300
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "fOZmso5kyXr6Agdn",
+          "name": "outreach-db-n8n"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {accepted: true, id: $json.id} }}"
+      },
+      "id": "d4e5f6a7-b8c9-0123-defa-234567890123",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        900,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "Insert Outreach Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Outreach Item": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": null,
+  "versionId": "45c98229-3b20-4acc-8bec-526d41b0c77b",
+  "activeVersionId": "45c98229-3b20-4acc-8bec-526d41b0c77b",
+  "versionCounter": 3,
+  "triggerCount": 0,
+  "tags": [],
+  "versionMetadata": {
+    "name": null,
+    "description": null
+  }
+}
