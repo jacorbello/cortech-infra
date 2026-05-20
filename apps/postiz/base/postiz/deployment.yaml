@@ -1,0 +1,99 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postiz
+  namespace: plotlens-marketing
+  labels:
+    app: postiz
+    app.kubernetes.io/part-of: postiz
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate  # avoid two instances stomping the DB during rolling update
+  selector:
+    matchLabels:
+      app: postiz
+  template:
+    metadata:
+      labels:
+        app: postiz
+    spec:
+      containers:
+        - name: postiz
+          image: ghcr.io/gitroomhq/postiz-app:v2.13.0
+          ports:
+            - name: http
+              containerPort: 5000   # Postiz frontend
+            - name: api
+              containerPort: 3000   # Postiz backend API
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: postiz-secrets
+                  key: POSTIZ_DATABASE_URL
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: postiz-secrets
+                  key: POSTIZ_REDIS_URL
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: postiz-secrets
+                  key: POSTIZ_JWT_SECRET
+            - name: MAIN_URL
+              valueFrom:
+                secretKeyRef:
+                  name: postiz-secrets
+                  key: POSTIZ_MAIN_URL
+            - name: FRONTEND_URL
+              valueFrom:
+                secretKeyRef:
+                  name: postiz-secrets
+                  key: POSTIZ_FRONTEND_URL
+            - name: NEXT_PUBLIC_BACKEND_URL
+              valueFrom:
+                secretKeyRef:
+                  name: postiz-secrets
+                  key: POSTIZ_NEXT_PUBLIC_BACKEND_URL
+          envFrom:
+            - configMapRef:
+                name: postiz-config
+          volumeMounts:
+            - name: media
+              mountPath: /app/uploads
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              memory: 2Gi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 30
+      volumes:
+        - name: media
+          persistentVolumeClaim:
+            claimName: postiz-media
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postiz-media
+  namespace: plotlens-marketing
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: nfs-node3
+  resources:
+    requests:
+      storage: 20Gi

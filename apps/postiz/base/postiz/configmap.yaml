@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postiz-config
+  namespace: plotlens-marketing
+data:
+  STORAGE_PROVIDER: "local"  # Postiz writes media to local fs initially; revisit MinIO after smoke
+  IS_GENERAL: "true"          # required per Postiz docs for self-hosted
+  NX_ADD_PLUGINS: "true"
+  DISABLE_REGISTRATION: "true"  # only admin signs in
+  # Postiz reads MinIO config when STORAGE_PROVIDER=cloudflare or s3; revisit when switching
+  TZ: "UTC"
