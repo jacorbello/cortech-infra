@@ -62,7 +62,7 @@ spec:
                 name: postiz-config
           volumeMounts:
             - name: media
-              mountPath: /app/uploads
+              mountPath: /uploads   # nginx.conf in the Postiz image serves alias /uploads/
           resources:
             requests:
               cpu: 250m
@@ -72,15 +72,17 @@ spec:
           readinessProbe:
             httpGet:
               path: /
-              port: http
-            initialDelaySeconds: 30
-            periodSeconds: 10
+              port: api   # probe backend directly (port 3000) — returns "App is running!"
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 6
           livenessProbe:
             httpGet:
               path: /
-              port: http
-            initialDelaySeconds: 60
+              port: api
+            initialDelaySeconds: 120
             periodSeconds: 30
+            failureThreshold: 3
       volumes:
         - name: media
           persistentVolumeClaim:
