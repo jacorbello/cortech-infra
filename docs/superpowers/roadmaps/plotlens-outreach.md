@@ -1,6 +1,6 @@
 # PlotLens Outreach — Living Roadmap
 
-**Last updated:** 2026-05-20
+**Last updated:** 2026-05-20 (Reddit deferred to Phase 2.1 mid-T24)
 
 This is the canonical place to look up current status and pending decisions for the PlotLens outreach pipeline. Updated whenever a phase ships or a decision is made that affects a future phase.
 
@@ -24,7 +24,7 @@ This is the canonical place to look up current status and pending decisions for 
 - Workflow D location: n8n cron, not Temporal. Preserves the security boundary from the original spec (publish dispatcher has Postiz key, never LLM keys).
 - Retry policy in Workflow D: `attempt_count < 3` with n8n cron-every-2min as backoff. Reevaluate in Phase 2.1 if Postiz failure modes warrant Temporal-driven retries.
 - Reddit comment replies: manual-only forever per AC-4 (any subreddit, including r/PlotLens).
-- Reddit original posts to r/PlotLens: allowed via Postiz under `destination_type=owned_community`.
+- Reddit original posts to r/PlotLens: originally planned as Postiz-automated. **Deferred to Phase 2.1+** during T24 — Reddit's late-2024 Responsible Builder Policy gate makes new OAuth app creation impractical, and Devvit (Reddit's replacement developer platform) doesn't fit a Postiz-style scheduler. Manual posting via Reddit UI is the Phase 2 path.
 
 ## Open decisions (settle before next phase starts)
 
@@ -49,7 +49,11 @@ This is the canonical place to look up current status and pending decisions for 
 
 (Things explicitly punted from a phase to a future phase, with the reason.)
 
-- (none yet — populated during Phase 2 execution if anything gets bumped)
+- **Reddit / r/PlotLens automation** — deferred to Phase 2.1+ during T24. Reddit's Responsible Builder Policy gate + Devvit platform shift make a Postiz OAuth integration impractical. Existing n8n Reddit app credentials weren't retrievable for reuse. Manual posting via Reddit UI remains the path; revisit if Reddit relaxes restrictions or Postiz adds Devvit support.
+- **X (Twitter) channel** — Phase 2.1, blocked on Developer Account approval (typical 1-7 days but unpredictable).
+- **LinkedIn channel** — Phase 2.1, blocked on Marketing Developer Platform approval (1-2 weeks).
+- **n8n pure-JS SHA-256 audit** — Phase 2.1 follow-up. T21 discovered n8n's Code-node SHA-256 produces different digests than Postgres's `sha256()` for identical input. Workflow B/C/D are internally consistent (all use the JS impl), so Phase 2 is safe — but worth a code review to confirm correctness and rule out encoding/padding bug.
+- **Approval row 42 hash mismatch** — Phase 2.1 investigation. T20 discovered approval 42's `approved_content_hash` doesn't match what Workflow D's recompute produces from the linked draft. Probably a `destination`/`post_type` divergence between Workflow B's draft hash and Workflow C's approval hash; root cause needed.
 
 ## Trigger conditions for non-linear work
 
