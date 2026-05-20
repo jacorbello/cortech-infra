@@ -7,7 +7,9 @@ data:
   STORAGE_PROVIDER: "local"  # Postiz writes media to local fs initially; revisit MinIO after smoke
   IS_GENERAL: "true"          # required per Postiz docs for self-hosted
   NX_ADD_PLUGINS: "false"
-  DISABLE_REGISTRATION: "true"  # only admin signs in
+  # TEMPORARY for Phase 2 T14 first-run: set "false" so Jeremy can sign up the admin account.
+  # Flip back to "true" AFTER signup confirms — see Phase 2 plan T14.
+  DISABLE_REGISTRATION: "false"
   # Nginx inside the Postiz container serves /uploads/ from the literal /uploads path
   UPLOAD_DIRECTORY: "/uploads"
   NEXT_PUBLIC_UPLOAD_DIRECTORY: "/uploads"
