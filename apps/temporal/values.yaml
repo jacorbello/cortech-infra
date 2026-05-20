@@ -21,7 +21,7 @@ server:
           database: temporal
           user: temporal_app
           existingSecret: temporal-secrets
-          existingSecretKey: TEMPORAL_DATABASE_PASSWORD
+          secretKey: TEMPORAL_DATABASE_PASSWORD
           maxConns: 20
           maxIdleConns: 20
           maxConnLifetime: "1h"
@@ -34,7 +34,7 @@ server:
           database: temporal_visibility
           user: temporal_app
           existingSecret: temporal-secrets
-          existingSecretKey: TEMPORAL_DATABASE_PASSWORD
+          secretKey: TEMPORAL_DATABASE_PASSWORD
           maxConns: 10
           maxIdleConns: 10
           maxConnLifetime: "1h"
