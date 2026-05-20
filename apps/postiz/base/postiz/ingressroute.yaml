@@ -15,8 +15,3 @@ spec:
       services:
         - name: postiz
           port: 5000
-    - match: Host(`postiz.corbello.io`) && PathPrefix(`/api`)
-      kind: Rule
-      services:
-        - name: postiz
-          port: 3000
