@@ -68,7 +68,7 @@ spec:
               cpu: 250m
               memory: 1Gi
             limits:
-              memory: 4Gi   # Postiz orchestrator loads many Temporal workflow bundles (~2.82MB each)
+              memory: 8Gi   # Postiz all-in-one: backend + Next.js frontend + 28 Temporal workers
           readinessProbe:
             httpGet:
               path: /
