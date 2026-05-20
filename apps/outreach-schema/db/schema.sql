@@ -220,6 +220,8 @@ CREATE TABLE public.publish_jobs (
     published_at timestamp with time zone,
     failure_reason text,
     payload_hash text NOT NULL,
+    attempt_count integer DEFAULT 0 NOT NULL,
+    sent_at timestamp with time zone,
     CONSTRAINT publish_jobs_publish_mode_check CHECK ((publish_mode = ANY (ARRAY['postiz_scheduled'::text, 'postiz_immediate'::text, 'manual_required'::text]))),
     CONSTRAINT publish_jobs_status_check CHECK ((status = ANY (ARRAY['ready'::text, 'sent_to_postiz'::text, 'scheduled'::text, 'published'::text, 'manual_post_required'::text, 'failed'::text, 'expired'::text])))
 );
@@ -420,4 +422,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260519120300'),
     ('20260519120400'),
     ('20260519120500'),
-    ('20260519120600');
+    ('20260519120600'),
+    ('20260520120000');
