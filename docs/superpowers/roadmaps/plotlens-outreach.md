@@ -1,6 +1,6 @@
 # PlotLens Outreach — Living Roadmap
 
-**Last updated:** 2026-05-20 (Reddit deferred to Phase 2.1 mid-T24)
+**Last updated:** 2026-05-20 (Phase 2 build complete; awaiting operational validation for tag)
 
 This is the canonical place to look up current status and pending decisions for the PlotLens outreach pipeline. Updated whenever a phase ships or a decision is made that affects a future phase.
 
@@ -10,7 +10,7 @@ This is the canonical place to look up current status and pending decisions for 
 |---|---|---|---|---|
 | Phase 0 — Temporal spike | shipped | n/a | n/a | findings: `docs/runbooks/temporal-spike-findings.md` |
 | Phase 1 — Approval gate end-to-end | build complete, operational validation in progress | `docs/superpowers/specs/2026-05-19-plotlens-outreach-stack-design.md` | `docs/superpowers/plans/2026-05-19-plotlens-outreach-phase0-and-phase1.md` | (untagged) |
-| Phase 2 — Postiz + Temporal in production | planning | `docs/superpowers/specs/2026-05-20-plotlens-outreach-phase2-design.md` | `docs/superpowers/plans/2026-05-20-plotlens-outreach-phase2.md` | — |
+| Phase 2 — Postiz + Temporal in production | build + T26-T29 complete, T30 awaiting 24h ArgoCD stability + 5 production posts + Phase 1 tag | `docs/superpowers/specs/2026-05-20-plotlens-outreach-phase2-design.md` | `docs/superpowers/plans/2026-05-20-plotlens-outreach-phase2.md` | (untagged) |
 | Phase 3 — listmonk + SES | not started | — (spec written when Phase 2 ships) | — | — |
 | Phase 4 — Outcome logger + visual channels | not started | — | — | — |
 | Cloud migration (listmonk) | contingent | — | — | — |
@@ -52,8 +52,10 @@ This is the canonical place to look up current status and pending decisions for 
 - **Reddit / r/PlotLens automation** — deferred to Phase 2.1+ during T24. Reddit's Responsible Builder Policy gate + Devvit platform shift make a Postiz OAuth integration impractical. Existing n8n Reddit app credentials weren't retrievable for reuse. Manual posting via Reddit UI remains the path; revisit if Reddit relaxes restrictions or Postiz adds Devvit support.
 - **X (Twitter) channel** — Phase 2.1, blocked on Developer Account approval (typical 1-7 days but unpredictable).
 - **LinkedIn channel** — Phase 2.1, blocked on Marketing Developer Platform approval (1-2 weeks).
-- **n8n pure-JS SHA-256 audit** — Phase 2.1 follow-up. T21 discovered n8n's Code-node SHA-256 produces different digests than Postgres's `sha256()` for identical input. Workflow B/C/D are internally consistent (all use the JS impl), so Phase 2 is safe — but worth a code review to confirm correctness and rule out encoding/padding bug.
+- **n8n pure-JS SHA-256 audit** — Phase 2.1 follow-up. T21 discovered n8n's Code-node SHA-256 produces different digests than Postgres's `sha256()` for identical input. T25 found and fixed one bug already (`>>>56` modulo-32 shift in the bit-length padding loop — commit `c4bb719`). Workflow B/C/D are now all using the same fixed implementation, but worth a final independent audit to confirm correctness against RFC 6234 test vectors and rule out remaining encoding issues.
 - **Approval row 42 hash mismatch** — Phase 2.1 investigation. T20 discovered approval 42's `approved_content_hash` doesn't match what Workflow D's recompute produces from the linked draft. Probably a `destination`/`post_type` divergence between Workflow B's draft hash and Workflow C's approval hash; root cause needed.
+- **publish_jobs.destination_account empty-by-default** — Phase 2.1 follow-up. Workflow C's CTE currently sets `destination_account = NULL` (coerced to `''`); Workflow D's Postiz HTTP node needs the Postiz integration ID there. Worked around for T25 by UPDATE'ing `destination_account = approved_destination` directly. Proper fix: change the `pj` CTE in `review.json` Write Approval to set `destination_account = ins.approved_destination`. Better design: split into `approved_platform` (human-readable) and `approved_destination` (Postiz integration ID) on the approval form.
+- **Postiz API base URL + auth header conventions** — caught in T25; recorded in memory `postiz-public-api-conventions`. Public API lives at `/api/public/v1/` (not `/api/`), and Authorization takes the raw key (no `Bearer ` prefix). Any future caller into Postiz needs to know this; the official docs don't cover it.
 
 ## Trigger conditions for non-linear work
 
