@@ -1,0 +1,84 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: plotlens-marketing-alerts
+  namespace: observability
+  labels:
+    app.kubernetes.io/name: plotlens-marketing-alerts
+    app.kubernetes.io/component: alerting
+    release: prometheus
+spec:
+  groups:
+    - name: plotlens-marketing-pods
+      interval: 30s
+      rules:
+        - alert: PostizPodCrashLooping
+          expr: |
+            increase(kube_pod_container_status_restarts_total{namespace="plotlens-marketing", pod=~"postiz-.*"}[10m]) > 1
+          for: 1m
+          labels:
+            severity: warning
+            cluster: cortech
+            component: plotlens-marketing
+          annotations:
+            summary: "Postiz pod {{ $labels.pod }} restarting"
+            description: "{{ $labels.pod }}/{{ $labels.container }} restarted {{ printf \"%.0f\" $value }} times in the last 10m. Workflow D dispatch is offline whenever Postiz is down."
+            runbook: "https://github.com/jacorbello/cortech-infra/blob/main/docs/runbooks/postiz-failed-job-recovery.md"
+        - alert: TemporalPodCrashLooping
+          expr: |
+            increase(kube_pod_container_status_restarts_total{namespace="plotlens-marketing", pod=~"temporal-(frontend|history|matching|worker)-.*"}[10m]) > 1
+          for: 1m
+          labels:
+            severity: warning
+            cluster: cortech
+            component: plotlens-marketing
+          annotations:
+            summary: "Temporal pod {{ $labels.pod }} restarting"
+            description: "{{ $labels.pod }} restarted {{ printf \"%.0f\" $value }} times in the last 10m. Postiz scheduled posts will queue until Temporal recovers."
+            runbook: "https://github.com/jacorbello/cortech-infra/blob/main/docs/runbooks/temporal-restart.md"
+        - alert: PlotlensMarketingPodNotReady
+          expr: |
+            kube_pod_status_ready{namespace="plotlens-marketing", condition="true"} == 0
+            and on(pod) kube_pod_status_phase{namespace="plotlens-marketing", phase="Running"} == 1
+          for: 5m
+          labels:
+            severity: warning
+            cluster: cortech
+            component: plotlens-marketing
+          annotations:
+            summary: "Pod {{ $labels.pod }} not ready for >5m"
+            description: "{{ $labels.pod }} is in Running phase but readiness probe is failing. Workflow D may be unable to dispatch."
+    - name: plotlens-marketing-publish-jobs
+      interval: 60s
+      rules:
+        # NOTE: these two alerts assume a postgres_exporter scrape with custom queries
+        # for the `outreach` database (publish_jobs.status, publish_jobs.attempt_count).
+        # If postgres_exporter is not yet pointed at LXC 114, the alerts will not fire
+        # but they also will not error — the metric simply won't exist.
+        #
+        # Track Phase 2.1 work: provision postgres_exporter custom queries for
+        # publish_jobs_ready_count_age_seconds and publish_jobs_failed_total.
+        - alert: OutreachPublishJobStalled
+          expr: |
+            min_over_time(outreach_publish_jobs_ready_oldest_age_seconds[15m]) > 900
+          for: 5m
+          labels:
+            severity: critical
+            cluster: cortech
+            component: plotlens-marketing
+          annotations:
+            summary: "publish_jobs row stuck in 'ready' for >15 minutes"
+            description: "Workflow D should fire every 2 minutes. A 15-minute backlog means n8n is down or the cron is broken."
+            runbook: "https://github.com/jacorbello/cortech-infra/blob/main/docs/runbooks/postiz-failed-job-recovery.md"
+        - alert: OutreachPublishFailureSustained
+          expr: |
+            sum(rate(outreach_publish_jobs_failed_total[5m])) > 0
+          for: 5m
+          labels:
+            severity: warning
+            cluster: cortech
+            component: plotlens-marketing
+          annotations:
+            summary: "publish_jobs failures sustained for >5 minutes"
+            description: "Rate of `status=failed` rows > 0 for 5+ minutes. Likely Postiz API or upstream channel failure."
+            runbook: "https://github.com/jacorbello/cortech-infra/blob/main/docs/runbooks/postiz-failed-job-recovery.md"
