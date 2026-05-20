@@ -57,6 +57,21 @@ spec:
                 secretKeyRef:
                   name: postiz-secrets
                   key: POSTIZ_NEXT_PUBLIC_BACKEND_URL
+            - name: MASTODON_URL
+              valueFrom:
+                secretKeyRef:
+                  name: postiz-secrets
+                  key: MASTODON_URL
+            - name: MASTODON_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: postiz-secrets
+                  key: MASTODON_CLIENT_ID
+            - name: MASTODON_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: postiz-secrets
+                  key: MASTODON_CLIENT_SECRET
           envFrom:
             - configMapRef:
                 name: postiz-config
