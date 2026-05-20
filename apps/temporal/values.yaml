@@ -8,8 +8,7 @@ server:
   # Required per spike findings — prevents chart from initialising with Cassandra defaults
   # regardless of persistence.sql settings (gotcha #6 in spike doc).
   setConfigFilePath: true
-  configMapsToMount:
-    - sprig
+  configMapsToMount: "sprig"
 
   config:
     persistence:
