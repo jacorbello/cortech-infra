@@ -1,0 +1,37 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: temporal
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    # Source 1: Helm chart from temporal.io
+    - repoURL: https://go.temporal.io/helm-charts
+      chart: temporal
+      targetRevision: 0.74.0
+      helm:
+        releaseName: temporal
+        valueFiles:
+          - $values/apps/temporal/values.yaml
+    # Source 2: Plain manifests from this repo (extras: namespace, IngressRoute, etc.)
+    - repoURL: https://github.com/jacorbello/cortech-infra.git
+      targetRevision: HEAD
+      path: apps/temporal/extras
+    # Source 3 (ref-only): same git repo as ref for $values resolution
+    - repoURL: https://github.com/jacorbello/cortech-infra.git
+      targetRevision: HEAD
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: plotlens-marketing
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true
+  info:
+    - name: "sync-wave"
+      value: "0"
