@@ -101,6 +101,9 @@ web:
       memory: 64Mi
 
 schema:
+  # Databases already created in T3 by postgres admin; temporal_app lacks CREATEDB privilege.
+  createDatabase:
+    enabled: false
   setup:
     enabled: true
   update:
