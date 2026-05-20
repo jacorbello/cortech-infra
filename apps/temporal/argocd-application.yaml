@@ -16,11 +16,11 @@ spec:
           - $values/apps/temporal/values.yaml
     # Source 2: Plain manifests from this repo (extras: namespace, IngressRoute, etc.)
     - repoURL: https://github.com/jacorbello/cortech-infra.git
-      targetRevision: HEAD
+      targetRevision: outreach/phase0-phase1
       path: apps/temporal/extras
     # Source 3 (ref-only): same git repo as ref for $values resolution
     - repoURL: https://github.com/jacorbello/cortech-infra.git
-      targetRevision: HEAD
+      targetRevision: outreach/phase0-phase1
       ref: values
   destination:
     server: https://kubernetes.default.svc
