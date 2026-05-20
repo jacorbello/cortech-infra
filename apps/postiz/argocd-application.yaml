@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: postiz
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/jacorbello/cortech-infra.git
+    targetRevision: outreach/phase0-phase1
+    path: apps/postiz/overlays/production
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: plotlens-marketing
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ApplyOutOfSyncOnly=true
+  info:
+    - name: "sync-wave"
+      value: "1"
