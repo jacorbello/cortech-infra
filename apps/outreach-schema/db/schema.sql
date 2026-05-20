@@ -179,7 +179,7 @@ CREATE TABLE public.outreach_items (
     CONSTRAINT outreach_items_intent_score_check CHECK (((intent_score >= 0) AND (intent_score <= 100))),
     CONSTRAINT outreach_items_risk_score_check CHECK (((risk_score >= 0) AND (risk_score <= 100))),
     CONSTRAINT outreach_items_source_platform_check CHECK ((source_platform = ANY (ARRAY['manual'::text, 'rss'::text, 'reddit'::text, 'x'::text, 'bluesky'::text, 'mastodon'::text, 'google_alerts'::text]))),
-    CONSTRAINT outreach_items_status_check CHECK ((status = ANY (ARRAY['discovered'::text, 'drafting'::text, 'drafted'::text, 'reviewed'::text, 'rejected'::text, 'archived'::text])))
+    CONSTRAINT outreach_items_status_check CHECK ((status = ANY (ARRAY['discovered'::text, 'drafting'::text, 'drafted'::text, 'reviewed'::text, 'published'::text, 'rejected'::text, 'archived'::text])))
 );
 
 
@@ -423,4 +423,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260519120400'),
     ('20260519120500'),
     ('20260519120600'),
-    ('20260520120000');
+    ('20260520120000'),
+    ('20260520120100');
