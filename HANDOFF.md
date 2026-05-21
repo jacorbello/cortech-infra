@@ -1,19 +1,20 @@
 # PlotLens Outreach — Session Handoff
 
-**As of:** 2026-05-21, 19:35 UTC — Phase 2.1 schema cleanup + 8 followups + X investigation + 3 DEPLOYED + 6 CI drift guards landed:
+**As of:** 2026-05-21, 20:39 UTC — Phase 2.1 schema cleanup + 9 followups + X investigation + 4 DEPLOYED + 7 CI drift guards landed:
 - A1-A3 + B1-B7 schema/UX cleanup
 - Followups: unified channel dropdown, Slack quick-approve dispatch, schema test SQLSTATE hardening, X investigation
 - **Slack platform-picker deployed to LXC 112** at 17:09 UTC (workflow `rEv1eWoUtReAcH001`)
 - **outreach-smoke heartbeat fix deployed to LXC 112** at 18:36 UTC (workflow `sMoKeOutreachW001`) — root-caused via systematic-debugging: was silently failing since first scheduled run because `/etc/hosts` in LXC 112 maps `n8n.corbello.io → 127.0.1.1` (PVE auto-managed because container hostname is `n8n`); fix swaps the self-loop URL to `http://127.0.0.1:5678/webhook/outreach-discover` + adds error-output Slack alert wiring so HTTP-layer failures page directly
 - **Slack blocksUi + form dedup fix deployed to LXC 112** at 19:35 UTC (4 workflows: `rEv1eWoUtReAcH001`, `eXp1rEsTaLeWf001`, `mAnUaLpUbLiSh0001`, `sMoKeOutreachW001`) — root-caused via systematic-debugging: Slack v2 node (typeVersion 2.3) reads `blocksUi` with `ensureType: 'object'` which accepts bare arrays; `Slack/V2/GenericFunctions.js:194` then looks for `.blocks` on the value; bare array has no `.blocks` so the spread into the request body produces integer keys and `chat.postMessage` never receives `blocks`. Slack falls back to text-only render. Bug present since workflows authored. Fix: `={{ JSON.stringify($json.slack_blocks) }}` → `={{ { blocks: $json.slack_blocks } }}` in all 4 nodes. Also fixed form dropdown showing 9 options for 3 integrations: upstream `Fetch Postiz Integrations` fanned out per draft (3 drafts × 3 fetches = 9 integration items); dedup-by-id in `Code Render HTML` reduces to N unique. Added `Assert Slack Blocks Sent` Code node in review.json that throws if Slack drops blocks silently. Added `blocksui-shape-audit.js` CI lint.
-- CI drift guards added: PLATFORM_MAP sync, full sha256 helper-family bit-identity (catches `sha256Raw` inside `hmacSha256`), hash-payload concat-order pin, no-public-self-loop URL check, **blocksUi-shape guard** (audit count: 23 → 37 → +2 new audits)
+- **Slack signature + parser hardening fix deployed to LXC 112** at 20:39 UTC (workflow `rEv1eWoUtReAcH001`) — root-caused via systematic-debugging: JavaScript `encodeURIComponent` vs Go `url.QueryEscape` encoder mismatch on `( ) ' * ~ ! +` characters meant HMAC reconstruction never matched what Slack signed. Fix: enable `rawBody` on Webhook Slack Interactive, HMAC over the actual base64 bytes Slack sent. Also: parser short-circuits unknown verbs (link-button telemetry callbacks like `e/DS5` no longer error), stable `open_form_<oid>` action_id on Open Full Form, new `Actionable Verb?` IF gate routes ignore-verb to existing Respond 200. Two new CI guards: `webhook-rawbody-audit` (asserts `options.rawBody` on HMAC-bound webhooks), `slack-signature-end-to-end` (Go-encoded synthetic payload tested through the real Code node sandbox — 16/16 pass).
+- CI drift guards added: PLATFORM_MAP sync, full sha256 helper-family bit-identity (catches `sha256Raw` inside `hmacSha256`), hash-payload concat-order pin, no-public-self-loop URL check, blocksUi-shape guard, **webhook-rawbody audit**, **Slack-signature end-to-end** (audit count: 23 → 37 → +2 new audits this round)
 - X channel deferred indefinitely (paid plan cost)
 - 4 code-quality minors from earlier review addressed
 
 **User context (active session boundary):** Jeremy is actively using n8n for Phase 1 operational validation. Treat live workflows on LXC 112 as in-use — do NOT re-import/restart n8n.service without explicit confirmation. Read-only DB queries via `pct exec 114` are fine.
 
 **Branch:** `outreach/phase0-phase1` (pushed)
-**Draft PR:** https://github.com/jacorbello/cortech-infra/pull/18 — MERGEABLE, all 4 CI checks SUCCESS at HEAD `5c283ec` (schema / audit / sha256-audit / manifests-lint). sha256-audit now 37 pass + 2 new drift guards (no-public-self-loop + blocksui-shape).
+**Draft PR:** https://github.com/jacorbello/cortech-infra/pull/18 — MERGEABLE, all 4 CI checks SUCCESS at HEAD `7ad32a9` (schema / audit / sha256-audit / manifests-lint). sha256-audit now 37 pass + 7 drift guards (PLATFORM_MAP, sha256 helper-family, hash-payload concat-order, no-public-self-loop, blocksui-shape, webhook-rawbody, slack-signature end-to-end).
 **Phase 1 spec:** `docs/superpowers/specs/2026-05-19-plotlens-outreach-stack-design.md`
 **Phase 1 plan:** `docs/superpowers/plans/2026-05-19-plotlens-outreach-phase0-and-phase1.md`
 **Phase 2 spec:** `docs/superpowers/specs/2026-05-20-plotlens-outreach-phase2-design.md`
@@ -26,7 +27,7 @@ Read this file first on any session resume. Safe to delete once Phase 2 is tagge
 
 **Phase 1:** ALL 34 tasks BUILT. Operational validation (10 real items end-to-end) NOT done. NOT tagged.
 
-**Phase 2:** T1-T29 done + Phase 2.1 schema cleanup done (A1-A3 + B1-B7 + B5.5) + 8 followups (unified dropdown, Slack dispatch, schema test hardening, X investigation, Slack platform-picker DEPLOYED, CI drift guards, smoke fix DEPLOYED, Slack blocksUi + form dedup DEPLOYED). T30 is the exit gate — it can't be tagged until:
+**Phase 2:** T1-T29 done + Phase 2.1 schema cleanup done (A1-A3 + B1-B7 + B5.5) + 9 followups (unified dropdown, Slack dispatch, schema test hardening, X investigation, Slack platform-picker DEPLOYED, CI drift guards, smoke fix DEPLOYED, Slack blocksUi + form dedup DEPLOYED, Slack signature fix DEPLOYED). T30 is the exit gate — it can't be tagged until:
 1. Phase 1 is tagged first (exit criterion 9).
 2. At least 5 production `publish_jobs` rows succeed (currently 1 — row 62 from T25, status `sent_to_postiz`, Postiz post id `cmpel07680002j0au2phuim4q`). The B7 synthetic smoke-test row 63 was cleaned up at task time; the live Bluesky post it produced (`cmpfkq5x80003j0aulvbz98h4`) was manually deleted by the user 2026-05-21.
 3. ArgoCD `temporal` + `postiz` Applications stay Synced/Healthy for 24h. The 24h clock effectively restarted at the platform-picker reactivation (commit `a364a04` deployed 2026-05-21 17:09 UTC).
@@ -67,6 +68,7 @@ Read this file first on any session resume. Safe to delete once Phase 2 is tagge
 | Followup 6 — CI drift guards for platform map + HMAC + hash payload order | ✅ | Three new tests under `apps/outreach-workflows/tests/sha256-audit/`: (1) `platform-map-audit.js` asserts the PLATFORM_MAP duplicates in `Build Slack Blocks` and `Build Slack Approval` stay in sync + each `integration` matches `^cmpe[a-z0-9]{20,}$` + each `platform` is in the schema CHECK set; (2) `audit.js` extended to extract EVERY `function sha256*` body (catches the previously-uncovered `sha256Raw` inside `hmacSha256`) and to run 4 RFC 4231 + 2 Slack v0 signing-base vectors against the live `hmacSha256` helper; (3) `hash-payload-order.js` fixture-runs `Build Approval` / `Build Slack Approval` / `Verify Hash` against a precomputed reference hash and pins the canonical concat tail `[destination, postType, platform]`. All three wired into the `sha256-audit` CI job. Negative-tests verified each guard catches real drift. Audit count: 23 → 37 pass (commits `4e90e95`, `4d18467`, `999db7d`). |
 | Followup 7 — Smoke heartbeat fix + no-public-self-loop drift guard | ✅ | **DEPLOYED 2026-05-21 18:36 UTC.** Root cause via systematic-debugging: smoke's `Trigger Discover` POSTed to `https://n8n.corbello.io/webhook/outreach-discover` from inside LXC 112, where `/etc/hosts` maps that hostname to `127.0.1.1` (PVE auto-managed because container hostname is `n8n`); nothing listens on `127.0.1.1:443` so every run errored at the first HTTP call. Critical correction: bug was present from day one — only 2 scheduled runs ever fired (2026-05-20 + 2026-05-21 at 14:00 UTC because `GENERIC_TIMEZONE=America/Chicago`, not 09:00 UTC as the workflow description claims); both errored in 23ms. Fix: (1) `Trigger Discover.parameters.url` → `http://127.0.0.1:5678/webhook/outreach-discover`; (2) `Trigger Discover.onError = continueErrorOutput`; (3) new `Build HTTP Failure Alert` Code node wired to `main[1]` error output → existing `Slack Alert` (HTTP-layer failures now page, where before the alert path was downstream of the failing node). Also (4) new CI guard `no-public-self-loop.js` rejects any HTTP node URL containing `n8n.corbello.io` to prevent the bug class. Workflow re-imported + reactivated + restarted on LXC 112; healthy 2s post-restart; journal confirms `Activated workflow "outreach-smoke"` at 18:36:40. Did NOT change the schedule timezone (Chicago vs UTC is a doc cleanup, not a bug). Commits `d92ae02`, `dba7ace`. |
 | Followup 8 — Slack blocksUi shape fix + form dropdown dedup + guardrails | ✅ | **DEPLOYED 2026-05-21 19:35 UTC.** Root cause via systematic-debugging: Slack v2 node (typeVersion 2.3) reads `blocksUi` with `ensureType: 'object'`, which accepts a bare array; `Slack/V2/GenericFunctions.js:194` then treats the value as an object expecting `.blocks` — bare array has none, so the spread into the request body produces integer keys (`"0"`, `"1"`) and `chat.postMessage` never receives `blocks`. Slack posts only `text` and server-renders it as a synthetic `rich_text` block. Bug present since workflows authored — explains why outreach-bot Slack messages never showed approve/reject buttons. Fix: 4 nodes' `parameters.blocksUi` changed from `={{ JSON.stringify($json.slack_blocks) }}` to `={{ { blocks: $json.slack_blocks } }}` (object wrapper). Separately: form dropdown was showing 9 options for 3 integrations because `Fetch Postiz Integrations` runs once per input item (n8n default) and `Postgres Load Drafts` emits 3 items, so 3 drafts × 3 fetches = 9 integration entries. Dedup-by-id in `Code Render HTML` reduces to N unique. New `Assert Slack Blocks Sent` Code node in review.json throws on silent drop. New `blocksui-shape-audit.js` CI guard rejects any `messageType: block` Slack node with broken expression. 4 workflows imported, all 4 reactivated, single n8n restart; healthy 2s post-restart; journal shows all 4 `Activated workflow` lines; DB confirms all 4 `active=1`; broken expression count in DB = 0. Commits `43b3251`, `5c283ec`. |
+| Followup 9 — Slack signature + parser hardening | ✅ | **DEPLOYED 2026-05-21 20:39 UTC.** Root cause via systematic-debugging: `Verify Slack Signature` reconstructed the signed string by feeding the parsed `payload` JSON back through JavaScript `encodeURIComponent`, but Slack signs the bytes its Go server actually sent — produced by `url.QueryEscape`. The two encoders disagree on `( ) ' * ~ ! +` and space; any real Slack callback containing those characters (usernames with apostrophes, action values with parens, etc.) failed HMAC reconstruction and got rejected with `Invalid Slack signature` 401s. Fix: enable `options.rawBody=true` on `Webhook Slack Interactive` so n8n attaches the original request bytes under `item.binary.data` (base64); the verify node HMAC's those bytes directly — no re-encoding, no encoder-divergence surface. Secondary defect surfaced by the same incident: the "Open full form" link button had no explicit `action_id`, so Slack auto-assigned telemetry callbacks like `e/DS5`; even after fixing signatures the action_id parser threw `Malformed action_id`. The button now ships a stable `open_form_<oid>`, the parser returns `{verb: 'ignore'}` for any non-actionable verb (including `open_form` and unknown auto-IDs), and a new `Actionable Verb?` IF gate between `Verify Slack Signature` and `Look Up Draft` routes ignored verbs straight to an existing 200 response without touching the DB. Two new CI guards added to the `sha256-audit` job: `webhook-rawbody-audit.js` asserts every HMAC-bound Slack webhook carries `options.rawBody === true`; `slack-signature-end-to-end.js` builds a Go-`url.QueryEscape`-encoded synthetic Slack payload, runs it through the live `Verify Slack Signature` Code node sandbox, and asserts all 16 vectors (apostrophes, parens, tildes, plus signs, spaces, multibyte UTF-8) verify correctly. Pre-deploy gate: 0 ready rows confirmed. Workflow re-imported + reactivated + restarted; healthy 1s post-restart; journal shows `Activated workflow "outreach-review-notify"`; DB confirms `active=1`, `options.rawBody` present, `open_form_` pattern present, `Actionable Verb?` IF node present. Commit `7ad32a9`. |
 
 ## Resume procedure (next steps in order)
 
@@ -333,21 +335,21 @@ Still worth saving in future sessions (not done yet):
 ## Recent commits (last 15 on branch — `git log --oneline main..HEAD | head -15`)
 
 ```
-a203e82 docs(handoff): test harness SQLSTATE hardening recorded (known-issue #12 closed)
-bb0c684 test(outreach-schema): run_expect_fail asserts on SQLSTATE class
-ee9e514 docs(handoff): Slack quick-approve dispatch wired (TODO #3 closed)
-e205db1 feat(workflow-c): Slack quick-approve dispatches with guards
-e96f44a docs(handoff): unified channel dropdown done (known-issue #11 closed)
-7122e4a feat(workflow-c): unified channel dropdown — one click per approval
-d981df6 docs(postiz): X channel deferred + accurate API tier docs
-fcb0496 fix(outreach-schema-tests): include approved_platform in trigger enforcement tests
-4855507 docs(handoff): Phase 2.1 schema cleanup landed — 10 tasks done
-7a7fdc3 fix(workflow-c): Slack approval path includes approved_platform='bluesky'
-87056b4 feat(workflow-c): Write Approval CTE inserts approved_platform
-cea11ca feat(workflow-c,workflow-d): include approved_platform in hash payload
-4f1f3e0 feat(workflow-c): render platform dropdown sourced from Postiz integrations
-a144ba8 chore(workflows): refresh stale credentials-matrix comment
-61f6eec feat(workflow-c): add Fetch Postiz Integrations HTTP node
+7ad32a9 fix(outreach): HMAC Slack signature over rawBody bytes, not re-encoded form
+5b0abca docs(handoff): Slack blocksUi + form dedup fix deployed; 8 followups now
+5c283ec test(outreach): add blocksUi shape drift guard for Slack nodes
+43b3251 fix(outreach): wrap Slack blocksUi in object + dedupe approval-form integrations
+3f2eb1c docs(handoff): smoke fix deployed; Phase 2.1 followups now 7
+dba7ace test(outreach): minor cleanups + no-public-self-loop drift guard
+d92ae02 fix(workflow-smoke): use 127.0.0.1:5678 self-loop + error-output Slack alert
+fd49eba docs(handoff): Slack platform-picker deployed + CI drift guards landed
+999db7d test(outreach): pin sha256 hash-payload concatenation order
+4d18467 test(outreach): extend sha256-audit to cover sha256Raw and hmacSha256
+4e90e95 test(outreach): PLATFORM_MAP drift guard for review.json
+a364a04 feat(workflow-c): Slack quick-approve platform picker
+8c6128f docs(plans): Slack platform-picker implementation plan
+fd985c5 docs(outreach): n8n workflow reference guide
+95ee978 docs(handoff): full refresh for compaction — Slack platform-picker queued as #1
 ```
 
 (99 commits total on the branch — `git log --oneline main..HEAD` for the full list.)
@@ -356,7 +358,7 @@ a144ba8 chore(workflows): refresh stale credentials-matrix comment
 
 In priority order:
 
-1. ~~Slack platform-picker~~ ✅ Followup 5 deployed 2026-05-21 17:09 UTC. Workflow re-imported, reactivated, restarted; healthy 2s post-restart; journal + DB confirm `Activated workflow "outreach-review-notify"` with `active=1`. Smoke-validate with a real Slack approval click against any of the three "Approve → <platform>" buttons (brand Bluesky / Mastodon / personal Bluesky) and confirm `publish_jobs.destination_account` matches the picked integration's id.
+1. ~~Slack platform-picker~~ ✅ Followup 5 deployed 2026-05-21 17:09 UTC. Workflow re-imported, reactivated, restarted; healthy 2s post-restart; journal + DB confirm `Activated workflow "outreach-review-notify"` with `active=1`. Smoke-validate with a real Slack approval click against any of the three "Approve → <platform>" buttons (brand Bluesky / Mastodon / personal Bluesky) and confirm `publish_jobs.destination_account` matches the picked integration's id. (Followup 9 deployed at 20:39 UTC further hardens the same path against signature encoder mismatches and link-button telemetry callbacks — real-click validation now exercises both fixes together.)
 
 2. **Phase 1 operational validation** (user in-progress) — ≥10 real items / ≥1 week of real usage; then tag `outreach-phase1-shipped`. Only step blocking Phase 2 tag.
 
