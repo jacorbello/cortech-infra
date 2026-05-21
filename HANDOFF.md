@@ -1,6 +1,6 @@
 # PlotLens Outreach — Session Handoff
 
-**As of:** 2026-05-20, end-of-Phase-2-build
+**As of:** 2026-05-20, end-of-Phase-2-build (post-push, awaiting PR for CI to fire)
 **Branch:** `outreach/phase0-phase1` (still 1 branch, 65+ commits ahead of `main`, pushed to GitHub)
 **Phase 1 spec:** `docs/superpowers/specs/2026-05-19-plotlens-outreach-stack-design.md`
 **Phase 1 plan:** `docs/superpowers/plans/2026-05-19-plotlens-outreach-phase0-and-phase1.md`
@@ -33,27 +33,35 @@ Read this file first on any session resume. Safe to delete once Phase 2 is tagge
 
 ## Resume procedure (next steps in order)
 
-1. **Confirm CI passes on the latest push.** The branch `outreach/phase0-phase1` includes the new `manifests-lint` job. Visit https://github.com/jacorbello/cortech-infra/actions and confirm green. If `manifests-lint` fails:
-   - Check that `helm repo add temporalio https://go.temporal.io/helm-charts` is reachable from the CI runner.
-   - Check the python yaml filter step — it requires PyYAML which `ubuntu-latest` has but `cortech-infra-runner` (self-hosted) may not.
-   - If the filter strips too many docs, narrow the `builtin` set or change tactic to `kubectl apply --dry-run=client --validate=false`.
+Three concrete next moves, in dependency order:
 
-2. **Phase 1 operational validation.** Use the system for ≥1 week, process ≥10 real outreach items end-to-end. Once done, tag Phase 1: `git tag -a outreach-phase1-shipped -m "Phase 1: approval gate end-to-end"`.
+1. **Workflow C `destination_account` CTE fix.** Highest priority — every production approval today lands with `destination_account=''` and Workflow D's Postiz call returns 400 until someone hand-UPDATEs the row. This blocks Phase 1 operational validation (#2) because you can't process 10 items end-to-end with a manual fix in the loop.
+   - File: `apps/outreach-workflows/n8n/review.json` → Write Approval node's `pj` CTE
+   - Change: `destination_account` column INSERT value from `NULL` to `ins.approved_destination`
+   - Test: re-trigger an approval, confirm row 62-style flow works without intervention
+   - See "Known issues" #1 for full context
 
-3. **After Phase 1 tag + 5 production posts, advance T30.** Verify:
+2. **Open a PR from `outreach/phase0-phase1` → `main`.** CI's `manifests-lint` job ONLY triggers on `pull_request` (verified — direct branch push doesn't fire it; the workflow isn't registered in GitHub Actions until at least one PR exists). Opening a PR:
+   - Surfaces the 65-commit diff for any final review pass.
+   - Triggers `outreach-ci.yml` (schema + audit + manifests-lint).
+   - Lets you watch the new lint job run for real. Locally we verified via `kubectl kustomize` on cortech master that `apps/postiz/overlays/production` and `apps/temporal/extras` both render cleanly, and `helm template temporalio/temporal --version 0.74.0 -f apps/temporal/values.yaml` produces 20 docs — so the job's mechanics should work.
+   - Standard PR command: `gh pr create --base main --head outreach/phase0-phase1 --title "Outreach Phase 1+2: approval gate + Postiz/Temporal in production" --body-file <DESCRIPTION>`. Mark as draft until Phase 1 validation completes.
+
+3. **Phase 1 operational validation.** Use the system for ≥1 week, process ≥10 real outreach items end-to-end. Once done, tag Phase 1: `git tag -a outreach-phase1-shipped -m "Phase 1: approval gate end-to-end"`. This unblocks T30.
+
+4. **Phase 2 T30 (tag).** After step 3 completes AND there are ≥5 production posts in `sent_to_postiz` AND the ArgoCD `temporal` + `postiz` Applications stay Synced/Healthy for a full 24h window:
    ```bash
    ADMIN_URL=$(infisical secrets get OUTREACH_DB_ADMIN_URL --projectId=db72a923-3cd8-4636-b1ff-80845dc070ca --env=dev --plain)
    psql "$ADMIN_URL" -c "SELECT COUNT(*) FROM publish_jobs WHERE status='sent_to_postiz';"
-   # >= 5?
    ssh root@192.168.1.52 "kubectl get applications -n argocd temporal postiz"
-   # both Synced/Healthy for the last 24h?
    ```
    Then `git tag -a outreach-phase2-shipped -m "Phase 2: Postiz + Temporal + Workflow D"`.
 
-4. **Phase 2.1 follow-ups (deferred items, see roadmap).** None are urgent; act when traffic warrants. Top of the list:
-   - **Workflow C CTE fix** for `destination_account` (every approval today requires a manual UPDATE on the publish_jobs row before Workflow D can dispatch — see "Known issues" #1 below).
+5. **Phase 2.1 follow-ups (deferred items, see roadmap).** None are urgent; act when traffic warrants:
    - **Reddit Devvit revisit** if Reddit relaxes the Responsible Builder Policy.
    - **X / LinkedIn** when developer-account approvals come through.
+   - **n8n pure-JS SHA-256 retroactive audit** against RFC 6234 test vectors.
+   - **postgres_exporter custom queries** for `outreach_publish_jobs_ready_oldest_age_seconds` and `_failed_total` so the placeholder alerts in T27 actually fire (currently the metrics don't exist, so the alerts will never trigger — they're harmless but inert until then).
 
 ## Phase 2 architecture at a glance
 
@@ -245,15 +253,16 @@ f29e75d feat(outreach-workflows): add Workflow D dispatcher and extend Workflow 
 
 ## TODOs for next session
 
-In priority order:
+In priority order (matches "Resume procedure" above):
 
-1. **Verify the `outreach-ci` workflow run** for commit `5527d49` passed. If `manifests-lint` failed, debug the CRD-filter logic.
-2. **Phase 1 operational validation.** Use the system for ≥1 week; process ≥10 real outreach items end-to-end. Tag Phase 1.
-3. **Phase 2 T30** once Phase 1 is tagged + 5 production posts.
-4. **Workflow C CTE fix** for `destination_account` (Phase 2.1; affects every future approval).
-5. **n8n pure-JS SHA-256 retroactive audit** against RFC 6234 test vectors (Phase 2.1; fix may have introduced or masked other issues).
+1. **Workflow C `destination_account` CTE fix** — blocking #2; ~10 minute fix in `apps/outreach-workflows/n8n/review.json`.
+2. **Open a PR** `outreach/phase0-phase1` → `main` (draft) so `manifests-lint` CI fires.
+3. **Phase 1 operational validation** — ≥10 real items / ≥1 week; tag Phase 1.
+4. **Phase 2 T30** once #3 done + ≥5 production posts + 24h ArgoCD stability.
+5. **n8n pure-JS SHA-256 retroactive audit** against RFC 6234 test vectors.
 6. **Reddit / X / LinkedIn channel onboarding** when their gating clears.
-7. **Memory entries** for `>>>` modulo-32 and `continueErrorOutput` (low priority but useful).
+7. **postgres_exporter custom queries** so the T27 placeholder alerts actually fire.
+8. **Memory entries** for `>>>` modulo-32 and `continueErrorOutput` (low priority but useful).
 
 ## Access patterns reminder
 
