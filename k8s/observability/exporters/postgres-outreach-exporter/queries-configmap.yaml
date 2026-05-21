@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-outreach-exporter-queries
+  namespace: observability
+  labels:
+    app.kubernetes.io/name: postgres-outreach-exporter
+    app.kubernetes.io/component: exporter
+data:
+  queries.yaml: |
+    outreach_publish_jobs:
+      # publish_jobs has no created_at column (Phase 2 schema oversight); we use
+      # approvals.approved_at via JOIN as the row's effective creation time
+      # (the publish_jobs INSERT is part of the same CTE as the approval).
+      query: |
+        SELECT
+          COALESCE(
+            EXTRACT(EPOCH FROM (now() - MIN(a.approved_at) FILTER (WHERE pj.status='ready')))::bigint,
+            0
+          ) AS ready_oldest_age_seconds,
+          COUNT(*) FILTER (WHERE pj.status='ready')                AS ready_count,
+          COUNT(*) FILTER (WHERE pj.status='failed')               AS failed,
+          COUNT(*) FILTER (WHERE pj.status='sent_to_postiz')       AS sent_to_postiz,
+          COUNT(*) FILTER (WHERE pj.status='manual_post_required') AS manual_required,
+          COUNT(*) FILTER (WHERE pj.status='abandoned')            AS abandoned
+        FROM publish_jobs pj
+        JOIN approvals a ON a.id = pj.approval_id;
+      master: true
+      metrics:
+        - ready_oldest_age_seconds:
+            usage: "GAUGE"
+            description: "Age in seconds of the oldest publish_jobs row in status=ready. Workflow D runs every 2 min, so a value >900 indicates dispatch is stuck."
+        - ready_count:
+            usage: "GAUGE"
+            description: "Number of publish_jobs rows awaiting dispatch (status=ready)."
+        - failed:
+            usage: "GAUGE"
+            description: "Number of publish_jobs rows that hit the 3-attempt cap (status=failed)."
+        - sent_to_postiz:
+            usage: "GAUGE"
+            description: "Number of publish_jobs rows successfully dispatched to Postiz."
+        - manual_required:
+            usage: "GAUGE"
+            description: "Number of publish_jobs rows awaiting manual posting (decision=manual_only)."
+        - abandoned:
+            usage: "GAUGE"
+            description: "Number of publish_jobs rows operator marked abandoned."

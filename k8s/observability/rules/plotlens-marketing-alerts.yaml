@@ -51,13 +51,10 @@ spec:
     - name: plotlens-marketing-publish-jobs
       interval: 60s
       rules:
-        # NOTE: these two alerts assume a postgres_exporter scrape with custom queries
-        # for the `outreach` database (publish_jobs.status, publish_jobs.attempt_count).
-        # If postgres_exporter is not yet pointed at LXC 114, the alerts will not fire
-        # but they also will not error — the metric simply won't exist.
-        #
-        # Track Phase 2.1 work: provision postgres_exporter custom queries for
-        # publish_jobs_ready_count_age_seconds and publish_jobs_failed_total.
+        # Metrics come from k8s/observability/exporters/postgres-outreach-exporter
+        # (postgres_exporter pointed at the `outreach` DB on LXC 114, custom queries
+        # ConfigMap). Metric names come from the query namespace as-is — only
+        # postgres_exporter's *built-in* collectors get the `pg_` prefix.
         - alert: OutreachPublishJobStalled
           expr: |
             min_over_time(outreach_publish_jobs_ready_oldest_age_seconds[15m]) > 900
@@ -72,13 +69,13 @@ spec:
             runbook: "https://github.com/jacorbello/cortech-infra/blob/main/docs/runbooks/postiz-failed-job-recovery.md"
         - alert: OutreachPublishFailureSustained
           expr: |
-            sum(rate(outreach_publish_jobs_failed_total[5m])) > 0
-          for: 5m
+            min_over_time(outreach_publish_jobs_failed[10m]) > 0
+          for: 10m
           labels:
             severity: warning
             cluster: cortech
             component: plotlens-marketing
           annotations:
-            summary: "publish_jobs failures sustained for >5 minutes"
-            description: "Rate of `status=failed` rows > 0 for 5+ minutes. Likely Postiz API or upstream channel failure."
+            summary: "publish_jobs.status=failed rows present for >10 minutes"
+            description: "At least one publish_jobs row has been stuck in status=failed for 10+ minutes (current count {{ $value }}). Likely Postiz API or upstream channel failure; re-queue or abandon per runbook once root cause is fixed."
             runbook: "https://github.com/jacorbello/cortech-infra/blob/main/docs/runbooks/postiz-failed-job-recovery.md"
