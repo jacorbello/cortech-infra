@@ -1,8 +1,8 @@
 # PlotLens Outreach — Session Handoff
 
-**As of:** 2026-05-21, end-of-Phase-2-build + postgres_exporter live (Workflow C CTE fixed, draft PR #18 open + green, T27 alerts wired to real metrics, two extra memory entries recorded)
-**Branch:** `outreach/phase0-phase1` (1 branch, 73 commits ahead of `main`, pushed)
-**Draft PR:** https://github.com/jacorbello/cortech-infra/pull/18 (schema/audit/manifests-lint all SUCCESS at HEAD `539f7e1`)
+**As of:** 2026-05-21, end-of-Phase-2-build + postgres_exporter live (Workflow C CTE fixed, draft PR #18 open + green, T27 alerts wired to real metrics, row 47 abandoned via new `'abandoned'` status migration)
+**Branch:** `outreach/phase0-phase1` (1 branch, 74 commits ahead of `main`, pushed)
+**Draft PR:** https://github.com/jacorbello/cortech-infra/pull/18 (schema/audit/manifests-lint all SUCCESS at HEAD `f2ae505`)
 **Phase 1 spec:** `docs/superpowers/specs/2026-05-19-plotlens-outreach-stack-design.md`
 **Phase 1 plan:** `docs/superpowers/plans/2026-05-19-plotlens-outreach-phase0-and-phase1.md`
 **Phase 2 spec:** `docs/superpowers/specs/2026-05-20-plotlens-outreach-phase2-design.md`
@@ -128,10 +128,10 @@ Not in git. If LXC 112 is rebuilt, restore this file before reactivating workflo
 |---|---|---|
 | `outreach_publish_jobs_ready_oldest_age_seconds` | 0 | gauge; uses `approvals.approved_at` via JOIN since publish_jobs lacks `created_at` |
 | `outreach_publish_jobs_ready_count` | 0 | |
-| `outreach_publish_jobs_failed` | 1 | row 47 (T18 smoke) — will fire `OutreachPublishFailureSustained` once 20 min of data accumulates |
+| `outreach_publish_jobs_failed` | 0 | row 47 abandoned (commit `f2ae505`) — alert disarmed |
 | `outreach_publish_jobs_sent_to_postiz` | 1 | row 62 (T25 SUCCESS) |
 | `outreach_publish_jobs_manual_required` | 0 | |
-| `outreach_publish_jobs_abandoned` | 0 | `abandoned` is not in the `status` CHECK today; metric exists for future use |
+| `outreach_publish_jobs_abandoned` | 1 | row 47 — pre-CTE-fix legacy with hash-mismatch from `>>>` mod-32 bug |
 
 NOT pg_-prefixed — only built-in collectors get that. See memory `postgres-exporter-custom-query-prefix`.
 
@@ -209,9 +209,9 @@ Both blocked on Developer Account / Marketing Developer Platform approvals (1-2 
 
 Postiz's standard mastodon provider uses `MASTODON_CLIENT_ID/SECRET/URL` env vars (wired in commit `5814fa5`). Mastodon app scopes must be granular (`write:statuses`, `write:media`, `profile`), NOT the broad `read write` checkbox. Documented in `docs/runbooks/postiz-channel-onboarding.md`.
 
-### 8. publish_jobs leftover stale rows
+### 8. ~~publish_jobs leftover stale rows~~ ✅ ROW 47 ABANDONED commit `f2ae505`
 
-Currently row 47 = `failed` (T18 smoke), row 62 = `sent_to_postiz` (T25 SUCCESS). Worth a periodic cleanup query for stale Phase 2 testing detritus before considering T30.
+Row 47 (pre-CTE-fix legacy with hash-mismatch from the `>>>` mod-32 bug) is now `status='abandoned'`. Migration `20260521120000_publish_jobs_add_abandoned_status.sql` added `'abandoned'` to the publish_jobs.status CHECK so future operator-driven retirements are also reachable. Row 62 (T25 SUCCESS) remains as the only legitimate Phase 2 production row.
 
 ### 9. Phase 1 unmerged + not operationally validated
 
@@ -231,7 +231,7 @@ The Phase 1 schema omitted `created_at` on `publish_jobs`. Today the only reacha
 6. **Branch pin** (apps/temporal + apps/postiz Application manifests): both reference `outreach/phase0-phase1` directly. Once Phase 1 merges to main, change targetRevision to `main` or `HEAD`.
 7. **ApplyOutOfSyncOnly=true** added to both ArgoCD apps to avoid replay churn on every reconciliation.
 8. **Dashboard: DB panels deferred to Phase 2.1.** No Postgres Grafana datasource exists yet; the dashboard surfaces k8s health + Loki errors + a markdown panel with the manual psql queries.
-9. ~~**Alert rules use metrics that don't yet exist**~~ ✅ FIXED commit `b935933`. `k8s/observability/exporters/postgres-outreach-exporter/` deploys postgres_exporter against LXC 114; six custom-query gauges live in Prometheus: `outreach_publish_jobs_{ready_oldest_age_seconds,ready_count,failed,sent_to_postiz,manual_required,abandoned}`. T27 alerts now wire to real metrics. `OutreachPublishFailureSustained` will fire ~20 min after a row stays in `failed`. (Note: the row 47 leftover from T18 smoke will trigger this alert — re-queue or abandon per `docs/runbooks/postiz-failed-job-recovery.md` to silence it.)
+9. ~~**Alert rules use metrics that don't yet exist**~~ ✅ FIXED commit `b935933`. `k8s/observability/exporters/postgres-outreach-exporter/` deploys postgres_exporter against LXC 114; six custom-query gauges live in Prometheus: `outreach_publish_jobs_{ready_oldest_age_seconds,ready_count,failed,sent_to_postiz,manual_required,abandoned}`. T27 alerts now wire to real metrics. `OutreachPublishFailureSustained` will fire ~20 min after a row stays in `failed` (currently failed=0 since row 47 was abandoned in `f2ae505`).
 10. **CI manifests-lint uses a built-in-kinds filter** because GitHub-hosted runners don't have Traefik / Infisical / Prometheus-Operator CRDs. ArgoCD validates these against the live cluster at sync time.
 
 ## Memory entries from this session (saved to `~/.claude/projects/-home-jacorbello-repos-cortech-infra/memory/`)
@@ -251,6 +251,8 @@ Still worth saving in future sessions (not done yet):
 ## Recent commits (last 10 on branch — `git log --oneline main..HEAD | head -10`)
 
 ```
+f2ae505 feat(outreach-schema): add 'abandoned' to publish_jobs.status
+b1c5947 docs(handoff): refresh for compaction — postgres_exporter live + 2 memory entries saved
 539f7e1 docs(handoff): postgres_exporter deployed; T27 alerts now wired to real metrics
 b935933 feat(observability): postgres_exporter for outreach DB + activate T27 alerts
 7ddea83 chore(outreach): update HANDOFF + harden run_tests.sh against missing psql
@@ -259,24 +261,21 @@ a67d2f8 fix(ci): drop kubectl from manifests-lint; rely on kustomize+helm+YAML p
 4fe34e3 fix(ci): manifests-lint kubectl apply needs --validate=false
 26fc6b7 fix(workflow-c): set publish_jobs.destination_account to approved_destination
 d630468 docs(handoff,roadmap): Phase 2 build complete (T1-T29); T30 awaiting operational validation
-5527d49 feat(plotlens-marketing): Phase 2 observability + runbooks + CI manifests-lint
-56412ff fix(workflow-d): Postiz API payload shape — integration per-post + required top-level fields
 ```
 
-(73 commits total on the branch — `git log --oneline main..HEAD` for the full list.)
+(74 commits total on the branch — `git log --oneline main..HEAD` for the full list.)
 
 ## TODOs for next session
 
 In priority order:
 
 1. **Phase 1 operational validation** — ≥10 real items / ≥1 week; tag Phase 1. (Only step blocking Phase 2 tag.)
-2. **Re-queue or abandon publish_jobs row 47** so `OutreachPublishFailureSustained` quiets. Recipe in `docs/runbooks/postiz-failed-job-recovery.md` ("Re-queue a failed job" or "Permanently abandon").
-3. **Phase 2 T30** once #1 done + ≥5 production posts + 24h ArgoCD stability. Then merge PR #18 and flip ArgoCD `targetRevision` from `outreach/phase0-phase1` to `main`/`HEAD`.
-4. **Decide whether Slack quick-approve should enqueue publishing.** Currently `Write Slack Approval (CTE)` has no `pj` CTE, so only form approvals dispatch. If yes, mirror the form path's `pj` CTE there.
-5. **n8n pure-JS SHA-256 retroactive audit** against RFC 6234 test vectors.
-6. **Reddit / X / LinkedIn channel onboarding** when their gating clears.
-7. **Phase 2.1: split `approved_destination`** into `approved_platform` + `approved_destination` on the approval form so `publish_jobs.destination_platform` carries semantic value (today both columns hold the integration ID).
-8. **Add `publish_jobs.created_at`** migration so the postgres_exporter query and the failed-job-recovery runbook can drop the `approvals` JOIN.
+2. **Phase 2 T30** once #1 done + ≥5 production posts + 24h ArgoCD stability. Then merge PR #18 and flip ArgoCD `targetRevision` from `outreach/phase0-phase1` to `main`/`HEAD`.
+3. **Decide whether Slack quick-approve should enqueue publishing.** Currently `Write Slack Approval (CTE)` has no `pj` CTE, so only form approvals dispatch. If yes, mirror the form path's `pj` CTE there.
+4. **n8n pure-JS SHA-256 retroactive audit** against RFC 6234 test vectors.
+5. **Reddit / X / LinkedIn channel onboarding** when their gating clears.
+6. **Phase 2.1: split `approved_destination`** into `approved_platform` + `approved_destination` on the approval form so `publish_jobs.destination_platform` carries semantic value (today both columns hold the integration ID).
+7. **Add `publish_jobs.created_at`** migration so the postgres_exporter query and the failed-job-recovery runbook can drop the `approvals` JOIN.
 
 ## Access patterns reminder
 
