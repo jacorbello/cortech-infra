@@ -238,16 +238,11 @@ Row 47 (pre-CTE-fix legacy with hash-mismatch from the `>>>` mod-32 bug) is now 
 
 Migration `20260521130000_publish_jobs_add_created_at.sql` added `created_at TIMESTAMPTZ NOT NULL DEFAULT now()` with index on `(status, created_at)` and backfilled existing rows from `approvals.approved_at`. The postgres_exporter `ready_oldest_age_seconds` query (commit `385b821`) and `docs/runbooks/postiz-failed-job-recovery.md` (commit `6a0476c`) now read `created_at` directly — no more JOIN.
 
-### 11. Platform dropdown not coupled to destination input in the approval form
+### 11. ~~Platform dropdown not coupled to destination input in the approval form~~ ✅ FIXED commit `7122e4a`
 
-Workflow C's approval form renders a `approved_platform` dropdown (sourced from live Postiz integrations) AND a free-text `approved_destination` input. The two are independent: changing the platform dropdown does NOT update the destination value, and users picking a non-default platform must manually paste in the matching Postiz integration ID. A mismatched pair (platform=`mastodon`, destination=`<bluesky integration id>`) would submit cleanly today and only fail at the Postiz HTTP call inside Workflow D — late and noisy.
+Replaced the two-field `approved_platform` + `approved_destination` UI with a single unified `<select name="approved_destination">` where each `<option>` is one Postiz integration (`value=<integration id>`, `data-platform=<identifier>`). An inline `onchange` handler updates a hidden `<input name="approved_platform">` to keep the pair mechanically consistent. Single click per approval = no mismatched pairs.
 
-Possible future fixes:
-- Client-side `onChange` JS that auto-populates `approved_destination` from the selected platform's integration ID (would require shipping form JS into the n8n Form node, which doesn't natively support it).
-- Server-side reconciliation in `Build Approval` — if `approved_destination` is empty OR doesn't match the platform's known integration ID, fall back to the platform's default integration. Reject mismatches with a Slack DM to the operator.
-- Replace the free-text destination input with a second dropdown that filters by selected platform (also requires form-node JS).
-
-Captured as TODO for a future session.
+Limitation accepted: cannot broadcast to multiple integrations on the same platform from one approval. The `publish_jobs` schema is one destination per approval anyway, so this is not a regression.
 
 ## Architecture decisions made (post-spec)
 
@@ -305,7 +300,7 @@ In priority order:
 1. **Phase 1 operational validation** — ≥10 real items / ≥1 week; tag Phase 1. (Only step blocking Phase 2 tag.)
 2. **Phase 2 T30** once #1 done + ≥5 production posts + 24h ArgoCD stability. Then merge PR #18 and flip ArgoCD `targetRevision` from `outreach/phase0-phase1` to `main`/`HEAD`.
 3. **Clean up live Bluesky test post `cmpfkq5x80003j0aulvbz98h4`** from the B7 smoke test. The synthetic post landed in production Bluesky (plotlens.bsky.social brand handle) — delete from Bluesky web UI or via `bsky.app` app password tooling. The corresponding synthetic rows in `outreach_items`/`approvals`/`publish_jobs` are quarantined and don't need DB cleanup, but the live post on the public timeline does.
-4. **UX enhancement — couple platform dropdown to destination input in Workflow C form.** Currently free-text `approved_destination` doesn't auto-update when `approved_platform` changes; risk of mismatched platform/integration pairs at submission time. See known issue #11 for fix options (client-side onChange JS, server-side reconciliation in Build Approval, or replacing the destination input with a filtered dropdown).
+4. ~~UX enhancement — couple platform dropdown to destination input~~ ✅ DONE commit `7122e4a`. Unified single-dropdown form (option A from review): one `<select>` where each option is a Postiz integration, hidden `approved_platform` field synced via inline onchange. Smoke-rendered locally with 3 mock integrations (mastodon + 2× bluesky); imported and active on LXC 112.
 5. **Decide whether Slack quick-approve should enqueue publishing.** Currently `Write Slack Approval (CTE)` has no `pj` CTE, so only form approvals dispatch. B5.5 added `approved_platform='bluesky'` default so it satisfies NOT NULL, but no `publish_jobs` row is created. Two complications if we add dispatch: (a) `Build Slack Approval` uses `d.suggested_destination || ''` (no override possible from Slack UI), so any draft without a populated `suggested_destination` would produce a `publish_jobs` row with empty `destination_account` — same shape as row 47 was — and Workflow D would fail/skip it; (b) Slack-button approvals lack the edit affordance, so `edited_text=null` is hard-coded and the hash is computed over `draft_text` unchanged. Decision needed: gate Slack-path `pj` insert on `suggested_destination IS NOT NULL AND length > 0`, OR keep Slack as approval-only and require form approval for actual publishing.
 6. **Reddit / LinkedIn channel onboarding** when their gating clears. **X is deferred indefinitely** (paid plan cost — see "Phase 2.1 follow-ups" above for full diagnosis).
 
