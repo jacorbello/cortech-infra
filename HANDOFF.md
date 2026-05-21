@@ -1,8 +1,14 @@
 # PlotLens Outreach — Session Handoff
 
-**As of:** 2026-05-21, end-of-Phase-2-build + Phase 2.1 schema cleanup LANDED (publish_jobs.created_at added, approvals.approved_platform split out, Workflow C dropdown sourced from live Postiz integrations, hash payload includes platform, Workflow C+D deployed to LXC 112 and smoke-tested end-to-end)
-**Branch:** `outreach/phase0-phase1` (1 branch, 90 commits ahead of `main`, pushed)
-**Draft PR:** https://github.com/jacorbello/cortech-infra/pull/18 (CI at HEAD `7a7fdc3` covers the Phase 2.1 schema + workflow JSON changes — schema / audit / sha256-audit / manifests-lint)
+**As of:** 2026-05-21, end-of-session — Phase 2.1 schema cleanup + 3 followups + X investigation all landed:
+- A1-A3 + B1-B7 schema/UX cleanup
+- Followups: unified channel dropdown (single click per approval), Slack quick-approve dispatch (with empty-destination guard + 3-state ephemeral feedback), schema test SQLSTATE hardening
+- X channel root-caused (missing `X_API_KEY`/`X_API_SECRET`; backend swallows the TwitterApi error as `{err:true}`) and user-deferred indefinitely due to X's $100/mo Basic plan requirement
+
+**User context (active session boundary):** Jeremy is about to start actively using n8n for Phase 1 operational validation. Treat live workflows on LXC 112 as in-use — do NOT re-import/restart n8n.service without explicit confirmation. Read-only DB queries via `pct exec 114` are fine.
+
+**Branch:** `outreach/phase0-phase1` (1 branch, 99 commits ahead of `main`, pushed)
+**Draft PR:** https://github.com/jacorbello/cortech-infra/pull/18 — MERGEABLE, all 4 CI checks SUCCESS at HEAD `a203e82` (schema / audit / sha256-audit / manifests-lint)
 **Phase 1 spec:** `docs/superpowers/specs/2026-05-19-plotlens-outreach-stack-design.md`
 **Phase 1 plan:** `docs/superpowers/plans/2026-05-19-plotlens-outreach-phase0-and-phase1.md`
 **Phase 2 spec:** `docs/superpowers/specs/2026-05-20-plotlens-outreach-phase2-design.md`
@@ -15,10 +21,10 @@ Read this file first on any session resume. Safe to delete once Phase 2 is tagge
 
 **Phase 1:** ALL 34 tasks BUILT. Operational validation (10 real items end-to-end) NOT done. NOT tagged.
 
-**Phase 2:** T1-T29 done + Phase 2.1 schema cleanup done (A1-A3 + B1-B7 + B5.5). T30 is the exit gate — it can't be tagged until:
+**Phase 2:** T1-T29 done + Phase 2.1 schema cleanup done (A1-A3 + B1-B7 + B5.5) + 3 followups (unified dropdown, Slack dispatch, schema test hardening). T30 is the exit gate — it can't be tagged until:
 1. Phase 1 is tagged first (exit criterion 9).
-2. At least 5 production publish_jobs rows succeed (we have 1 legitimate Postiz post from T25 + 1 synthetic Bluesky post from B7 smoke test that needs cleanup).
-3. ArgoCD `temporal` + `postiz` Applications stay Synced/Healthy for 24h (we're well under that — Postiz revision changed at `c4bb719` during T25 and again at `56412ff` for the Postiz API payload fix).
+2. At least 5 production `publish_jobs` rows succeed (currently 1 — row 62 from T25, status `sent_to_postiz`, Postiz post id `cmpel07680002j0au2phuim4q`). The B7 synthetic smoke-test row 63 was cleaned up at task time; the live Bluesky post it produced (`cmpfkq5x80003j0aulvbz98h4`) was manually deleted by the user 2026-05-21.
+3. ArgoCD `temporal` + `postiz` Applications stay Synced/Healthy for 24h. State of the n8n workflows on LXC 112 changed multiple times during the Phase 2.1 followups; the 24h clock effectively restarted at the last reactivation (commit `e205db1`, ~2026-05-21 15:30 UTC).
 
 ### Phase 2 task status (final)
 
@@ -46,35 +52,69 @@ Read this file first on any session resume. Safe to delete once Phase 2 is tagge
 | B5 | ✅ | Workflow C `Write Approval (CTE)` `pj` CTE now sets `publish_jobs.destination_platform := ins.approved_platform` — semantic string (`bluesky`) instead of the integration ID duplicate (commit `87056b4`). |
 | B5.5 | ✅ | `Write Slack Approval (CTE)` patched to insert `approved_platform='bluesky'` (defaulted; Slack quick-approve still has no destination override affordance) so it satisfies the new NOT NULL constraint (commit `7a7fdc3`). |
 | B6 | ✅ | Workflow C + D deployed to LXC 112 n8n via `n8n import:workflow` + `n8n.service` restart. No git artifact. |
-| B7 | ✅ | End-to-end smoke test: synthetic publish_jobs row dispatched through Workflow D's Verify Hash with the new 6-field payload, posted live to Bluesky (post id `cmpfkq5x80003j0aulvbz98h4`) — needs cleanup, see TODO. |
+| B7 | ✅ | End-to-end smoke test: synthetic publish_jobs row dispatched through Workflow D's Verify Hash with the new 6-field payload, posted live to Bluesky — test post `cmpfkq5x80003j0aulvbz98h4` was manually deleted by user 2026-05-21. |
+| B8 | ✅ | HANDOFF refresh + push (commit `4855507`) + CI green wait. CI fixup `fcb0496` ("include approved_platform in trigger enforcement tests") required because the pre-hardening run_expect_fail accepted NOT NULL violations as the trigger firing — exposed the test-harness gap that became known-issue #12. |
+| Followup 1 — Unified channel dropdown | ✅ | One `<select name="approved_destination">` where each option is a Postiz integration (value=integration id, data-platform=platform identifier). Hidden `approved_platform` field synced via inline `onchange`. Eliminates the mismatched-pair class entirely (commit `7122e4a`). |
+| Followup 2 — Slack quick-approve dispatch | ✅ | `Write Slack Approval (CTE)` gained a `pj` CTE gated on `decision='approved' AND length(approved_destination) > 0`. Build Slack Approval's hash payload now includes platform (matching Workflow D's verify shape). HTTP Confirm Approval ephemeral message differentiates dispatched / triage-only / rejected. Platform hardcoded to `'bluesky'` for now (Slack buttons have no platform-picker UI — see TODOs) (commit `e205db1`). |
+| Followup 3 — Schema test SQLSTATE hardening | ✅ | `run_expect_fail` now takes an expected SQLSTATE arg (was: accepted any non-zero exit). psql runs with `VERBOSITY=verbose` so the harness can grep for `ERROR:  <SQLSTATE>:`. All 3 trigger enforcement tests now assert `P0001`. Sanity-verified: dropping a NOT NULL column from a test INSERT now correctly fails with "SQLSTATE was not P0001" instead of silently passing (commit `bb0c684`). |
+| Followup 4 — X channel investigation | ✅ | Root cause of "Could not connect to the platform" toast: missing `X_API_KEY`/`X_API_SECRET` env vars; Postiz backend's `try/catch` at `integrations.controller.ts:225-245` swallows the TwitterApi auth error and returns `{err:true}`. X tile shows because the provider list has no env-gate. Updated `docs/runbooks/postiz-channel-onboarding.md` X section with current paid-plan reality + OAuth 1.0a (not 2.0) detail + exact callback URL. User-deferred indefinitely 2026-05-21 (commit `d981df6`). |
 
 ## Resume procedure (next steps in order)
 
-Steps 1 + 2 of the prior procedure are done. Remaining work:
+### 0. Read first
 
-1. ~~**Workflow C `destination_account` CTE fix.**~~ ✅ Done (commit `26fc6b7`). Workflow C's `pj` CTE now sets both `destination_platform` and `destination_account` to `ins.approved_destination` (the Postiz integration ID). Workflow D only reads `destination_account`; `destination_platform` is selected by Fetch Ready but never consumed. Imported + active on LXC 112. Cleaner field-split refactor still deferred to Phase 2.1.
-2. ~~**Open a PR.**~~ ✅ Done. PR #18 (https://github.com/jacorbello/cortech-infra/pull/18), draft, all 3 CI checks green:
-   - schema (40s) — needed `postgresql-client` installed on `cortech-infra-runner` (commit `78d4ab6`); latent bug in `run_tests.sh` that false-passes when psql is missing has been fixed in the same push.
-   - audit (39s) — Workflow D credential audit passed.
-   - manifests-lint (11s) — `kubectl apply --dry-run=client` was dropped because GitHub-hosted runners still do server-side API discovery even with `--validate=false`. Final form is kustomize build + helm template + Python YAML parse + kind allow-list + hard fail on missing kind/apiVersion (commit `a67d2f8`).
-3. **Phase 1 operational validation.** Use the system for ≥1 week, process ≥10 real outreach items end-to-end. Once done, tag Phase 1: `git tag -a outreach-phase1-shipped -m "Phase 1: approval gate end-to-end"`. This unblocks T30. **This is the only thing blocking Phase 2 tag.**
+Before touching anything, read this entire file. The "User context" header note at the top is load-bearing: **Jeremy is actively using n8n for Phase 1 operational validation**. Do not re-import workflows, restart `n8n.service`, or otherwise interrupt LXC 112 without explicit confirmation in this session. Read-only DB queries via `pct exec 114` and read-only k8s queries are fine.
 
-4. **Phase 2 T30 (tag).** After step 3 completes AND there are ≥5 production posts in `sent_to_postiz` AND the ArgoCD `temporal` + `postiz` Applications stay Synced/Healthy for a full 24h window:
-   ```bash
-   ADMIN_URL=$(infisical secrets get OUTREACH_DB_ADMIN_URL --projectId=db72a923-3cd8-4636-b1ff-80845dc070ca --env=dev --plain)
-   psql "$ADMIN_URL" -c "SELECT COUNT(*) FROM publish_jobs WHERE status='sent_to_postiz';"
-   ssh root@192.168.1.52 "kubectl get applications -n argocd temporal postiz"
-   ```
-   Then merge PR #18 (`gh pr merge 18 --squash`), switch `apps/temporal/argocd-application.yaml` + `apps/postiz/argocd-application.yaml` `targetRevision` from `outreach/phase0-phase1` to `main`/`HEAD`, and `git tag -a outreach-phase2-shipped -m "Phase 2: Postiz + Temporal + Workflow D"`.
+If you need to verify state before doing anything else:
+```bash
+# CI status on the open PR
+gh pr view 18 --json statusCheckRollup --jq '.statusCheckRollup[] | {name, conclusion}'
+# Recent commits on the branch
+git log --oneline main..HEAD | head -15
+# Live publish_jobs state (read-only)
+ssh root@192.168.1.52 "pct exec 114 -- su - postgres -c \"psql -d outreach -c 'SELECT id, status, destination_platform, destination_account, created_at FROM publish_jobs ORDER BY id DESC LIMIT 10;'\""
+```
 
-5. **Phase 2.1 follow-ups (deferred items, see roadmap).** None are urgent; act when traffic warrants:
-   - **Reddit Devvit revisit** if Reddit relaxes the Responsible Builder Policy.
-   - **X — deferred indefinitely** (user-confirmed 2026-05-21). Root cause of the "Could not connect to the platform" error fully diagnosed: Postiz X provider needs `X_API_KEY` + `X_API_SECRET` (OAuth 1.0a Consumer Keys); deployment doesn't supply them; backend `try/catch` at `apps/backend/src/api/routes/integrations.controller.ts:225-245` swallows the error and returns `200 OK` with `{"err":true}`. Posting on X requires a paid Basic plan ($100/mo since Feb 2023; free tier is read-only). Full wiring instructions captured in `docs/runbooks/postiz-channel-onboarding.md` "### X" section if we ever revisit.
-   - **LinkedIn** when Marketing Developer Platform approval comes through.
-   - ~~n8n pure-JS SHA-256 retroactive audit~~ ✅ Done commit `55c8858`. All 5 copies are bit-for-bit identical (md5 `d9d19d56...`); RFC 6234 Appendix B + NIST 1M-`a` + padding/block boundaries + multibyte UTF-8 all pass. Audit lives at `apps/outreach-workflows/tests/sha256-audit/audit.js` and runs in CI as the `sha256-audit` job.
-   - ~~Split `approved_destination` into `approved_platform` + `approved_destination` on the approval form~~ ✅ Done commits `fe3c90e` (B1 schema) → `4f1f3e0` (B3 dropdown) → `87056b4` (B5 CTE) → `7a7fdc3` (B5.5 Slack path). `publish_jobs.destination_platform` now carries the semantic string (`bluesky`) and `destination_account` carries the integration ID.
-   - ~~**Decide whether Slack quick-approve should enqueue publishing**~~ ✅ DONE commit `e205db1` (option 1 chosen 2026-05-21). Slack approve-click dispatches via the `pj` CTE (gated on non-empty `suggested_destination` and `decision='approved'`). Hash payload includes platform. HTTP Confirm Approval ephemeral message differentiates dispatched/triage-only/rejected. Limitation: platform hardcoded to 'bluesky' since Slack buttons don't carry a platform selector.
-   - ~~`publish_jobs.created_at` migration~~ ✅ Done commits `3f9c2e2` (A1 column) → `385b821` (A2 exporter query) → `6a0476c` (A3 runbook). JOIN removed from both consumers; `created_at` is now NOT NULL DEFAULT now() with index on `(status, created_at)`.
+### 1. Slack platform-picker (TOP PRIORITY — user-requested)
+
+**Goal:** today's Slack quick-approve hardcodes `approved_platform='bluesky'` (the only platform you can actually publish to from Slack). Extend the Slack interactive flow so the reviewer can pick a platform/integration at click-time.
+
+**Why this matters:** post-followup-2, Slack approve → bluesky dispatch works end-to-end. But mastodon and any future channel can only be approved via the form. The Slack button path is currently a one-channel shortcut.
+
+**Approach sketch** (subject to your read of the n8n + Slack code):
+- `Build Slack Blocks` (Workflow C) currently posts a Slack message with Approve / Reject buttons. Add a static_select Block Kit element (or a button cluster) listing the platforms.
+- Slack interactive payloads will then include a `state_values[<block_id>][<action_id>].selected_option.value` in the response.
+- `Verify Slack Signature` + the existing `Webhook Slack Interactive` already validate the inbound payload — extend them to extract the selected platform.
+- `Build Slack Approval` then derives `approved_destination` (Postiz integration ID) from the chosen platform. Source options:
+  - **Easiest:** hardcode a platform→default-integration-id map (e.g., `bluesky → cmpefsrxp0005kbb1ttpbkjnf`, `mastodon → cmpegkub20001j0auhv9epe72`) inside the Code node. Trivial to maintain at current 3-integration scale.
+  - **Cleanest:** add a Postiz `/integrations` fetch step to the Slack approval flow (like B2 did for the form path) and pick the first integration matching the selected platform identifier. More moving parts.
+- Update the hash payload to use the chosen platform (it currently always uses `'bluesky'`).
+- `Write Slack Approval (CTE)` is already shape-correct — it pulls `approved_platform` from `Build Slack Approval`'s output via `queryReplacement` position 10.
+
+**Pre-deploy gate (same as B4):** ensure 0 `ready` rows in publish_jobs before deploying the hash-payload shape change, since rows in flight at the moment of the cutover would fail hash verification.
+
+**Read first:** `apps/outreach-workflows/n8n/review.json` nodes `Build Slack Blocks`, `Webhook Slack Interactive`, `Verify Slack Signature`, `Build Slack Approval`, `Write Slack Approval (CTE)`, `HTTP Confirm Approval`. The Block Kit doc for `static_select` actions: https://api.slack.com/reference/block-kit/block-elements#static_select.
+
+### 2. Phase 1 operational validation (user-driven, in progress)
+
+Use the system for ≥1 week, process ≥10 real outreach items end-to-end. Once done, tag Phase 1: `git tag -a outreach-phase1-shipped -m "Phase 1: approval gate end-to-end"`. This unblocks T30.
+
+While the user is doing this, **do not deploy workflow changes** unless they explicitly confirm — n8n restart interrupts their session.
+
+### 3. Phase 2 T30 (tag)
+
+After step 2 completes AND ≥5 production posts in `sent_to_postiz` (currently 1 — row 62 from T25) AND ArgoCD `temporal` + `postiz` Applications stay Synced/Healthy for a full 24h window:
+```bash
+ssh root@192.168.1.52 "pct exec 114 -- su - postgres -c \"psql -d outreach -c 'SELECT COUNT(*) FROM publish_jobs WHERE status = '\\''sent_to_postiz'\\'';'\""
+ssh root@192.168.1.52 "kubectl get applications -n argocd temporal postiz"
+```
+Then `gh pr merge 18 --squash` (no `--delete-branch`; auto-cleanup handles it). Switch `apps/temporal/argocd-application.yaml` + `apps/postiz/argocd-application.yaml` `targetRevision` from `outreach/phase0-phase1` to `main`/`HEAD`. Then `git tag -a outreach-phase2-shipped -m "Phase 2: Postiz + Temporal + Workflow D"`.
+
+### 4. Channel onboarding (user-gated)
+
+- **Reddit Devvit revisit** if Reddit relaxes the Responsible Builder Policy.
+- **LinkedIn** when Marketing Developer Platform approval comes through.
+- **X — deferred indefinitely** (user-confirmed 2026-05-21 due to $100/mo Basic plan cost). Root cause + wiring instructions in `docs/runbooks/postiz-channel-onboarding.md` "### X" section.
 
 ## Phase 2 architecture at a glance
 
@@ -190,13 +230,11 @@ Root path: ANTHROPIC_API_KEY, OUTREACH_DB_*_URL, DISCOVER_WEBHOOK_SECRET, N8N_FO
 
 ## Open issues / known bugs
 
-### 1. ~~publish_jobs.destination_account is empty after Workflow C writes it~~ ✅ FIXED commit `26fc6b7`
+### 1. ~~publish_jobs.destination_account is empty after Workflow C writes it~~ ✅ FIXED commit `26fc6b7` + Phase 2.1 split
 
-Workflow C's `pj` CTE in `Write Approval (CTE)` now sets both `destination_platform` and `destination_account` to `ins.approved_destination`. Workflow D's Fetch Ready selects `destination_platform` but never reads it — only `destination_account` is passed to the Postiz HTTP node as `integration.id`. The CTE was imported into LXC 112 n8n and the workflow re-activated; the n8n service was restarted.
+Workflow C's `pj` CTE in `Write Approval (CTE)` initially set both `destination_platform` and `destination_account` to `ins.approved_destination` (commit `26fc6b7`). Phase 2.1 then split that further (commit `87056b4` / B5): `destination_platform` now carries the semantic platform string (`bluesky`/`mastodon`/etc) and `destination_account` carries the Postiz integration ID. Workflow D's Postiz HTTP node reads `destination_account` as `integration.id` and is unchanged.
 
-**Note:** `Write Slack Approval (CTE)` (the Slack quick-approve handler) has NO `pj` CTE at all — Slack-button approvals don't enqueue publishing, only the form does. Whether to add a `pj` CTE there (so Slack approves can dispatch too) is a Phase 2.1 design question.
-
-**Phase 2.1 cleanup:** split `approved_destination` into `approved_platform` (human-readable: `bluesky`) AND `approved_destination` (Postiz integration ID) on the approval form so `publish_jobs.destination_platform` carries semantic value again. Today both columns hold the integration ID.
+Slack quick-approve was historically a sibling `Write Slack Approval (CTE)` with no `pj` insert — that gap is also closed (commit `e205db1`); see known-issue #1 followups: Slack dispatch is gated on `decision='approved' AND length(approved_destination) > 0` so empty-destination drafts still record an approval but don't enqueue. The form `pj` shape was simplified again in commit `7122e4a` (unified dropdown — each form option maps directly to an integration ID).
 
 ### 2. SHA-256 padding bug — FIXED in T25, retroactive audit pending
 
@@ -218,9 +256,11 @@ Discovered during T20. Both Verify Hash and Postiz Create Post's error paths use
 
 Reddit's Responsible Builder Policy gate + Devvit platform shift make new OAuth apps impractical. r/PlotLens subreddit exists (Jeremy's a moderator) but no automated posting in Phase 2. Manual Reddit posting via browser remains the path. Comment replies were always manual-only forever per AC-4 anyway.
 
-### 6. X (Twitter) + LinkedIn deferred to Phase 2.1
+### 6. X (Twitter) deferred indefinitely; LinkedIn pending approval
 
-Both blocked on Developer Account / Marketing Developer Platform approvals (1-2 weeks each). Phase 2 ships when 5 posts hit Bluesky + Mastodon.
+**X:** user-confirmed defer 2026-05-21. Root cause of "Could not connect to the platform" diagnosed in detail (missing `X_API_KEY`/`X_API_SECRET`; Postiz backend's `try/catch` at `apps/backend/src/api/routes/integrations.controller.ts:225-245` swallows the TwitterApi auth error and returns `{err:true}`). X requires a $100/mo Basic plan for posting since Feb 2023 — free tier is read-only. Full wiring instructions in `docs/runbooks/postiz-channel-onboarding.md` "### X" section if we ever revisit.
+
+**LinkedIn:** blocked on Marketing Developer Platform approval (1-2 weeks typical). Phase 2 ships when 5 posts hit Bluesky + Mastodon.
 
 ### 7. Mastodon required env-var wiring + granular scopes
 
@@ -230,9 +270,9 @@ Postiz's standard mastodon provider uses `MASTODON_CLIENT_ID/SECRET/URL` env var
 
 Row 47 (pre-CTE-fix legacy with hash-mismatch from the `>>>` mod-32 bug) is now `status='abandoned'`. Migration `20260521120000_publish_jobs_add_abandoned_status.sql` added `'abandoned'` to the publish_jobs.status CHECK so future operator-driven retirements are also reachable. Row 62 (T25 SUCCESS) remains as the only legitimate Phase 2 production row.
 
-### 9. Phase 1 unmerged + not operationally validated
+### 9. Phase 1 unmerged + not operationally validated (in progress)
 
-`outreach/phase0-phase1` branch contains 73 commits — Phase 1 + Phase 2 work mixed. Phase 2 exit criterion 9 says "tag Phase 2 only after Phase 1 is tagged" — which itself requires 10 real items processed end-to-end (Jeremy's actual usage of the system over a week). Not started.
+`outreach/phase0-phase1` branch contains 99 commits — Phase 1 + Phase 2 + Phase 2.1 + 3 followups, all mixed. Phase 2 exit criterion 9 says "tag Phase 2 only after Phase 1 is tagged" — which itself requires 10 real items processed end-to-end (Jeremy's actual usage of the system over a week). **Jeremy started active n8n usage 2026-05-21**; treat live workflows as in-use until he reports back. Once 10 real items have been approved + dispatched, tag `outreach-phase1-shipped` to unblock T30.
 
 ### 10. ~~publish_jobs has no `created_at` column~~ ✅ FIXED commit `3f9c2e2`
 
@@ -267,13 +307,15 @@ Sanity-verified locally on LXC 114: dropping `approved_platform` from a test INS
 
 ## Memory entries from this session (saved to `~/.claude/projects/-home-jacorbello-repos-cortech-infra/memory/`)
 
-All Phase 1 memories still apply. Phase 2 + Phase 2.1 added:
+All Phase 1 memories still apply. Phase 2 + Phase 2.1 + followups added:
 - `n8n-crypto-require-blocked` — `require('crypto')` is blocked in n8n 2.9.4 Code nodes; use pure-JS SHA-256.
 - `postiz-public-api-conventions` — base path `/api/public/v1/`, raw Authorization key (no Bearer), CreatePostDto shape.
 - `n8n-credential-direct-db-edit` — CryptoJS AES (openssl-compatible) for headless credential fixes.
 - `postgres-exporter-custom-query-prefix` — `--extend.query-path` metrics emit `{namespace}_{column}` verbatim (no `pg_` prefix); `--disable-default-metrics` doesn't silence all collectors (need `--no-collector.NAME`).
 - `js-unsigned-rshift-modulo-32` — JS `>>>` takes shift amount mod 32; `x >>> 56` is `x >>> 24`. Use hardcoded 0s for high bytes in SHA-256 padding.
 - `n8n-continueErrorOutput-routes-main1` — error path lives in `main[1]`, not a separate `"error"` connection key.
+- `lxc-114-credential-less-psql` — `ssh cortech "pct exec 114 -- su - postgres -c psql ..."` lets you run superuser SQL without pulling an admin DB URL into the transcript (classifier-safe escape hatch).
+- `postiz-err-true-swallows-integration-errors` — Postiz's `/api/integrations/social/:integration` GET handler catches all errors and returns `200 OK` with `{err:true}` (no log, no toast detail). Read the provider source under `/app/libraries/...` for the actual cause.
 
 Still worth saving in future sessions (not done yet):
 - "Postiz Mastodon needs env vars + granular scopes" — currently only in the channel-onboarding runbook.
@@ -282,35 +324,36 @@ Still worth saving in future sessions (not done yet):
 ## Recent commits (last 15 on branch — `git log --oneline main..HEAD | head -15`)
 
 ```
+a203e82 docs(handoff): test harness SQLSTATE hardening recorded (known-issue #12 closed)
+bb0c684 test(outreach-schema): run_expect_fail asserts on SQLSTATE class
+ee9e514 docs(handoff): Slack quick-approve dispatch wired (TODO #3 closed)
+e205db1 feat(workflow-c): Slack quick-approve dispatches with guards
+e96f44a docs(handoff): unified channel dropdown done (known-issue #11 closed)
+7122e4a feat(workflow-c): unified channel dropdown — one click per approval
+d981df6 docs(postiz): X channel deferred + accurate API tier docs
+fcb0496 fix(outreach-schema-tests): include approved_platform in trigger enforcement tests
+4855507 docs(handoff): Phase 2.1 schema cleanup landed — 10 tasks done
 7a7fdc3 fix(workflow-c): Slack approval path includes approved_platform='bluesky'
 87056b4 feat(workflow-c): Write Approval CTE inserts approved_platform
 cea11ca feat(workflow-c,workflow-d): include approved_platform in hash payload
 4f1f3e0 feat(workflow-c): render platform dropdown sourced from Postiz integrations
 a144ba8 chore(workflows): refresh stale credentials-matrix comment
 61f6eec feat(workflow-c): add Fetch Postiz Integrations HTTP node
-fe3c90e feat(outreach-schema): add approvals.approved_platform column
-6a0476c docs(runbooks): drop approvals JOIN in failed-job-recovery query
-385b821 chore(observability): drop approvals JOIN from outreach_publish_jobs query
-3f9c2e2 feat(outreach-schema): add publish_jobs.created_at column + backfill
-ac30667 plan(outreach): Phase 2.1 schema cleanup — created_at + approved_platform split
-6548206 docs(handoff): enrich Slack quick-approve TODO with destination/edit gotchas
-3693864 docs(handoff): SHA-256 audit done; CI now has sha256-audit job
-55c8858 test(outreach): SHA-256 RFC 6234 audit + CI drift check
-d66c432 docs(handoff): row 47 abandoned + new abandoned status migration
 ```
 
-(90 commits total on the branch — `git log --oneline main..HEAD` for the full list.)
+(99 commits total on the branch — `git log --oneline main..HEAD` for the full list.)
 
 ## TODOs for next session
 
 In priority order:
 
-1. **Phase 1 operational validation** — ≥10 real items / ≥1 week; tag Phase 1. (Only step blocking Phase 2 tag.)
-2. **Phase 2 T30** once #1 done + ≥5 production posts + 24h ArgoCD stability. Then merge PR #18 and flip ArgoCD `targetRevision` from `outreach/phase0-phase1` to `main`/`HEAD`.
-3. **Clean up live Bluesky test post `cmpfkq5x80003j0aulvbz98h4`** from the B7 smoke test. The synthetic post landed in production Bluesky (plotlens.bsky.social brand handle) — delete from Bluesky web UI or via `bsky.app` app password tooling. The corresponding synthetic rows in `outreach_items`/`approvals`/`publish_jobs` are quarantined and don't need DB cleanup, but the live post on the public timeline does.
-4. ~~UX enhancement — couple platform dropdown to destination input~~ ✅ DONE commit `7122e4a`. Unified single-dropdown form (option A from review): one `<select>` where each option is a Postiz integration, hidden `approved_platform` field synced via inline onchange. Smoke-rendered locally with 3 mock integrations (mastodon + 2× bluesky); imported and active on LXC 112.
-5. ~~Decide whether Slack quick-approve should enqueue publishing~~ ✅ DONE commit `e205db1`. Wired Slack to dispatch (option 1 chosen): Build Slack Approval includes platform in hash; Write Slack Approval (CTE) gained a `pj` CTE gated on `decision='approved' AND length(approved_destination) > 0`; HTTP Confirm Approval ephemeral message has three states (dispatched / triage-only / rejected). Pre-deploy gate (0 ready rows) confirmed.
-6. **Reddit / LinkedIn channel onboarding** when their gating clears. **X is deferred indefinitely** (paid plan cost — see "Phase 2.1 follow-ups" above for full diagnosis).
+1. **Slack platform-picker** (user-requested 2026-05-21). Today Slack quick-approve hardcodes `approved_platform='bluesky'` so only the Bluesky integration is reachable from a Slack click. Extend `Build Slack Blocks` with a Block Kit `static_select` (or button cluster) for platform choice, update `Webhook Slack Interactive` + `Verify Slack Signature` to read the selection from `state_values`, and rewrite `Build Slack Approval` to derive `approved_destination` from the platform pick (either a hardcoded platform→integration-id map, or a runtime `/integrations` fetch). Hash payload uses the chosen platform. Pre-deploy gate: 0 `ready` rows. See Resume procedure step 1 for the full sketch.
+
+2. **Phase 1 operational validation** (user in-progress as of session boundary) — ≥10 real items / ≥1 week of real usage; then tag `outreach-phase1-shipped`. Only step blocking Phase 2 tag.
+
+3. **Phase 2 T30** — after #2 done + ≥5 production posts in `sent_to_postiz` (currently 1 — row 62 from T25) + 24h ArgoCD `temporal` + `postiz` Synced/Healthy window. Then `gh pr merge 18 --squash` and flip ArgoCD `targetRevision` from `outreach/phase0-phase1` to `main`/`HEAD`.
+
+4. **Reddit / LinkedIn channel onboarding** when their gating clears. **X is deferred indefinitely** (paid plan cost — see "Phase 2.1 follow-ups" above for full diagnosis).
 
 ## Access patterns reminder
 
