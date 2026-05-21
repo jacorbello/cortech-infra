@@ -1,8 +1,8 @@
 # PlotLens Outreach — Session Handoff
 
-**As of:** 2026-05-21, end-of-Phase-2-build + postgres_exporter live (Workflow C CTE fixed, draft PR #18 open + green, T27 alerts wired to real metrics, row 47 abandoned via new `'abandoned'` status migration)
-**Branch:** `outreach/phase0-phase1` (1 branch, 74 commits ahead of `main`, pushed)
-**Draft PR:** https://github.com/jacorbello/cortech-infra/pull/18 (schema/audit/manifests-lint all SUCCESS at HEAD `f2ae505`)
+**As of:** 2026-05-21, end-of-Phase-2-build + postgres_exporter live + SHA-256 RFC 6234 audit in CI (Workflow C CTE fixed, draft PR #18 open + green, T27 alerts wired to real metrics, row 47 abandoned via new `'abandoned'` status migration)
+**Branch:** `outreach/phase0-phase1` (1 branch, 76 commits ahead of `main`, pushed)
+**Draft PR:** https://github.com/jacorbello/cortech-infra/pull/18 (CI at HEAD `55c8858` includes new `sha256-audit` job alongside schema/audit/manifests-lint)
 **Phase 1 spec:** `docs/superpowers/specs/2026-05-19-plotlens-outreach-stack-design.md`
 **Phase 1 plan:** `docs/superpowers/plans/2026-05-19-plotlens-outreach-phase0-and-phase1.md`
 **Phase 2 spec:** `docs/superpowers/specs/2026-05-20-plotlens-outreach-phase2-design.md`
@@ -54,7 +54,7 @@ Steps 1 + 2 of the prior procedure are done. Remaining work:
 5. **Phase 2.1 follow-ups (deferred items, see roadmap).** None are urgent; act when traffic warrants:
    - **Reddit Devvit revisit** if Reddit relaxes the Responsible Builder Policy.
    - **X / LinkedIn** when developer-account approvals come through.
-   - **n8n pure-JS SHA-256 retroactive audit** against RFC 6234 test vectors (the `>>>` modulo-32 bug from T25 is fixed in `c4bb719`; audit is to rule out other latent bit-twiddling issues).
+   - ~~n8n pure-JS SHA-256 retroactive audit~~ ✅ Done commit `55c8858`. All 5 copies are bit-for-bit identical (md5 `d9d19d56...`); RFC 6234 Appendix B + NIST 1M-`a` + padding/block boundaries + multibyte UTF-8 all pass. Audit lives at `apps/outreach-workflows/tests/sha256-audit/audit.js` and runs in CI as the `sha256-audit` job.
    - **Split `approved_destination` into `approved_platform` + `approved_destination`** on the approval form so `publish_jobs.destination_platform` carries semantic value instead of holding the integration ID twice.
    - **Decide whether Slack quick-approve should enqueue publishing** (`Write Slack Approval (CTE)` has no `pj` CTE today; form path is the only dispatcher).
    - **`publish_jobs.created_at` migration.** No column today; `approvals.approved_at` is the JOIN-based proxy (used by both the postgres_exporter query and the failed-job-recovery runbook). Adding the column would simplify both.
@@ -251,6 +251,8 @@ Still worth saving in future sessions (not done yet):
 ## Recent commits (last 10 on branch — `git log --oneline main..HEAD | head -10`)
 
 ```
+55c8858 test(outreach): SHA-256 RFC 6234 audit + CI drift check
+d66c432 docs(handoff): row 47 abandoned + new abandoned status migration
 f2ae505 feat(outreach-schema): add 'abandoned' to publish_jobs.status
 b1c5947 docs(handoff): refresh for compaction — postgres_exporter live + 2 memory entries saved
 539f7e1 docs(handoff): postgres_exporter deployed; T27 alerts now wired to real metrics
@@ -259,11 +261,9 @@ b935933 feat(observability): postgres_exporter for outreach DB + activate T27 al
 78d4ab6 fix(ci): install postgresql-client on cortech-infra-runner for schema job
 a67d2f8 fix(ci): drop kubectl from manifests-lint; rely on kustomize+helm+YAML parse
 4fe34e3 fix(ci): manifests-lint kubectl apply needs --validate=false
-26fc6b7 fix(workflow-c): set publish_jobs.destination_account to approved_destination
-d630468 docs(handoff,roadmap): Phase 2 build complete (T1-T29); T30 awaiting operational validation
 ```
 
-(74 commits total on the branch — `git log --oneline main..HEAD` for the full list.)
+(76 commits total on the branch — `git log --oneline main..HEAD` for the full list.)
 
 ## TODOs for next session
 
@@ -272,10 +272,9 @@ In priority order:
 1. **Phase 1 operational validation** — ≥10 real items / ≥1 week; tag Phase 1. (Only step blocking Phase 2 tag.)
 2. **Phase 2 T30** once #1 done + ≥5 production posts + 24h ArgoCD stability. Then merge PR #18 and flip ArgoCD `targetRevision` from `outreach/phase0-phase1` to `main`/`HEAD`.
 3. **Decide whether Slack quick-approve should enqueue publishing.** Currently `Write Slack Approval (CTE)` has no `pj` CTE, so only form approvals dispatch. If yes, mirror the form path's `pj` CTE there.
-4. **n8n pure-JS SHA-256 retroactive audit** against RFC 6234 test vectors.
-5. **Reddit / X / LinkedIn channel onboarding** when their gating clears.
-6. **Phase 2.1: split `approved_destination`** into `approved_platform` + `approved_destination` on the approval form so `publish_jobs.destination_platform` carries semantic value (today both columns hold the integration ID).
-7. **Add `publish_jobs.created_at`** migration so the postgres_exporter query and the failed-job-recovery runbook can drop the `approvals` JOIN.
+4. **Reddit / X / LinkedIn channel onboarding** when their gating clears.
+5. **Phase 2.1: split `approved_destination`** into `approved_platform` + `approved_destination` on the approval form so `publish_jobs.destination_platform` carries semantic value (today both columns hold the integration ID).
+6. **Add `publish_jobs.created_at`** migration so the postgres_exporter query and the failed-job-recovery runbook can drop the `approvals` JOIN.
 
 ## Access patterns reminder
 
