@@ -1,14 +1,16 @@
 # PlotLens Outreach — Session Handoff
 
-**As of:** 2026-05-21, end-of-session — Phase 2.1 schema cleanup + 3 followups + X investigation all landed:
+**As of:** 2026-05-21, 17:09 UTC — Phase 2.1 schema cleanup + 5 followups + X investigation + Slack platform-picker DEPLOYED + CI drift guards landed:
 - A1-A3 + B1-B7 schema/UX cleanup
-- Followups: unified channel dropdown (single click per approval), Slack quick-approve dispatch (with empty-destination guard + 3-state ephemeral feedback), schema test SQLSTATE hardening
-- X channel root-caused (missing `X_API_KEY`/`X_API_SECRET`; backend swallows the TwitterApi error as `{err:true}`) and user-deferred indefinitely due to X's $100/mo Basic plan requirement
+- Followups: unified channel dropdown, Slack quick-approve dispatch, schema test SQLSTATE hardening, X investigation
+- **Slack platform-picker deployed to LXC 112** (n8n workflow `rEv1eWoUtReAcH001` re-imported, reactivated, restarted; healthy 2s post-restart; journal confirmed `Activated workflow "outreach-review-notify"`)
+- CI drift guards added: PLATFORM_MAP sync check, full sha256 helper-family bit-identity (catches `sha256Raw` inside `hmacSha256`), hash-payload concat-order pin (audit count 23 → 37)
+- X channel deferred indefinitely (paid plan cost)
 
-**User context (active session boundary):** Jeremy is about to start actively using n8n for Phase 1 operational validation. Treat live workflows on LXC 112 as in-use — do NOT re-import/restart n8n.service without explicit confirmation. Read-only DB queries via `pct exec 114` are fine.
+**User context (active session boundary):** Jeremy is actively using n8n for Phase 1 operational validation post-platform-picker deploy. Treat live workflows on LXC 112 as in-use — do NOT re-import/restart n8n.service without explicit confirmation. Read-only DB queries via `pct exec 114` are fine.
 
-**Branch:** `outreach/phase0-phase1` (1 branch, 99 commits ahead of `main`, pushed)
-**Draft PR:** https://github.com/jacorbello/cortech-infra/pull/18 — MERGEABLE, all 4 CI checks SUCCESS at HEAD `a203e82` (schema / audit / sha256-audit / manifests-lint)
+**Branch:** `outreach/phase0-phase1` (pushed)
+**Draft PR:** https://github.com/jacorbello/cortech-infra/pull/18 — MERGEABLE, all 4 CI checks SUCCESS at HEAD `999db7d` (schema / audit / sha256-audit / manifests-lint). sha256-audit now 37 pass (was 23).
 **Phase 1 spec:** `docs/superpowers/specs/2026-05-19-plotlens-outreach-stack-design.md`
 **Phase 1 plan:** `docs/superpowers/plans/2026-05-19-plotlens-outreach-phase0-and-phase1.md`
 **Phase 2 spec:** `docs/superpowers/specs/2026-05-20-plotlens-outreach-phase2-design.md`
@@ -21,10 +23,10 @@ Read this file first on any session resume. Safe to delete once Phase 2 is tagge
 
 **Phase 1:** ALL 34 tasks BUILT. Operational validation (10 real items end-to-end) NOT done. NOT tagged.
 
-**Phase 2:** T1-T29 done + Phase 2.1 schema cleanup done (A1-A3 + B1-B7 + B5.5) + 3 followups (unified dropdown, Slack dispatch, schema test hardening). T30 is the exit gate — it can't be tagged until:
+**Phase 2:** T1-T29 done + Phase 2.1 schema cleanup done (A1-A3 + B1-B7 + B5.5) + 6 followups (unified dropdown, Slack dispatch, schema test hardening, X investigation, Slack platform-picker DEPLOYED, CI drift guards). T30 is the exit gate — it can't be tagged until:
 1. Phase 1 is tagged first (exit criterion 9).
 2. At least 5 production `publish_jobs` rows succeed (currently 1 — row 62 from T25, status `sent_to_postiz`, Postiz post id `cmpel07680002j0au2phuim4q`). The B7 synthetic smoke-test row 63 was cleaned up at task time; the live Bluesky post it produced (`cmpfkq5x80003j0aulvbz98h4`) was manually deleted by the user 2026-05-21.
-3. ArgoCD `temporal` + `postiz` Applications stay Synced/Healthy for 24h. State of the n8n workflows on LXC 112 changed multiple times during the Phase 2.1 followups; the 24h clock effectively restarted at the last reactivation (commit `e205db1`, ~2026-05-21 15:30 UTC).
+3. ArgoCD `temporal` + `postiz` Applications stay Synced/Healthy for 24h. The 24h clock effectively restarted at the platform-picker reactivation (commit `a364a04` deployed 2026-05-21 17:09 UTC).
 
 ### Phase 2 task status (final)
 
@@ -58,7 +60,8 @@ Read this file first on any session resume. Safe to delete once Phase 2 is tagge
 | Followup 2 — Slack quick-approve dispatch | ✅ | `Write Slack Approval (CTE)` gained a `pj` CTE gated on `decision='approved' AND length(approved_destination) > 0`. Build Slack Approval's hash payload now includes platform (matching Workflow D's verify shape). HTTP Confirm Approval ephemeral message differentiates dispatched / triage-only / rejected. Platform hardcoded to `'bluesky'` for now (Slack buttons have no platform-picker UI — see TODOs) (commit `e205db1`). |
 | Followup 3 — Schema test SQLSTATE hardening | ✅ | `run_expect_fail` now takes an expected SQLSTATE arg (was: accepted any non-zero exit). psql runs with `VERBOSITY=verbose` so the harness can grep for `ERROR:  <SQLSTATE>:`. All 3 trigger enforcement tests now assert `P0001`. Sanity-verified: dropping a NOT NULL column from a test INSERT now correctly fails with "SQLSTATE was not P0001" instead of silently passing (commit `bb0c684`). |
 | Followup 4 — X channel investigation | ✅ | Root cause of "Could not connect to the platform" toast: missing `X_API_KEY`/`X_API_SECRET` env vars; Postiz backend's `try/catch` at `integrations.controller.ts:225-245` swallows the TwitterApi auth error and returns `{err:true}`. X tile shows because the provider list has no env-gate. Updated `docs/runbooks/postiz-channel-onboarding.md` X section with current paid-plan reality + OAuth 1.0a (not 2.0) detail + exact callback URL. User-deferred indefinitely 2026-05-21 (commit `d981df6`). |
-| Followup 5 — Slack platform-picker | ✅ | `Build Slack Blocks` now emits one "Approve → <platform>" button per Postiz integration (PLATFORM_MAP: bluesky_brand, mastodon, bluesky_personal). `Verify Slack Signature` parses tri-segment `approve_<platform_key>_<oid>` action_ids. `Build Slack Approval` resolves platform_key into (platform, integration ID) and emits a correctly-shaped hash payload (matches Workflow D Verify Hash). `Write Slack Approval (CTE)` unchanged. `HTTP Confirm Approval` surfaces the picked platform in the ephemeral reply. Channel-onboarding sync rule documented in `docs/runbooks/postiz-channel-onboarding.md`. NOT YET DEPLOYED — awaiting user green-light to re-import on LXC 112 (commit `<TBD>`). |
+| Followup 5 — Slack platform-picker | ✅ | `Build Slack Blocks` now emits one "Approve → <platform>" button per Postiz integration (PLATFORM_MAP: bluesky_brand, mastodon, bluesky_personal). `Verify Slack Signature` parses tri-segment `approve_<platform_key>_<oid>` action_ids. `Build Slack Approval` resolves platform_key into (platform, integration ID) and emits a correctly-shaped hash payload (matches Workflow D Verify Hash). `Write Slack Approval (CTE)` unchanged. `HTTP Confirm Approval` surfaces the picked platform in the ephemeral reply. Channel-onboarding sync rule documented in `docs/runbooks/postiz-channel-onboarding.md` (commit `a364a04`). **DEPLOYED 2026-05-21 17:09 UTC** — `n8n import:workflow` + `update:workflow --active=true` + `systemctl restart n8n.service`; n8n healthy 2s post-restart, journal confirmed `Activated workflow "outreach-review-notify"`, DB `active=1`. |
+| Followup 6 — CI drift guards for platform map + HMAC + hash payload order | ✅ | Three new tests under `apps/outreach-workflows/tests/sha256-audit/`: (1) `platform-map-audit.js` asserts the PLATFORM_MAP duplicates in `Build Slack Blocks` and `Build Slack Approval` stay in sync + each `integration` matches `^cmpe[a-z0-9]{20,}$` + each `platform` is in the schema CHECK set; (2) `audit.js` extended to extract EVERY `function sha256*` body (catches the previously-uncovered `sha256Raw` inside `hmacSha256`) and to run 4 RFC 4231 + 2 Slack v0 signing-base vectors against the live `hmacSha256` helper; (3) `hash-payload-order.js` fixture-runs `Build Approval` / `Build Slack Approval` / `Verify Hash` against a precomputed reference hash and pins the canonical concat tail `[destination, postType, platform]`. All three wired into the `sha256-audit` CI job. Negative-tests verified each guard catches real drift. Audit count: 23 → 37 pass (commits `4e90e95`, `4d18467`, `999db7d`). |
 
 ## Resume procedure (next steps in order)
 
@@ -348,9 +351,9 @@ a144ba8 chore(workflows): refresh stale credentials-matrix comment
 
 In priority order:
 
-1. ~~Slack platform-picker~~ ✅ Followup 5 done. Pending controller-executed re-import on LXC 112 (gated on user confirmation that n8n usage is paused).
+1. ~~Slack platform-picker~~ ✅ Followup 5 deployed 2026-05-21 17:09 UTC. Workflow re-imported, reactivated, restarted; healthy 2s post-restart; journal + DB confirm `Activated workflow "outreach-review-notify"` with `active=1`. Smoke-validate with a real Slack approval click against any of the three "Approve → <platform>" buttons (brand Bluesky / Mastodon / personal Bluesky) and confirm `publish_jobs.destination_account` matches the picked integration's id.
 
-2. **Phase 1 operational validation** (user in-progress as of session boundary) — ≥10 real items / ≥1 week of real usage; then tag `outreach-phase1-shipped`. Only step blocking Phase 2 tag.
+2. **Phase 1 operational validation** (user in-progress) — ≥10 real items / ≥1 week of real usage; then tag `outreach-phase1-shipped`. Only step blocking Phase 2 tag.
 
 3. **Phase 2 T30** — after #2 done + ≥5 production posts in `sent_to_postiz` (currently 1 — row 62 from T25) + 24h ArgoCD `temporal` + `postiz` Synced/Healthy window. Then `gh pr merge 18 --squash` and flip ArgoCD `targetRevision` from `outreach/phase0-phase1` to `main`/`HEAD`.
 
