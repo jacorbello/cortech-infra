@@ -91,6 +91,8 @@ jobs:
         run: node apps/outreach-workflows/tests/sha256-audit/hash-payload-order.js
       - name: Public self-loop URL drift guard
         run: node apps/outreach-workflows/tests/sha256-audit/no-public-self-loop.js
+      - name: Slack blocksUi shape drift guard
+        run: node apps/outreach-workflows/tests/sha256-audit/blocksui-shape-audit.js
 
   manifests-lint:
     runs-on: ubuntu-latest
