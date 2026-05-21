@@ -244,6 +244,14 @@ Replaced the two-field `approved_platform` + `approved_destination` UI with a si
 
 Limitation accepted: cannot broadcast to multiple integrations on the same platform from one approval. The `publish_jobs` schema is one destination per approval anyway, so this is not a regression.
 
+### 12. ~~Schema test harness accepted any non-zero exit as expected-failure~~ ✅ FIXED commit `bb0c684`
+
+`run_expect_fail` in `apps/outreach-schema/db/tests/run_tests.sh` previously treated ANY error (including NOT NULL violations, type mismatches, even typos) as a passing test. B1's NOT NULL constraint on `approved_platform` slipped past CI because the resulting `23502` errors looked indistinguishable from the `P0001` the tests were supposed to check for; the B8 fixup commit (`fcb0496`) was forced by this hole.
+
+Hardened: `run_expect_fail` now takes an expected SQLSTATE as its second argument. `psql` runs with `VERBOSITY=verbose` so error output is `ERROR:  <SQLSTATE>: <message>`, and the harness greps for the specific class. All three trigger-enforcement tests now assert `P0001` (the trigger's RAISE EXCEPTION default).
+
+Sanity-verified locally on LXC 114: dropping `approved_platform` from a test INSERT produces `23502`, which the new harness correctly reports as `FAIL — got an error, but SQLSTATE was not P0001` (and shows actual output). Pre-fix harness would have silently passed it.
+
 ## Architecture decisions made (post-spec)
 
 1. **Temporal resource sizing**: spike-measured values used (history 50m/288Mi requests, all others 50m), not the plan's conservative defaults. Per Phase 0 spike doc.
