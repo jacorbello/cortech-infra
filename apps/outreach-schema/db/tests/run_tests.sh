@@ -6,6 +6,11 @@ if [[ -z "${DATABASE_URL:-}" ]]; then
   exit 2
 fi
 
+if ! command -v psql >/dev/null 2>&1; then
+  echo "ERROR: psql not on PATH — install postgresql-client" >&2
+  exit 2
+fi
+
 cd "$(dirname "$0")"
 
 # Wrap each test in a transaction that is rolled back at the end, so tests don't pollute state.

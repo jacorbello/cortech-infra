@@ -1,7 +1,8 @@
 # PlotLens Outreach — Session Handoff
 
-**As of:** 2026-05-20, end-of-Phase-2-build (post-push, awaiting PR for CI to fire)
-**Branch:** `outreach/phase0-phase1` (still 1 branch, 65+ commits ahead of `main`, pushed to GitHub)
+**As of:** 2026-05-20, end-of-Phase-2-build (Workflow C CTE fixed, draft PR #18 open, CI green)
+**Branch:** `outreach/phase0-phase1` (1 branch, ~70 commits ahead of `main`, pushed)
+**Draft PR:** https://github.com/jacorbello/cortech-infra/pull/18 (schema/audit/manifests-lint all SUCCESS)
 **Phase 1 spec:** `docs/superpowers/specs/2026-05-19-plotlens-outreach-stack-design.md`
 **Phase 1 plan:** `docs/superpowers/plans/2026-05-19-plotlens-outreach-phase0-and-phase1.md`
 **Phase 2 spec:** `docs/superpowers/specs/2026-05-20-plotlens-outreach-phase2-design.md`
@@ -33,21 +34,14 @@ Read this file first on any session resume. Safe to delete once Phase 2 is tagge
 
 ## Resume procedure (next steps in order)
 
-Three concrete next moves, in dependency order:
+Steps 1 + 2 of the prior procedure are done. Remaining work:
 
-1. **Workflow C `destination_account` CTE fix.** Highest priority — every production approval today lands with `destination_account=''` and Workflow D's Postiz call returns 400 until someone hand-UPDATEs the row. This blocks Phase 1 operational validation (#2) because you can't process 10 items end-to-end with a manual fix in the loop.
-   - File: `apps/outreach-workflows/n8n/review.json` → Write Approval node's `pj` CTE
-   - Change: `destination_account` column INSERT value from `NULL` to `ins.approved_destination`
-   - Test: re-trigger an approval, confirm row 62-style flow works without intervention
-   - See "Known issues" #1 for full context
-
-2. **Open a PR from `outreach/phase0-phase1` → `main`.** CI's `manifests-lint` job ONLY triggers on `pull_request` (verified — direct branch push doesn't fire it; the workflow isn't registered in GitHub Actions until at least one PR exists). Opening a PR:
-   - Surfaces the 65-commit diff for any final review pass.
-   - Triggers `outreach-ci.yml` (schema + audit + manifests-lint).
-   - Lets you watch the new lint job run for real. Locally we verified via `kubectl kustomize` on cortech master that `apps/postiz/overlays/production` and `apps/temporal/extras` both render cleanly, and `helm template temporalio/temporal --version 0.74.0 -f apps/temporal/values.yaml` produces 20 docs — so the job's mechanics should work.
-   - Standard PR command: `gh pr create --base main --head outreach/phase0-phase1 --title "Outreach Phase 1+2: approval gate + Postiz/Temporal in production" --body-file <DESCRIPTION>`. Mark as draft until Phase 1 validation completes.
-
-3. **Phase 1 operational validation.** Use the system for ≥1 week, process ≥10 real outreach items end-to-end. Once done, tag Phase 1: `git tag -a outreach-phase1-shipped -m "Phase 1: approval gate end-to-end"`. This unblocks T30.
+1. ~~**Workflow C `destination_account` CTE fix.**~~ ✅ Done (commit `26fc6b7`). Workflow C's `pj` CTE now sets both `destination_platform` and `destination_account` to `ins.approved_destination` (the Postiz integration ID). Workflow D only reads `destination_account`; `destination_platform` is selected by Fetch Ready but never consumed. Imported + active on LXC 112. Cleaner field-split refactor still deferred to Phase 2.1.
+2. ~~**Open a PR.**~~ ✅ Done. PR #18 (https://github.com/jacorbello/cortech-infra/pull/18), draft, all 3 CI checks green:
+   - schema (40s) — needed `postgresql-client` installed on `cortech-infra-runner` (commit `78d4ab6`); latent bug in `run_tests.sh` that false-passes when psql is missing has been fixed in the same push.
+   - audit (39s) — Workflow D credential audit passed.
+   - manifests-lint (11s) — `kubectl apply --dry-run=client` was dropped because GitHub-hosted runners still do server-side API discovery even with `--validate=false`. Final form is kustomize build + helm template + Python YAML parse + kind allow-list + hard fail on missing kind/apiVersion (commit `a67d2f8`).
+3. **Phase 1 operational validation.** Use the system for ≥1 week, process ≥10 real outreach items end-to-end. Once done, tag Phase 1: `git tag -a outreach-phase1-shipped -m "Phase 1: approval gate end-to-end"`. This unblocks T30. **This is the only thing blocking Phase 2 tag.**
 
 4. **Phase 2 T30 (tag).** After step 3 completes AND there are ≥5 production posts in `sent_to_postiz` AND the ArgoCD `temporal` + `postiz` Applications stay Synced/Healthy for a full 24h window:
    ```bash
@@ -55,7 +49,7 @@ Three concrete next moves, in dependency order:
    psql "$ADMIN_URL" -c "SELECT COUNT(*) FROM publish_jobs WHERE status='sent_to_postiz';"
    ssh root@192.168.1.52 "kubectl get applications -n argocd temporal postiz"
    ```
-   Then `git tag -a outreach-phase2-shipped -m "Phase 2: Postiz + Temporal + Workflow D"`.
+   Then merge PR #18 (`gh pr merge 18 --squash`), switch `apps/temporal/argocd-application.yaml` + `apps/postiz/argocd-application.yaml` `targetRevision` from `outreach/phase0-phase1` to `main`/`HEAD`, and `git tag -a outreach-phase2-shipped -m "Phase 2: Postiz + Temporal + Workflow D"`.
 
 5. **Phase 2.1 follow-ups (deferred items, see roadmap).** None are urgent; act when traffic warrants:
    - **Reddit Devvit revisit** if Reddit relaxes the Responsible Builder Policy.
@@ -162,15 +156,13 @@ Root path: ANTHROPIC_API_KEY, OUTREACH_DB_*_URL, DISCOVER_WEBHOOK_SECRET, N8N_FO
 
 ## Open issues / known bugs
 
-### 1. publish_jobs.destination_account is empty after Workflow C writes it
+### 1. ~~publish_jobs.destination_account is empty after Workflow C writes it~~ ✅ FIXED commit `26fc6b7`
 
-Workflow C's CTE (T18 implementation) sets `destination_account = NULL` in the `pj` CTE, later coerced to `''`. Workflow D's Postiz HTTP node reads `$json.destination_account` for `integration.id`. Empty → Postiz returns 400.
+Workflow C's `pj` CTE in `Write Approval (CTE)` now sets both `destination_platform` and `destination_account` to `ins.approved_destination`. Workflow D's Fetch Ready selects `destination_platform` but never reads it — only `destination_account` is passed to the Postiz HTTP node as `integration.id`. The CTE was imported into LXC 112 n8n and the workflow re-activated; the n8n service was restarted.
 
-**Workaround during T25:** manually UPDATE the row's `destination_account` to the Postiz integration ID after Workflow C writes it. This worked once for the test — every future production approval will hit the same issue.
+**Note:** `Write Slack Approval (CTE)` (the Slack quick-approve handler) has NO `pj` CTE at all — Slack-button approvals don't enqueue publishing, only the form does. Whether to add a `pj` CTE there (so Slack approves can dispatch too) is a Phase 2.1 design question.
 
-**Phase 2.1 fix:** modify Workflow C's CTE to set `destination_account = ins.approved_destination`. The approval form already collects this value (the operator types/pastes the Postiz integration ID into "approved_destination").
-
-Better Phase 2.1 design: separate fields. Have the form ask for "approved_platform" (human-readable: `bluesky`) AND "approved_destination" (Postiz integration ID). Phase 2 collapsed both into `approved_destination` for expediency.
+**Phase 2.1 cleanup:** split `approved_destination` into `approved_platform` (human-readable: `bluesky`) AND `approved_destination` (Postiz integration ID) on the approval form so `publish_jobs.destination_platform` carries semantic value again. Today both columns hold the integration ID.
 
 ### 2. SHA-256 padding bug — FIXED in T25, retroactive audit pending
 
@@ -253,16 +245,16 @@ f29e75d feat(outreach-workflows): add Workflow D dispatcher and extend Workflow 
 
 ## TODOs for next session
 
-In priority order (matches "Resume procedure" above):
+In priority order:
 
-1. **Workflow C `destination_account` CTE fix** — blocking #2; ~10 minute fix in `apps/outreach-workflows/n8n/review.json`.
-2. **Open a PR** `outreach/phase0-phase1` → `main` (draft) so `manifests-lint` CI fires.
-3. **Phase 1 operational validation** — ≥10 real items / ≥1 week; tag Phase 1.
-4. **Phase 2 T30** once #3 done + ≥5 production posts + 24h ArgoCD stability.
-5. **n8n pure-JS SHA-256 retroactive audit** against RFC 6234 test vectors.
-6. **Reddit / X / LinkedIn channel onboarding** when their gating clears.
-7. **postgres_exporter custom queries** so the T27 placeholder alerts actually fire.
-8. **Memory entries** for `>>>` modulo-32 and `continueErrorOutput` (low priority but useful).
+1. **Phase 1 operational validation** — ≥10 real items / ≥1 week; tag Phase 1. (Only step blocking Phase 2 tag.)
+2. **Phase 2 T30** once #1 done + ≥5 production posts + 24h ArgoCD stability. Then merge PR #18 and flip ArgoCD `targetRevision` from `outreach/phase0-phase1` to `main`/`HEAD`.
+3. **Decide whether Slack quick-approve should enqueue publishing.** Currently `Write Slack Approval (CTE)` has no `pj` CTE, so only form approvals dispatch. If yes, mirror the form path's `pj` CTE there.
+4. **n8n pure-JS SHA-256 retroactive audit** against RFC 6234 test vectors.
+5. **Reddit / X / LinkedIn channel onboarding** when their gating clears.
+6. **postgres_exporter custom queries** so the T27 placeholder alerts actually fire.
+7. **Memory entries** for `>>>` modulo-32 and `continueErrorOutput` (low priority but useful).
+8. **Phase 2.1: split `approved_destination`** into `approved_platform` + `approved_destination` on the approval form so `publish_jobs.destination_platform` carries semantic value (today both columns hold the integration ID).
 
 ## Access patterns reminder
 
