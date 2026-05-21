@@ -220,6 +220,7 @@ CREATE TABLE public.publish_jobs (
     published_at timestamp with time zone,
     failure_reason text,
     payload_hash text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
     attempt_count integer DEFAULT 0 NOT NULL,
     sent_at timestamp with time zone,
     CONSTRAINT publish_jobs_publish_mode_check CHECK ((publish_mode = ANY (ARRAY['postiz_scheduled'::text, 'postiz_immediate'::text, 'manual_required'::text]))),
@@ -368,6 +369,13 @@ CREATE INDEX idx_publish_jobs_status_scheduled ON public.publish_jobs USING btre
 
 
 --
+-- Name: idx_publish_jobs_status_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_publish_jobs_status_created ON public.publish_jobs USING btree (status, created_at);
+
+
+--
 -- Name: publish_jobs trg_enforce_approval_match; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -425,4 +433,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260519120600'),
     ('20260520120000'),
     ('20260520120100'),
-    ('20260521120000');
+    ('20260521120000'),
+    ('20260521130000');
