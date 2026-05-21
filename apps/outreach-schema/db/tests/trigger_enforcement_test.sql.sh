@@ -8,7 +8,7 @@ SEED="
 "
 
 # Test 1: rejected decision must block publish_jobs insert
-run_expect_fail "rejects publish_job for rejected approval" "
+run_expect_fail "rejects publish_job for rejected approval" "P0001" "
   $SEED
   INSERT INTO approvals (draft_id, approved_by, decision, approved_platform, approved_destination, approved_post_type, approved_content_hash)
     VALUES (:d_id, 'jeremy', 'rejected', 'x', 'x_post', 'thread', 'abc123') RETURNING id \gset a_
@@ -17,7 +17,7 @@ run_expect_fail "rejects publish_job for rejected approval" "
 "
 
 # Test 2: expired approval must block publish_jobs insert
-run_expect_fail "rejects publish_job for expired approval" "
+run_expect_fail "rejects publish_job for expired approval" "P0001" "
   $SEED
   INSERT INTO approvals (draft_id, approved_by, decision, approved_platform, approved_destination, approved_post_type, approved_content_hash, expires_at)
     VALUES (:d_id, 'jeremy', 'approved', 'x', 'x_post', 'thread', 'abc123', now() - INTERVAL '1 hour') RETURNING id \gset a_
@@ -26,7 +26,7 @@ run_expect_fail "rejects publish_job for expired approval" "
 "
 
 # Test 3: mismatched payload_hash must block publish_jobs insert
-run_expect_fail "rejects publish_job with mismatched payload_hash" "
+run_expect_fail "rejects publish_job with mismatched payload_hash" "P0001" "
   $SEED
   INSERT INTO approvals (draft_id, approved_by, decision, approved_platform, approved_destination, approved_post_type, approved_content_hash)
     VALUES (:d_id, 'jeremy', 'approved', 'x', 'x_post', 'thread', 'abc123') RETURNING id \gset a_
