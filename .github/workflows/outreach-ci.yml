@@ -42,11 +42,14 @@ jobs:
       DATABASE_URL: postgres://postgres:ci@localhost:5432/outreach?sslmode=disable
     steps:
       - uses: actions/checkout@v4
-      - name: Install dbmate
+      - name: Install postgresql-client + dbmate
         run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client
           sudo curl -fsSL -o /usr/local/bin/dbmate \
             https://github.com/amacneil/dbmate/releases/latest/download/dbmate-linux-amd64
           sudo chmod +x /usr/local/bin/dbmate
+          psql --version && dbmate --version
       - name: Apply migrations
         working-directory: apps/outreach-schema
         run: dbmate up
