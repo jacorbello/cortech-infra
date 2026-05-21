@@ -271,7 +271,7 @@ In priority order:
 
 1. **Phase 1 operational validation** — ≥10 real items / ≥1 week; tag Phase 1. (Only step blocking Phase 2 tag.)
 2. **Phase 2 T30** once #1 done + ≥5 production posts + 24h ArgoCD stability. Then merge PR #18 and flip ArgoCD `targetRevision` from `outreach/phase0-phase1` to `main`/`HEAD`.
-3. **Decide whether Slack quick-approve should enqueue publishing.** Currently `Write Slack Approval (CTE)` has no `pj` CTE, so only form approvals dispatch. If yes, mirror the form path's `pj` CTE there.
+3. **Decide whether Slack quick-approve should enqueue publishing.** Currently `Write Slack Approval (CTE)` has no `pj` CTE, so only form approvals dispatch. Two complications if we add it: (a) `Build Slack Approval` uses `d.suggested_destination || ''` (no override possible from Slack UI), so any draft without a populated `suggested_destination` would produce a `publish_jobs` row with empty `destination_account` — same shape as row 47 was — and Workflow D would fail/skip it; (b) Slack-button approvals lack the edit affordance, so `edited_text=null` is hard-coded and the hash is computed over `draft_text` unchanged. Decision needed: gate Slack-path `pj` insert on `suggested_destination IS NOT NULL AND length > 0`, OR keep Slack as approval-only and require form approval for actual publishing.
 4. **Reddit / X / LinkedIn channel onboarding** when their gating clears.
 5. **Phase 2.1: split `approved_destination`** into `approved_platform` + `approved_destination` on the approval form so `publish_jobs.destination_platform` carries semantic value (today both columns hold the integration ID).
 6. **Add `publish_jobs.created_at`** migration so the postgres_exporter query and the failed-job-recovery runbook can drop the `approvals` JOIN.
