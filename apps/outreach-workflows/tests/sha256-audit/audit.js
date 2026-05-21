@@ -20,6 +20,10 @@
 //      helper that wraps a nested `sha256Raw(byteArray)`. We exec that helper
 //      in-place and compare against `crypto.createHmac('sha256', key)` for
 //      RFC 4231 vectors plus Slack-shaped `v0:<ts>:<body>` payloads.
+//      NOTE: these HMAC vectors validate the SHA-256 / HMAC math only; they
+//      do NOT validate that the Code node reconstructs the body Slack signed.
+//      That responsibility belongs to slack-signature-end-to-end.js, which
+//      exercises the full sandboxed verify path against a Go-encoded body.
 //
 // Re-run after editing any workflow JSON that contains sha256() or hmacSha256():
 //   node apps/outreach-workflows/tests/sha256-audit/audit.js
