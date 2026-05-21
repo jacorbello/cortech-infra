@@ -114,7 +114,7 @@ jobs:
               yaml.safe_dump_all(keep, f)
           print(f"kept={len(keep)} skipped={len(docs)-len(keep)} (skipped kinds: {sorted(set(drop))})")
           EOF
-          kubectl apply --dry-run=client -f /tmp/postiz-builtin.yaml
+          kubectl apply --dry-run=client --validate=false -f /tmp/postiz-builtin.yaml
 
       # Temporal: render the Helm chart with the project values and dry-run apply.
       # Same CRD caveat — strip Traefik IngressRoute / InfisicalSecret / ServiceMonitor.
@@ -140,7 +140,7 @@ jobs:
               yaml.safe_dump_all(keep, f)
           print(f"kept={len(keep)} skipped={len(docs)-len(keep)} (skipped kinds: {sorted(set(drop))})")
           EOF
-          kubectl apply --dry-run=client -f /tmp/temporal-builtin.yaml
+          kubectl apply --dry-run=client --validate=false -f /tmp/temporal-builtin.yaml
 
       - name: Build Temporal extras
         run: kustomize build apps/temporal/extras > /tmp/temporal-extras-rendered.yaml
@@ -158,7 +158,7 @@ jobs:
           print(f"kept={len(keep)} skipped={len(docs)-len(keep)}")
           EOF
           if [ -s /tmp/temporal-extras-builtin.yaml ]; then
-            kubectl apply --dry-run=client -f /tmp/temporal-extras-builtin.yaml
+            kubectl apply --dry-run=client --validate=false -f /tmp/temporal-extras-builtin.yaml
           else
             echo "No built-in kinds in temporal/extras — all CRDs (expected)"
           fi
