@@ -76,6 +76,16 @@ jobs:
       - name: Run audit against repo workflows
         run: python -m scripts.n8n.audit_credentials apps/outreach-workflows/
 
+  sha256-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: SHA-256 drift + RFC 6234 audit
+        run: node apps/outreach-workflows/tests/sha256-audit/audit.js
+
   manifests-lint:
     runs-on: ubuntu-latest
     steps:
