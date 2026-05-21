@@ -97,6 +97,8 @@ jobs:
         run: node apps/outreach-workflows/tests/sha256-audit/webhook-rawbody-audit.js
       - name: Slack signature end-to-end (Go-encoded body)
         run: node apps/outreach-workflows/tests/sha256-audit/slack-signature-end-to-end.js
+      - name: Normalize RSS follow.it-unwrap drift guard
+        run: node apps/outreach-workflows/tests/sha256-audit/normalize-rss-no-followit.js
 
   manifests-lint:
     runs-on: ubuntu-latest

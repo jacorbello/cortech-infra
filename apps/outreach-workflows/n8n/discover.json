@@ -46,6 +46,19 @@
     },
     {
       "parameters": {
+        "jsCode": "// Soft-block list \u2014 domains/handles where we know engagement is unwelcome\n// or against community policy. Items matching these patterns are dropped at\n// discover time so the auto-draft pipeline never spends Anthropic tokens or\n// reviewer attention on them. Operators can still manually engage by visiting\n// the URL directly; this filter only stops the automation.\n//\n// To add a soft-block, add a row to SOFT_BLOCK_PATTERNS. The `pattern` is\n// matched against source_url AND source_author. The `reason` is logged for\n// audit visibility.\n//\n// NOTE: this Code node is duplicated on the manual-webhook path (Normalize\n// Input -> Apply Soft Block -> Insert Outreach Item) and the RSS path\n// (Normalize RSS -> Apply Soft Block RSS -> Insert RSS Item). Keep the\n// SOFT_BLOCK_PATTERNS list in sync between the two.\nconst SOFT_BLOCK_PATTERNS = [\n  { pattern: /(?:^|\\.)annerallen\\.com/i,           reason: 'AI-skeptical single author; manual engagement only' },\n  { pattern: /countercraft\\.substack\\.com/i,       reason: 'Lincoln Michel \u2014 AI-skeptical commentary; manual only' },\n  { pattern: /reddit\\.com\\/r\\/writing/i,           reason: 'r/writing rule 3 bans AI-tool mentions' },\n];\n\nconst out = [];\nfor (const item of items) {\n  const j = item.json || {};\n  const url = String(j.source_url || '');\n  const author = String(j.source_author || '');\n  const haystack = url + ' ' + author;\n  const hit = SOFT_BLOCK_PATTERNS.find(p => p.pattern.test(haystack));\n  if (hit) {\n    console.log(`[Apply Soft Block] DROPPED ${url} (${hit.reason})`);\n    continue;\n  }\n  out.push(item);\n}\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        380
+      ],
+      "id": "11111111-2222-3333-4444-555555555555",
+      "name": "Apply Soft Block"
+    },
+    {
+      "parameters": {
         "operation": "executeQuery",
         "query": "INSERT INTO outreach_items (source_platform, source_url, source_excerpt, source_author)\nVALUES ($1, $2, $3, $4)\nON CONFLICT (source_platform, source_url) DO NOTHING\nRETURNING id;",
         "options": {
@@ -103,7 +116,7 @@
     },
     {
       "parameters": {
-        "jsCode": "return [\n  { json: { name: 'The Creative Penn', url: 'https://thecreativepenn.com/feed/' } },\n  { json: { name: 'Writers Helping Writers', url: 'https://writershelpingwriters.net/feed/' } },\n  { json: { name: 'Jane Friedman', url: 'https://janefriedman.com/feed/' } },\n  { json: { name: 'Helping Writers Become Authors', url: 'https://www.helpingwritersbecomeauthors.com/feed/' } },\n  { json: { name: 'Reedsy', url: 'https://blog.reedsy.com/feed/' } }\n];"
+        "jsCode": "return [\n  { json: { name: \"The Creative Penn\", url: \"https://thecreativepenn.com/feed/\" } },\n  { json: { name: \"Writers Helping Writers\", url: \"https://writershelpingwriters.net/feed/\" } },\n  { json: { name: \"Jane Friedman\", url: \"https://janefriedman.com/feed/\" } },\n  { json: { name: \"Helping Writers Become Authors\", url: \"https://www.helpingwritersbecomeauthors.com/feed/\" } },\n  { json: { name: \"Writer Unboxed\", url: \"https://writerunboxed.com/feed/\" } },\n  { json: { name: \"Kill Zone Blog\", url: \"https://killzoneblog.com/feed\" } },\n  { json: { name: \"Writers in the Storm\", url: \"https://writersinthestormblog.com/feed/\" } },\n  { json: { name: \"John August\", url: \"https://johnaugust.com/feed/\" } },\n  { json: { name: \"Go Into The Story (Black List)\", url: \"https://gointothestory.blcklst.com/feed\" } },\n  { json: { name: \"Steven Pressfield\", url: \"https://stevenpressfield.com/feed/\" } }\n];"
       },
       "id": "f6a7b8c9-d0e1-2345-fabc-456789012345",
       "name": "RSS Feed List",
@@ -143,7 +156,7 @@
     },
     {
       "parameters": {
-        "jsCode": "return items.map(item => ({\n  json: {\n    source_platform: 'rss',\n    source_url: item.json.link,\n    source_excerpt: (item.json.contentSnippet || '').slice(0, 1000),\n    source_author: item.json.creator || null,\n  }\n}));"
+        "jsCode": "// Unwrap follow.it tracking proxies. The Creative Penn (and any other publisher\n// who delegated their feed to follow.it) emits items with link AND guid both\n// pointing at https://api.follow.it/track-rss-story-click/v3/<opaque>?utm_source=follow.it.\n// The canonical URL is recoverable via a single HTTP 302: the redirect Location\n// header carries it as `?q=<urlencoded>`. We only HEAD api.follow.it/* hosts;\n// non-tracking URLs pass through untouched.\nasync function unwrapFollowIt(url) {\n  try {\n    if (!url || !/^https:\\/\\/api\\.follow\\.it\\//.test(url)) return url;\n    const res = await fetch(url, { method: 'HEAD', redirect: 'manual', signal: AbortSignal.timeout(3000) });\n    const loc = res.headers.get('location');\n    if (!loc) return url;\n    const m = loc.match(/[?&]q=([^&]+)/);\n    if (!m) return url;\n    const decoded = decodeURIComponent(m[1]);\n    return /^https?:\\/\\//.test(decoded) ? decoded : url;\n  } catch (_) {\n    return url;\n  }\n}\n\nconst out = [];\nfor (const item of items) {\n  out.push({\n    json: {\n      source_platform: 'rss',\n      source_url: await unwrapFollowIt(item.json.link),\n      source_excerpt: (item.json.contentSnippet || '').slice(0, 1000),\n      source_author: item.json.creator || null,\n    },\n  });\n}\nreturn out;"
       },
       "id": "c9d0e1f2-a3b4-5678-cdef-789012345678",
       "name": "Normalize RSS",
@@ -153,6 +166,19 @@
         1120,
         620
       ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Soft-block list \u2014 domains/handles where we know engagement is unwelcome\n// or against community policy. Items matching these patterns are dropped at\n// discover time so the auto-draft pipeline never spends Anthropic tokens or\n// reviewer attention on them. Operators can still manually engage by visiting\n// the URL directly; this filter only stops the automation.\n//\n// To add a soft-block, add a row to SOFT_BLOCK_PATTERNS. The `pattern` is\n// matched against source_url AND source_author. The `reason` is logged for\n// audit visibility.\n//\n// NOTE: this Code node is duplicated on the manual-webhook path (Normalize\n// Input -> Apply Soft Block -> Insert Outreach Item) and the RSS path\n// (Normalize RSS -> Apply Soft Block RSS -> Insert RSS Item). Keep the\n// SOFT_BLOCK_PATTERNS list in sync between the two.\nconst SOFT_BLOCK_PATTERNS = [\n  { pattern: /(?:^|\\.)annerallen\\.com/i,           reason: 'AI-skeptical single author; manual engagement only' },\n  { pattern: /countercraft\\.substack\\.com/i,       reason: 'Lincoln Michel \u2014 AI-skeptical commentary; manual only' },\n  { pattern: /reddit\\.com\\/r\\/writing/i,           reason: 'r/writing rule 3 bans AI-tool mentions' },\n];\n\nconst out = [];\nfor (const item of items) {\n  const j = item.json || {};\n  const url = String(j.source_url || '');\n  const author = String(j.source_author || '');\n  const haystack = url + ' ' + author;\n  const hit = SOFT_BLOCK_PATTERNS.find(p => p.pattern.test(haystack));\n  if (hit) {\n    console.log(`[Apply Soft Block] DROPPED ${url} (${hit.reason})`);\n    continue;\n  }\n  out.push(item);\n}\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1230,
+        760
+      ],
+      "id": "22222222-3333-4444-5555-666666666666",
+      "name": "Apply Soft Block RSS"
     },
     {
       "parameters": {
@@ -194,7 +220,7 @@
       "main": [
         [
           {
-            "node": "Insert Outreach Item",
+            "node": "Apply Soft Block",
             "type": "main",
             "index": 0
           }
@@ -258,6 +284,28 @@
       ]
     },
     "Normalize RSS": {
+      "main": [
+        [
+          {
+            "node": "Apply Soft Block RSS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apply Soft Block": {
+      "main": [
+        [
+          {
+            "node": "Insert Outreach Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apply Soft Block RSS": {
       "main": [
         [
           {
