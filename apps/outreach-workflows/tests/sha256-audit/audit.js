@@ -181,7 +181,19 @@ for (const src of SHA256_SOURCES) {
 // ---------------------------------------------------------------------------
 // 2. Canonical sha256() vs Node crypto (RFC 6234, padding, UTF-8, payloads).
 // ---------------------------------------------------------------------------
-const canonicalSha256Body = byName.get('sha256')[0].body;
+// Defensive: if the drift check above found zero copies of sha256(), the
+// expectedNames loop will already have recorded a FAIL — but accessing
+// `byName.get('sha256')[0].body` would still throw `Cannot read properties of
+// undefined` and crash before we get to print a summary or exit cleanly. Bail
+// out with a clear diagnostic instead.
+const sha256Bucket = byName.get('sha256');
+if (!sha256Bucket || sha256Bucket.length === 0) {
+  check('canonical sha256 body available for RFC vectors', false,
+    'no sha256() copies were discovered in any workflow — skipping RFC + HMAC vectors');
+  console.log(`\n=== ${totalPass} pass, ${totalFail} fail ===`);
+  process.exit(1);
+}
+const canonicalSha256Body = sha256Bucket[0].body;
 const sha256 = eval(`(${canonicalSha256Body})`); // eslint-disable-line no-eval
 const refSha = (s) => crypto.createHash('sha256').update(s, 'utf8').digest('hex');
 
@@ -269,12 +281,12 @@ if (!hmacFnBody) {
   const k4 = '';
   let key4 = '';
   for (let i = 1; i <= 25; i++) key4 += String.fromCharCode(i);
-  checkHmac('RFC 4231 case 4 (0x01..0x19 / 0x7e*50)',
+  checkHmac('RFC 4231 case 4 shape (ASCII substitute for UTF-8 encoder parity)',
     key4,
     '~'.repeat(50));
   // Long-key path: key longer than 64 bytes triggers the sha256Raw(key) branch
   // inside the helper. RFC 4231 case 6 uses a 131-byte key.
-  checkHmac('RFC 4231 case 6 (131-byte key, "Test Using ... Hash Key First")',
+  checkHmac('RFC 4231 case 6 shape (ASCII substitute for UTF-8 encoder parity)',
     'a'.repeat(131),
     'Test Using Larger Than Block-Size Key - Hash Key First');
 

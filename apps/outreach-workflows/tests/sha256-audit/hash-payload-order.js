@@ -136,6 +136,17 @@ function runBuildSlackApproval(jsCode) {
 // hash AND swap to a try/catch in the wrapper to re-run with a deliberately
 // wrong hash to force the error path, and parse the computed value from the
 // thrown Error message.
+//
+// Why this throw-parsing trick exists: Verify Hash deliberately throws on
+// hash mismatch and embeds `computed=<hex>` in the Error message — this is
+// what an n8n operator sees in the execution log when a dispatch fails
+// integrity verification, so the throw format is part of the operational
+// contract for diagnosing publish failures, not an internal implementation
+// detail. We piggy-back on that contract here to recover the computed hash
+// for this test. If Verify Hash's error message format ever changes (e.g.
+// the `computed=<hex>` token is renamed or removed), this test produces a
+// clear `Verify Hash error did not include computed=<hex>: <error>`
+// diagnostic rather than silently misreporting, so the coupling is loud.
 function runVerifyHash(jsCode) {
   const item = {
     final_text:             FIXTURE.draft_text,
@@ -179,34 +190,6 @@ function runVerifyHash(jsCode) {
 // platform. This catches reorderings that happen to collide on a fixture.
 // ---------------------------------------------------------------------------
 const CANONICAL_TAIL = ['destination', 'postType', 'platform'];
-
-function extractSha256ConcatVars(jsCode, label) {
-  // Look for `sha256(` followed by a balanced-paren expression.
-  const i = jsCode.indexOf('sha256(');
-  if (i < 0) return null;
-  let depth = 0;
-  let start = -1;
-  for (let j = i + 'sha256'.length; j < jsCode.length; j++) {
-    const ch = jsCode[j];
-    if (ch === '(') { depth++; if (start < 0) start = j + 1; }
-    else if (ch === ')') {
-      depth--;
-      if (depth === 0) {
-        const inner = jsCode.slice(start, j).trim();
-        // Walk through occurrences of sha256(...) — pick the FIRST one whose
-        // inner expression is a `+`-chain of 4 identifiers; the canonical
-        // hash compute. Earlier matches (if any) might be inside the helper
-        // body but those are function declarations, not calls.
-        // Use a simple `+` split that respects identifiers; the nodes use
-        // plain `a + b + c + d` so a regex on identifier tokens is fine.
-        const parts = inner.split('+').map(s => s.trim());
-        if (parts.length !== 4) return { raw: inner, parts, label };
-        return { raw: inner, parts, label };
-      }
-    }
-  }
-  return null;
-}
 
 function findHashConcat(jsCode, label) {
   // Find all `sha256(` calls; return the first one whose body is a `+`-chain
