@@ -83,8 +83,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      - name: SHA-256 drift + RFC 6234 audit
+      - name: SHA-256 drift + RFC 6234 + HMAC audit
         run: node apps/outreach-workflows/tests/sha256-audit/audit.js
+      - name: PLATFORM_MAP drift guard (review.json)
+        run: node apps/outreach-workflows/tests/sha256-audit/platform-map-audit.js
+      - name: Hash-payload concatenation-order drift guard
+        run: node apps/outreach-workflows/tests/sha256-audit/hash-payload-order.js
 
   manifests-lint:
     runs-on: ubuntu-latest
