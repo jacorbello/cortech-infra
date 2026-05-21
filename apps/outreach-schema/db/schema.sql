@@ -50,11 +50,13 @@ CREATE TABLE public.approvals (
     decision text NOT NULL,
     edited_text text,
     approved_destination text NOT NULL,
+    approved_platform text NOT NULL,
     approved_post_type text NOT NULL,
     approved_content_hash text NOT NULL,
     approval_notes text,
     approved_at timestamp with time zone DEFAULT now() NOT NULL,
     expires_at timestamp with time zone DEFAULT (now() + '7 days'::interval) NOT NULL,
+    CONSTRAINT approvals_approved_platform_check CHECK ((approved_platform = ANY (ARRAY['bluesky'::text, 'mastodon'::text, 'reddit'::text, 'x'::text, 'linkedin'::text]))),
     CONSTRAINT approvals_decision_check CHECK ((decision = ANY (ARRAY['approved'::text, 'rejected'::text, 'manual_only'::text, 'save_for_later'::text])))
 );
 
@@ -434,4 +436,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260520120000'),
     ('20260520120100'),
     ('20260521120000'),
-    ('20260521130000');
+    ('20260521130000'),
+    ('20260521130100');
