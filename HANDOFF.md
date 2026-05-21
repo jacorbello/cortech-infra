@@ -1,7 +1,7 @@
 # PlotLens Outreach — Session Handoff
 
-**As of:** 2026-05-20, end-of-Phase-2-build (Workflow C CTE fixed, draft PR #18 open, CI green)
-**Branch:** `outreach/phase0-phase1` (1 branch, ~70 commits ahead of `main`, pushed)
+**As of:** 2026-05-20, end-of-Phase-2-build + postgres_exporter live (Workflow C CTE fixed, draft PR #18 open + green, T27 alerts wired to real metrics)
+**Branch:** `outreach/phase0-phase1` (1 branch, ~72 commits ahead of `main`, pushed)
 **Draft PR:** https://github.com/jacorbello/cortech-infra/pull/18 (schema/audit/manifests-lint all SUCCESS)
 **Phase 1 spec:** `docs/superpowers/specs/2026-05-19-plotlens-outreach-stack-design.md`
 **Phase 1 plan:** `docs/superpowers/plans/2026-05-19-plotlens-outreach-phase0-and-phase1.md`
@@ -210,7 +210,7 @@ Currently row 47 = `failed` (T18 smoke), row 62 = `sent_to_postiz` (T25 SUCCESS)
 6. **Branch pin** (apps/temporal + apps/postiz Application manifests): both reference `outreach/phase0-phase1` directly. Once Phase 1 merges to main, change targetRevision to `main` or `HEAD`.
 7. **ApplyOutOfSyncOnly=true** added to both ArgoCD apps to avoid replay churn on every reconciliation.
 8. **Dashboard: DB panels deferred to Phase 2.1.** No Postgres Grafana datasource exists yet; the dashboard surfaces k8s health + Loki errors + a markdown panel with the manual psql queries.
-9. **Alert rules use metrics that don't yet exist** (`outreach_publish_jobs_ready_oldest_age_seconds`, `outreach_publish_jobs_failed_total`). These are placeholders — they'll fire once postgres_exporter is pointed at LXC 114 with custom queries, but won't error in the meantime.
+9. ~~**Alert rules use metrics that don't yet exist**~~ ✅ FIXED commit `b935933`. `k8s/observability/exporters/postgres-outreach-exporter/` deploys postgres_exporter against LXC 114; six custom-query gauges live in Prometheus: `outreach_publish_jobs_{ready_oldest_age_seconds,ready_count,failed,sent_to_postiz,manual_required,abandoned}`. T27 alerts now wire to real metrics. `OutreachPublishFailureSustained` will fire ~20 min after a row stays in `failed`. (Note: the row 47 leftover from T18 smoke will trigger this alert — re-queue or abandon per `docs/runbooks/postiz-failed-job-recovery.md` to silence it.)
 10. **CI manifests-lint uses a built-in-kinds filter** because GitHub-hosted runners don't have Traefik / Infisical / Prometheus-Operator CRDs. ArgoCD validates these against the live cluster at sync time.
 
 ## Memory entries from this session (saved to `~/.claude/projects/-home-jacorbello-repos-cortech-infra/memory/`)
@@ -252,7 +252,7 @@ In priority order:
 3. **Decide whether Slack quick-approve should enqueue publishing.** Currently `Write Slack Approval (CTE)` has no `pj` CTE, so only form approvals dispatch. If yes, mirror the form path's `pj` CTE there.
 4. **n8n pure-JS SHA-256 retroactive audit** against RFC 6234 test vectors.
 5. **Reddit / X / LinkedIn channel onboarding** when their gating clears.
-6. **postgres_exporter custom queries** so the T27 placeholder alerts actually fire.
+6. ~~**postgres_exporter custom queries**~~ ✅ done in commit `b935933`. Row 47 (`failed`) will trigger `OutreachPublishFailureSustained` ~20 min from deploy; either re-queue or abandon to silence.
 7. **Memory entries** for `>>>` modulo-32 and `continueErrorOutput` (low priority but useful).
 8. **Phase 2.1: split `approved_destination`** into `approved_platform` + `approved_destination` on the approval form so `publish_jobs.destination_platform` carries semantic value (today both columns hold the integration ID).
 
