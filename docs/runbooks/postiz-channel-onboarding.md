@@ -121,3 +121,32 @@ When approving a draft from the Slack review notification (`outreach-review-noti
 ### LinkedIn
 - Marketing Developer Platform approval can take 1-2 weeks.
 - Fallback if denied: use "Share on LinkedIn" only (posts as personal profile, not Company Page).
+
+## Slack quick-approve registration
+
+The Slack notification posted by Workflow C (`outreach-review-notify`) shows one
+"Approve → <platform>" button per Postiz integration that's registered in the
+quick-approve picker. This list is intentionally hardcoded (the Slack speed path
+avoids the extra HTTP RTT to `/api/public/v1/integrations`); the form path
+fetches dynamically and is unaffected.
+
+When you add a new Postiz integration that should appear in Slack quick-approve:
+
+1. Open `apps/outreach-workflows/n8n/review.json`.
+2. Find the `PLATFORM_MAP` constant in BOTH of these nodes — they must stay in sync:
+   - `Build Slack Blocks` (id `cc000010-0010-0010-0010-000000000010`) — an array of `{key, platform, integration, label}`.
+   - `Build Slack Approval` (id `t29w0006-0006-0006-0006-000000000006`) — an object keyed by the same `key`.
+3. Add a row in both. The `key` must be a stable internal identifier (snake_case,
+   no spaces). The `platform` must be one of the values allowed by the
+   `approvals.approved_platform` CHECK constraint (`bluesky`, `mastodon`,
+   `linkedin`, `x`, `reddit`). The `integration` is the Postiz channel ID
+   (`cmpe…`). The `label` is the human-readable text shown on the Slack button.
+4. Commit the JSON edit on the active branch.
+5. Re-import + reactivate the workflow on LXC 112 (controller-only — coordinate
+   with the operator before doing this; n8n restarts interrupt active sessions).
+6. Verify by clicking the new approve button on a real outreach item; confirm
+   `publish_jobs.destination_account` matches the new integration ID and
+   Workflow D's `Verify Hash` succeeds.
+
+No periodic resync is performed; this is an operator-driven update tied to the
+deliberate act of onboarding a new channel.
