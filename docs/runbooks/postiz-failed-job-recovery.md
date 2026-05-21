@@ -8,14 +8,11 @@ A `publish_jobs.status='failed'` row means Workflow D's Postiz Create Post call 
 ADMIN_URL=$(infisical secrets get OUTREACH_DB_ADMIN_URL --projectId=db72a923-3cd8-4636-b1ff-80845dc070ca --env=dev --plain)
 psql "$ADMIN_URL" -c "
 SELECT pj.id, pj.destination_platform, pj.destination_account,
-       pj.attempt_count, LEFT(pj.failure_reason, 120) AS failure_reason, a.approved_at
+       pj.attempt_count, LEFT(pj.failure_reason, 120) AS failure_reason, pj.created_at
 FROM publish_jobs pj
-JOIN approvals a ON a.id = pj.approval_id
 WHERE pj.status='failed'
-ORDER BY a.approved_at DESC LIMIT 20;"
+ORDER BY pj.created_at DESC LIMIT 20;"
 ```
-
-(`publish_jobs` has no `created_at` column; `approvals.approved_at` is the row's effective creation time since both are inserted in the same CTE.)
 
 Read `failure_reason` to understand the error.
 
