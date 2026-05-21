@@ -9,13 +9,10 @@ metadata:
 data:
   queries.yaml: |
     outreach_publish_jobs:
-      # publish_jobs has no created_at column (Phase 2 schema oversight); we use
-      # approvals.approved_at via JOIN as the row's effective creation time
-      # (the publish_jobs INSERT is part of the same CTE as the approval).
       query: |
         SELECT
           COALESCE(
-            EXTRACT(EPOCH FROM (now() - MIN(a.approved_at) FILTER (WHERE pj.status='ready')))::bigint,
+            EXTRACT(EPOCH FROM (now() - MIN(pj.created_at) FILTER (WHERE pj.status='ready')))::bigint,
             0
           ) AS ready_oldest_age_seconds,
           COUNT(*) FILTER (WHERE pj.status='ready')                AS ready_count,
@@ -23,8 +20,7 @@ data:
           COUNT(*) FILTER (WHERE pj.status='sent_to_postiz')       AS sent_to_postiz,
           COUNT(*) FILTER (WHERE pj.status='manual_post_required') AS manual_required,
           COUNT(*) FILTER (WHERE pj.status='abandoned')            AS abandoned
-        FROM publish_jobs pj
-        JOIN approvals a ON a.id = pj.approval_id;
+        FROM publish_jobs pj;
       master: true
       metrics:
         - ready_oldest_age_seconds:
