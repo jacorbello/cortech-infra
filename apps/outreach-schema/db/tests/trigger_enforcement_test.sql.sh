@@ -10,8 +10,8 @@ SEED="
 # Test 1: rejected decision must block publish_jobs insert
 run_expect_fail "rejects publish_job for rejected approval" "
   $SEED
-  INSERT INTO approvals (draft_id, approved_by, decision, approved_destination, approved_post_type, approved_content_hash)
-    VALUES (:d_id, 'jeremy', 'rejected', 'x_post', 'thread', 'abc123') RETURNING id \gset a_
+  INSERT INTO approvals (draft_id, approved_by, decision, approved_platform, approved_destination, approved_post_type, approved_content_hash)
+    VALUES (:d_id, 'jeremy', 'rejected', 'x', 'x_post', 'thread', 'abc123') RETURNING id \gset a_
   INSERT INTO publish_jobs (approval_id, destination_platform, destination_account, publish_mode, payload_hash)
     VALUES (:a_id, 'x', 'plotlens', 'postiz_immediate', 'abc123');
 "
@@ -19,8 +19,8 @@ run_expect_fail "rejects publish_job for rejected approval" "
 # Test 2: expired approval must block publish_jobs insert
 run_expect_fail "rejects publish_job for expired approval" "
   $SEED
-  INSERT INTO approvals (draft_id, approved_by, decision, approved_destination, approved_post_type, approved_content_hash, expires_at)
-    VALUES (:d_id, 'jeremy', 'approved', 'x_post', 'thread', 'abc123', now() - INTERVAL '1 hour') RETURNING id \gset a_
+  INSERT INTO approvals (draft_id, approved_by, decision, approved_platform, approved_destination, approved_post_type, approved_content_hash, expires_at)
+    VALUES (:d_id, 'jeremy', 'approved', 'x', 'x_post', 'thread', 'abc123', now() - INTERVAL '1 hour') RETURNING id \gset a_
   INSERT INTO publish_jobs (approval_id, destination_platform, destination_account, publish_mode, payload_hash)
     VALUES (:a_id, 'x', 'plotlens', 'postiz_immediate', 'abc123');
 "
@@ -28,8 +28,8 @@ run_expect_fail "rejects publish_job for expired approval" "
 # Test 3: mismatched payload_hash must block publish_jobs insert
 run_expect_fail "rejects publish_job with mismatched payload_hash" "
   $SEED
-  INSERT INTO approvals (draft_id, approved_by, decision, approved_destination, approved_post_type, approved_content_hash)
-    VALUES (:d_id, 'jeremy', 'approved', 'x_post', 'thread', 'abc123') RETURNING id \gset a_
+  INSERT INTO approvals (draft_id, approved_by, decision, approved_platform, approved_destination, approved_post_type, approved_content_hash)
+    VALUES (:d_id, 'jeremy', 'approved', 'x', 'x_post', 'thread', 'abc123') RETURNING id \gset a_
   INSERT INTO publish_jobs (approval_id, destination_platform, destination_account, publish_mode, payload_hash)
     VALUES (:a_id, 'x', 'plotlens', 'postiz_immediate', 'WRONG_HASH');
 "
@@ -37,8 +37,8 @@ run_expect_fail "rejects publish_job with mismatched payload_hash" "
 # Test 4: happy path — approved + unexpired + matching hash → INSERT succeeds
 run_expect_pass "accepts publish_job for valid approval" "
   $SEED
-  INSERT INTO approvals (draft_id, approved_by, decision, approved_destination, approved_post_type, approved_content_hash)
-    VALUES (:d_id, 'jeremy', 'approved', 'x_post', 'thread', 'abc123') RETURNING id \gset a_
+  INSERT INTO approvals (draft_id, approved_by, decision, approved_platform, approved_destination, approved_post_type, approved_content_hash)
+    VALUES (:d_id, 'jeremy', 'approved', 'x', 'x_post', 'thread', 'abc123') RETURNING id \gset a_
   INSERT INTO publish_jobs (approval_id, destination_platform, destination_account, publish_mode, payload_hash)
     VALUES (:a_id, 'x', 'plotlens', 'postiz_immediate', 'abc123');
 "
