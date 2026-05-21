@@ -108,8 +108,15 @@ When approving a draft from the Slack review notification (`outreach-review-noti
 - Scopes must be the granular form (`write:statuses`, `write:media`, `profile`). Mastodon rejects broad scopes even though they include the granular ones.
 
 ### X
-- Free tier hard limit: 1500 posts/month.
+- **Paid plan required for posting.** As of February 2023, X's Free developer tier is read-only. Posting requires the Basic plan ($100/month, 100 posts per 24h — sufficient for outreach) or Pro plan ($5000/month). Confirm before scheduling X work; the previous "1500 posts/month free" allowance no longer exists.
+- Postiz uses **OAuth 1.0a** for X (not OAuth 2.0). When you create the X Developer app, enable "OAuth 1.0a User Authentication settings" and grab the **Consumer Keys** ("API Key" + "API Key Secret"). The OAuth 2.0 Client ID/Secret on the same app will NOT work — the Postiz X provider only reads `X_API_KEY` + `X_API_SECRET` (which are the 1.0a consumer keys).
+- App permissions: Read + Write (or higher).
+- App type: "Web App, Automated App or Bot".
+- **Callback URL on the X app must be exactly:** `https://postiz.corbello.io/integrations/social/x`.
+- Wiring once you have the keys: add `X_API_KEY` + `X_API_SECRET` to Infisical at PlotLens project (db72a923-…), env `dev`, path `/postiz`. Then add the two `secretKeyRef` env entries to `apps/postiz/base/postiz/deployment.yaml` mirroring the existing `MASTODON_*` block. ArgoCD reconciles within the next sync window; Postiz pod restart picks up the env vars.
+- Tooltip caveat: Postiz's X tile shows "You will be logged in into your current account…" — this is informational. The OAuth flow uses your browser's current X session (`forceLogin: false`), so sign in to the brand X account first.
 - The `made_with_ai` flag (in Postiz's X settings) defaults to `false`. PlotLens posts are all human-approved, so the default is fine.
+- **No allow-list/deny-list in Postiz** to hide the X tile when env vars are missing. Clicking the tile while keys aren't configured returns `200 OK` with body `{"err":true}` (caught by the `try/catch` in `apps/backend/src/api/routes/integrations.controller.ts:225-245`) — the frontend renders this as a generic "Could not connect to the platform" toast.
 
 ### LinkedIn
 - Marketing Developer Platform approval can take 1-2 weeks.
