@@ -1,8 +1,8 @@
 # PlotLens Outreach — Session Handoff
 
-**As of:** 2026-05-20, end-of-Phase-2-build + postgres_exporter live (Workflow C CTE fixed, draft PR #18 open + green, T27 alerts wired to real metrics)
-**Branch:** `outreach/phase0-phase1` (1 branch, ~72 commits ahead of `main`, pushed)
-**Draft PR:** https://github.com/jacorbello/cortech-infra/pull/18 (schema/audit/manifests-lint all SUCCESS)
+**As of:** 2026-05-21, end-of-Phase-2-build + postgres_exporter live (Workflow C CTE fixed, draft PR #18 open + green, T27 alerts wired to real metrics, two extra memory entries recorded)
+**Branch:** `outreach/phase0-phase1` (1 branch, 73 commits ahead of `main`, pushed)
+**Draft PR:** https://github.com/jacorbello/cortech-infra/pull/18 (schema/audit/manifests-lint all SUCCESS at HEAD `539f7e1`)
 **Phase 1 spec:** `docs/superpowers/specs/2026-05-19-plotlens-outreach-stack-design.md`
 **Phase 1 plan:** `docs/superpowers/plans/2026-05-19-plotlens-outreach-phase0-and-phase1.md`
 **Phase 2 spec:** `docs/superpowers/specs/2026-05-20-plotlens-outreach-phase2-design.md`
@@ -54,8 +54,10 @@ Steps 1 + 2 of the prior procedure are done. Remaining work:
 5. **Phase 2.1 follow-ups (deferred items, see roadmap).** None are urgent; act when traffic warrants:
    - **Reddit Devvit revisit** if Reddit relaxes the Responsible Builder Policy.
    - **X / LinkedIn** when developer-account approvals come through.
-   - **n8n pure-JS SHA-256 retroactive audit** against RFC 6234 test vectors.
-   - **postgres_exporter custom queries** for `outreach_publish_jobs_ready_oldest_age_seconds` and `_failed_total` so the placeholder alerts in T27 actually fire (currently the metrics don't exist, so the alerts will never trigger — they're harmless but inert until then).
+   - **n8n pure-JS SHA-256 retroactive audit** against RFC 6234 test vectors (the `>>>` modulo-32 bug from T25 is fixed in `c4bb719`; audit is to rule out other latent bit-twiddling issues).
+   - **Split `approved_destination` into `approved_platform` + `approved_destination`** on the approval form so `publish_jobs.destination_platform` carries semantic value instead of holding the integration ID twice.
+   - **Decide whether Slack quick-approve should enqueue publishing** (`Write Slack Approval (CTE)` has no `pj` CTE today; form path is the only dispatcher).
+   - **`publish_jobs.created_at` migration.** No column today; `approvals.approved_at` is the JOIN-based proxy (used by both the postgres_exporter query and the failed-job-recovery runbook). Adding the column would simplify both.
 
 ## Phase 2 architecture at a glance
 
@@ -117,6 +119,21 @@ Environment=POSTIZ_API_BASE_URL=https://postiz.corbello.io/api/public/v1
 ```
 
 Not in git. If LXC 112 is rebuilt, restore this file before reactivating workflows. (Phase 4 idea: migrate these into n8n Credentials so we can drop `N8N_BLOCK_ENV_ACCESS_IN_NODE=false`.)
+
+### postgres_exporter (observability namespace)
+
+`k8s/observability/exporters/postgres-outreach-exporter/` — 5 manifests applied, pod running on k3s-wrk-3, scraped by kube-prom-stack via ServiceMonitor (`release: prometheus` label). Connects to LXC 114 outreach DB via the `outreach_n8n` role (URL synced from Infisical PlotLens project, env=dev, root path, by InfisicalSecret `postgres-outreach-exporter`). Six custom-query gauges live in Prometheus:
+
+| Metric | Current value | Notes |
+|---|---|---|
+| `outreach_publish_jobs_ready_oldest_age_seconds` | 0 | gauge; uses `approvals.approved_at` via JOIN since publish_jobs lacks `created_at` |
+| `outreach_publish_jobs_ready_count` | 0 | |
+| `outreach_publish_jobs_failed` | 1 | row 47 (T18 smoke) — will fire `OutreachPublishFailureSustained` once 20 min of data accumulates |
+| `outreach_publish_jobs_sent_to_postiz` | 1 | row 62 (T25 SUCCESS) |
+| `outreach_publish_jobs_manual_required` | 0 | |
+| `outreach_publish_jobs_abandoned` | 0 | `abandoned` is not in the `status` CHECK today; metric exists for future use |
+
+NOT pg_-prefixed — only built-in collectors get that. See memory `postgres-exporter-custom-query-prefix`.
 
 ### Postgres on LXC 114 (192.168.1.83)
 
@@ -198,7 +215,11 @@ Currently row 47 = `failed` (T18 smoke), row 62 = `sent_to_postiz` (T25 SUCCESS)
 
 ### 9. Phase 1 unmerged + not operationally validated
 
-`outreach/phase0-phase1` branch contains 65+ commits — Phase 1 + Phase 2 work mixed. Phase 2 exit criterion 9 says "tag Phase 2 only after Phase 1 is tagged" — which itself requires 10 real items processed end-to-end (Jeremy's actual usage of the system over a week). Not started.
+`outreach/phase0-phase1` branch contains 73 commits — Phase 1 + Phase 2 work mixed. Phase 2 exit criterion 9 says "tag Phase 2 only after Phase 1 is tagged" — which itself requires 10 real items processed end-to-end (Jeremy's actual usage of the system over a week). Not started.
+
+### 10. publish_jobs has no `created_at` column
+
+The Phase 1 schema omitted `created_at` on `publish_jobs`. Today the only reachable creation timestamp is `approvals.approved_at` via JOIN on `approval_id` (both rows are written in the same Workflow C CTE). The postgres_exporter `ready_oldest_age_seconds` query and the failed-job-recovery runbook both use this JOIN. Adding the column is a Phase 2.1 follow-up.
 
 ## Architecture decisions made (post-spec)
 
@@ -215,46 +236,47 @@ Currently row 47 = `failed` (T18 smoke), row 62 = `sent_to_postiz` (T25 SUCCESS)
 
 ## Memory entries from this session (saved to `~/.claude/projects/-home-jacorbello-repos-cortech-infra/memory/`)
 
-All Phase 1 memories still apply. Phase 2 added:
+All Phase 1 memories still apply. Phase 2 + Phase 2.1 added:
 - `n8n-crypto-require-blocked` — `require('crypto')` is blocked in n8n 2.9.4 Code nodes; use pure-JS SHA-256.
 - `postiz-public-api-conventions` — base path `/api/public/v1/`, raw Authorization key (no Bearer), CreatePostDto shape.
 - `n8n-credential-direct-db-edit` — CryptoJS AES (openssl-compatible) for headless credential fixes.
+- `postgres-exporter-custom-query-prefix` — `--extend.query-path` metrics emit `{namespace}_{column}` verbatim (no `pg_` prefix); `--disable-default-metrics` doesn't silence all collectors (need `--no-collector.NAME`).
+- `js-unsigned-rshift-modulo-32` — JS `>>>` takes shift amount mod 32; `x >>> 56` is `x >>> 24`. Use hardcoded 0s for high bytes in SHA-256 padding.
+- `n8n-continueErrorOutput-routes-main1` — error path lives in `main[1]`, not a separate `"error"` connection key.
 
-Worth considering for next session:
-- "JavaScript `>>>` is modulo-32 on the shift amount" — caught us in the SHA-256 padding loop; would have silently broken every Workflow D dispatch.
-- "n8n continueErrorOutput routes to main[1], not the `error` connection key."
-- "Postiz Mastodon needs env vars + granular scopes" — currently in the runbook only.
+Still worth saving in future sessions (not done yet):
+- "Postiz Mastodon needs env vars + granular scopes" — currently only in the channel-onboarding runbook.
 - "Reddit Responsible Builder Policy blocks new OAuth apps as of late 2024" — deferral context.
 
 ## Recent commits (last 10 on branch — `git log --oneline main..HEAD | head -10`)
 
 ```
+539f7e1 docs(handoff): postgres_exporter deployed; T27 alerts now wired to real metrics
+b935933 feat(observability): postgres_exporter for outreach DB + activate T27 alerts
+7ddea83 chore(outreach): update HANDOFF + harden run_tests.sh against missing psql
+78d4ab6 fix(ci): install postgresql-client on cortech-infra-runner for schema job
+a67d2f8 fix(ci): drop kubectl from manifests-lint; rely on kustomize+helm+YAML parse
+4fe34e3 fix(ci): manifests-lint kubectl apply needs --validate=false
+26fc6b7 fix(workflow-c): set publish_jobs.destination_account to approved_destination
+d630468 docs(handoff,roadmap): Phase 2 build complete (T1-T29); T30 awaiting operational validation
 5527d49 feat(plotlens-marketing): Phase 2 observability + runbooks + CI manifests-lint
 56412ff fix(workflow-d): Postiz API payload shape — integration per-post + required top-level fields
-c4bb719 fix(workflow-d): correct SHA-256 padding
-accbd40 docs(roadmap): defer Reddit + capture Phase 2.1 follow-ups
-5814fa5 feat(postiz): wire MASTODON_CLIENT_ID/SECRET/URL env vars for OAuth
-b4997dd test(workflow-d): add retry-cap and manual_required branch tests
-e8804e0 fix(workflow-d): wire Verify Hash error output to Mark Failed Hash
-f29e75d feat(outreach-workflows): add Workflow D dispatcher and extend Workflow C CTE
-5fe5339 feat(outreach-workflows): authorize publish-dispatcher to use postiz-api-key
-04cdd11 fix(postiz): re-lock registration after T14 admin signup
 ```
 
-(65+ commits total on the branch — `git log --oneline main..HEAD` for the full list.)
+(73 commits total on the branch — `git log --oneline main..HEAD` for the full list.)
 
 ## TODOs for next session
 
 In priority order:
 
 1. **Phase 1 operational validation** — ≥10 real items / ≥1 week; tag Phase 1. (Only step blocking Phase 2 tag.)
-2. **Phase 2 T30** once #1 done + ≥5 production posts + 24h ArgoCD stability. Then merge PR #18 and flip ArgoCD `targetRevision` from `outreach/phase0-phase1` to `main`/`HEAD`.
-3. **Decide whether Slack quick-approve should enqueue publishing.** Currently `Write Slack Approval (CTE)` has no `pj` CTE, so only form approvals dispatch. If yes, mirror the form path's `pj` CTE there.
-4. **n8n pure-JS SHA-256 retroactive audit** against RFC 6234 test vectors.
-5. **Reddit / X / LinkedIn channel onboarding** when their gating clears.
-6. ~~**postgres_exporter custom queries**~~ ✅ done in commit `b935933`. Row 47 (`failed`) will trigger `OutreachPublishFailureSustained` ~20 min from deploy; either re-queue or abandon to silence.
-7. **Memory entries** for `>>>` modulo-32 and `continueErrorOutput` (low priority but useful).
-8. **Phase 2.1: split `approved_destination`** into `approved_platform` + `approved_destination` on the approval form so `publish_jobs.destination_platform` carries semantic value (today both columns hold the integration ID).
+2. **Re-queue or abandon publish_jobs row 47** so `OutreachPublishFailureSustained` quiets. Recipe in `docs/runbooks/postiz-failed-job-recovery.md` ("Re-queue a failed job" or "Permanently abandon").
+3. **Phase 2 T30** once #1 done + ≥5 production posts + 24h ArgoCD stability. Then merge PR #18 and flip ArgoCD `targetRevision` from `outreach/phase0-phase1` to `main`/`HEAD`.
+4. **Decide whether Slack quick-approve should enqueue publishing.** Currently `Write Slack Approval (CTE)` has no `pj` CTE, so only form approvals dispatch. If yes, mirror the form path's `pj` CTE there.
+5. **n8n pure-JS SHA-256 retroactive audit** against RFC 6234 test vectors.
+6. **Reddit / X / LinkedIn channel onboarding** when their gating clears.
+7. **Phase 2.1: split `approved_destination`** into `approved_platform` + `approved_destination` on the approval form so `publish_jobs.destination_platform` carries semantic value (today both columns hold the integration ID).
+8. **Add `publish_jobs.created_at`** migration so the postgres_exporter query and the failed-job-recovery runbook can drop the `approvals` JOIN.
 
 ## Access patterns reminder
 
