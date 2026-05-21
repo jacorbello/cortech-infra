@@ -85,23 +85,21 @@ jobs:
           tar -xzf /tmp/kustomize.tar.gz -C /tmp
           sudo mv /tmp/kustomize /usr/local/bin/
 
-      - name: Install kubectl
-        uses: azure/setup-kubectl@v4
-        with:
-          version: v1.30.0
-
       - name: Install helm
         uses: azure/setup-helm@v4
         with:
           version: v3.14.0
 
-      # Postiz: render the production overlay and dry-run apply.
-      # Skip CRD-typed manifests (Traefik IngressRoute, InfisicalSecret, ServiceMonitor)
-      # — those CRDs aren't available in CI but ArgoCD validates them against the live cluster.
+      # Render Kustomize/Helm manifests and YAML-parse them. We deliberately
+      # skip `kubectl apply --dry-run` because GitHub-hosted runners have no
+      # cluster and kubectl still does server-side API discovery even with
+      # --validate=false. CRD-typed manifests (Traefik IngressRoute,
+      # InfisicalSecret, ServiceMonitor) are listed as "skipped" — ArgoCD
+      # validates them against the live cluster at sync time.
       - name: Build Postiz manifests
         run: kustomize build apps/postiz/overlays/production > /tmp/postiz-rendered.yaml
 
-      - name: Validate Postiz manifests (built-in kinds only)
+      - name: Validate Postiz manifests (YAML parse + built-in kind allow-list)
         run: |
           python3 - <<'EOF'
           import yaml, sys
@@ -109,15 +107,13 @@ jobs:
           with open("/tmp/postiz-rendered.yaml") as f:
               docs = [d for d in yaml.safe_load_all(f) if d]
           keep = [d for d in docs if d.get("kind") in builtin]
-          drop = [d.get("kind") for d in docs if d.get("kind") not in builtin]
-          with open("/tmp/postiz-builtin.yaml","w") as f:
-              yaml.safe_dump_all(keep, f)
-          print(f"kept={len(keep)} skipped={len(docs)-len(keep)} (skipped kinds: {sorted(set(drop))})")
+          drop = sorted({d.get("kind") for d in docs if d.get("kind") not in builtin})
+          missing = [d for d in docs if not d.get("kind") or not d.get("apiVersion")]
+          print(f"kept={len(keep)} skipped={len(docs)-len(keep)} (skipped kinds: {drop})")
+          if missing:
+              sys.exit(f"FAIL: {len(missing)} doc(s) missing kind/apiVersion")
           EOF
-          kubectl apply --dry-run=client --validate=false -f /tmp/postiz-builtin.yaml
 
-      # Temporal: render the Helm chart with the project values and dry-run apply.
-      # Same CRD caveat — strip Traefik IngressRoute / InfisicalSecret / ServiceMonitor.
       - name: Lint Temporal Helm values
         run: |
           helm repo add temporalio https://go.temporal.io/helm-charts
@@ -127,7 +123,7 @@ jobs:
             --namespace plotlens-marketing \
             > /tmp/temporal-rendered.yaml
 
-      - name: Validate Temporal manifests (built-in kinds only)
+      - name: Validate Temporal manifests (YAML parse + built-in kind allow-list)
         run: |
           python3 - <<'EOF'
           import yaml, sys
@@ -135,17 +131,17 @@ jobs:
           with open("/tmp/temporal-rendered.yaml") as f:
               docs = [d for d in yaml.safe_load_all(f) if d]
           keep = [d for d in docs if d.get("kind") in builtin]
-          drop = [d.get("kind") for d in docs if d.get("kind") not in builtin]
-          with open("/tmp/temporal-builtin.yaml","w") as f:
-              yaml.safe_dump_all(keep, f)
-          print(f"kept={len(keep)} skipped={len(docs)-len(keep)} (skipped kinds: {sorted(set(drop))})")
+          drop = sorted({d.get("kind") for d in docs if d.get("kind") not in builtin})
+          missing = [d for d in docs if not d.get("kind") or not d.get("apiVersion")]
+          print(f"kept={len(keep)} skipped={len(docs)-len(keep)} (skipped kinds: {drop})")
+          if missing:
+              sys.exit(f"FAIL: {len(missing)} doc(s) missing kind/apiVersion")
           EOF
-          kubectl apply --dry-run=client --validate=false -f /tmp/temporal-builtin.yaml
 
       - name: Build Temporal extras
         run: kustomize build apps/temporal/extras > /tmp/temporal-extras-rendered.yaml
 
-      - name: Validate Temporal extras (built-in kinds only)
+      - name: Validate Temporal extras (YAML parse + built-in kind allow-list)
         run: |
           python3 - <<'EOF'
           import yaml, sys
@@ -153,12 +149,9 @@ jobs:
           with open("/tmp/temporal-extras-rendered.yaml") as f:
               docs = [d for d in yaml.safe_load_all(f) if d]
           keep = [d for d in docs if d.get("kind") in builtin]
-          with open("/tmp/temporal-extras-builtin.yaml","w") as f:
-              yaml.safe_dump_all(keep, f)
-          print(f"kept={len(keep)} skipped={len(docs)-len(keep)}")
+          drop = sorted({d.get("kind") for d in docs if d.get("kind") not in builtin})
+          missing = [d for d in docs if not d.get("kind") or not d.get("apiVersion")]
+          print(f"kept={len(keep)} skipped={len(docs)-len(keep)} (skipped kinds: {drop})")
+          if missing:
+              sys.exit(f"FAIL: {len(missing)} doc(s) missing kind/apiVersion")
           EOF
-          if [ -s /tmp/temporal-extras-builtin.yaml ]; then
-            kubectl apply --dry-run=client --validate=false -f /tmp/temporal-extras-builtin.yaml
-          else
-            echo "No built-in kinds in temporal/extras — all CRDs (expected)"
-          fi
