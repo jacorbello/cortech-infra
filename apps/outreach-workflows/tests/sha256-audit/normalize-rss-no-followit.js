@@ -80,8 +80,8 @@ function makeStubFetch() {
 // to keep the contract narrow.
 function makeSandbox(jsCode) {
   const items = [
-    { json: { link: FOLLOWIT_PROXY,    contentSnippet: 'follow.it post body', creator: 'Joanna Penn' } },
-    { json: { link: PASSTHROUGH_URL,   contentSnippet: 'jane friedman post body', creator: 'Jane Friedman' } },
+    { json: { link: FOLLOWIT_PROXY,    contentSnippet: 'Joanna Penn talks with a guest about authorship in an age of AI abundance — what changes, what holds.', creator: 'Joanna Penn' } },
+    { json: { link: PASSTHROUGH_URL,   contentSnippet: 'Jane Friedman on what indie authors should actually charge for their next ebook in a market shifting weekly.', creator: 'Jane Friedman' } },
   ];
   // Wrap the node body as an async IIFE so top-level await works.
   const wrapped = `(async () => { ${jsCode} })()`;

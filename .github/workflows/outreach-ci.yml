@@ -99,6 +99,10 @@ jobs:
         run: node apps/outreach-workflows/tests/sha256-audit/slack-signature-end-to-end.js
       - name: Normalize RSS follow.it-unwrap drift guard
         run: node apps/outreach-workflows/tests/sha256-audit/normalize-rss-no-followit.js
+      - name: Normalize RSS thin-excerpt-skip drift guard
+        run: node apps/outreach-workflows/tests/sha256-audit/normalize-rss-thin-excerpt-skip.js
+      - name: Code-node return-shape drift guard
+        run: node apps/outreach-workflows/tests/sha256-audit/code-node-return-shape-audit.js
 
   manifests-lint:
     runs-on: ubuntu-latest
