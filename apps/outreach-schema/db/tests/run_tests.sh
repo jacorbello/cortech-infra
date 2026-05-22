@@ -68,6 +68,7 @@ run_expect_pass() {
 }
 
 source ./trigger_enforcement_test.sql.sh
+source ./poll_mark_published_test.sql.sh
 
 if [[ "$FAILURES" -gt 0 ]]; then
   echo ""
