@@ -1,6 +1,6 @@
 # PlotLens Outreach — Session Handoff
 
-**As of:** 2026-05-22 — Phase 2.1 schema cleanup + 10 followups + X investigation + 5 DEPLOYED + 8 CI drift guards landed. **Two new issues surfaced after the RSS-bundle deploy — see "Top priority next session" below.**
+**As of:** 2026-05-22 — Phase 2.1 schema cleanup + 11 followups + X investigation + 6 DEPLOYED + 10 CI drift guards landed. **Followup 11 (Assert return-shape + Normalize RSS excerpt fallback + thin-skip) deployed 16:22 UTC — Issue A & B from prior handoff now closed.**
 - A1-A3 + B1-B7 schema/UX cleanup
 - Followups: unified channel dropdown, Slack quick-approve dispatch, schema test SQLSTATE hardening, X investigation
 - **Slack platform-picker deployed to LXC 112** at 17:09 UTC (workflow `rEv1eWoUtReAcH001`)
@@ -8,7 +8,8 @@
 - **Slack blocksUi + form dedup fix deployed to LXC 112** at 19:35 UTC (4 workflows: `rEv1eWoUtReAcH001`, `eXp1rEsTaLeWf001`, `mAnUaLpUbLiSh0001`, `sMoKeOutreachW001`) — root-caused via systematic-debugging: Slack v2 node (typeVersion 2.3) reads `blocksUi` with `ensureType: 'object'` which accepts bare arrays; `Slack/V2/GenericFunctions.js:194` then looks for `.blocks` on the value; bare array has no `.blocks` so the spread into the request body produces integer keys and `chat.postMessage` never receives `blocks`. Slack falls back to text-only render. Bug present since workflows authored. Fix: `={{ JSON.stringify($json.slack_blocks) }}` → `={{ { blocks: $json.slack_blocks } }}` in all 4 nodes. Also fixed form dropdown showing 9 options for 3 integrations: upstream `Fetch Postiz Integrations` fanned out per draft (3 drafts × 3 fetches = 9 integration items); dedup-by-id in `Code Render HTML` reduces to N unique. Added `Assert Slack Blocks Sent` Code node in review.json that throws if Slack drops blocks silently. Added `blocksui-shape-audit.js` CI lint.
 - **Slack signature + parser hardening fix deployed to LXC 112** at 20:39 UTC (workflow `rEv1eWoUtReAcH001`) — root-caused via systematic-debugging: JavaScript `encodeURIComponent` vs Go `url.QueryEscape` encoder mismatch on `( ) ' * ~ ! +` characters meant HMAC reconstruction never matched what Slack signed. Fix: enable `rawBody` on Webhook Slack Interactive, HMAC over the actual base64 bytes Slack sent. Also: parser short-circuits unknown verbs (link-button telemetry callbacks like `e/DS5` no longer error), stable `open_form_<oid>` action_id on Open Full Form, new `Actionable Verb?` IF gate routes ignore-verb to existing Respond 200. Two new CI guards: `webhook-rawbody-audit` (asserts `options.rawBody` on HMAC-bound webhooks), `slack-signature-end-to-end` (Go-encoded synthetic payload tested through the real Code node sandbox — 16/16 pass).
 - **RSS expansion + follow.it cleanup + soft-block bundle deployed to LXC 112** at 22:10 UTC (workflow `dScvr0utReAcHW01`) — feed list now 10 active feeds (Reedsy removed as dead; added Writer Unboxed, Kill Zone Blog, Writers in the Storm, John August, Go Into The Story, Steven Pressfield). `Normalize RSS` gained `unwrapFollowIt(url)` helper that resolves the canonical URL via single HEAD redirect (only for `api.follow.it/*` hosts; 3s timeout; falls back to original on any error). Two new `Apply Soft Block` Code nodes (RSS path + manual webhook path) with `SOFT_BLOCK_PATTERNS` array: `annerallen.com`, `countercraft.substack.com`, `reddit.com/r/writing` (word-boundary regex so r/writingadvice and friends still allowed). New `scripts/backfill-followit-urls.sh` (DRY-RUN default, `--apply` flag) for one-time canonicalization of existing 20 follow.it rows — NOT yet executed. New `normalize-rss-no-followit.js` CI audit functionally tests the helper via VM sandbox.
-- CI drift guards added: PLATFORM_MAP sync, full sha256 helper-family bit-identity (catches `sha256Raw` inside `hmacSha256`), hash-payload concat-order pin, no-public-self-loop URL check, blocksUi-shape guard, webhook-rawbody audit, Slack-signature end-to-end, **normalize-rss-no-followit** (audit count: 23 → 37 → +3 new audits this round)
+- **Followup 11 (Assert return-shape + Normalize RSS excerpt fallback + thin-skip) deployed to LXC 112** at 2026-05-22 16:22 UTC (workflows `rEv1eWoUtReAcH001` + `dScvr0utReAcHW01`) — root-caused both prior-handoff blockers via systematic-debugging. **Issue B (duplicate Slack notifications):** `Assert Slack Blocks Sent` Code node was `mode: runOnceForEachItem` but returned `[{ json: $json }]` (array-wrapped); n8n's `validateRunCodeEachItem` walks the array and tries `.json` on the array itself (undefined) → throws `"A 'json' property isn't an object [item 0]"`. The throw fired AFTER Slack posted but BEFORE `Log Notification` (dedup write) — so `outcomes` never got a `notified` row and the next 2-min cycle re-fetched + re-posted. Bounded at 2 stuck items × ~195 cycles = 220 errored executions over ~13h. Fix: `return [{ json: $json }];` → `return { json: $json };` in that one node. **Issue A ("No usable excerpt" drafts):** new RSS feeds (Writer Unboxed, Kill Zone Blog, etc.) emit thin/empty `contentSnippet` for items 2263-2277 (`LENGTH(source_excerpt)=0`). Fix in `Normalize RSS`: excerpt fallback chain `contentSnippet || content || description || ''`, strip HTML tags, collapse whitespace, AND skip-at-discover-time when final excerpt < 50 chars (item never enters `outreach_items` so the drafter never wastes tokens on emptiness). Deeper follow.it 2nd-redirect issue (helper returns `follow.it` homepage instead of canonical) NOT addressed here — left as future work. Two new CI guards wired into `sha256-audit`: `code-node-return-shape-audit.js` rejects `runOnceForEachItem` Code nodes returning `[{ json: ... }]` (Workflow D's `publish-dispatcher.json:Verify Hash` grandfathered with inline-citation reasoning — T25 row 62 SUCCESS proved n8n tolerates the pattern in some upstream-node shapes; out of scope for this bundle); `normalize-rss-thin-excerpt-skip.js` sandbox-runs the new code with 6 input vectors (3 kept + 3 skipped). Existing `normalize-rss-no-followit.js` fixture lengths bumped past the 50-char threshold so the older guard still passes. Pre-deploy validated; post-restart at 16:22:38 UTC the first review-notify cycle wrote `outcomes` row 30 (`{"kind":"notified","outreach_item_id":2268}`) confirming Assert fix + Log Notification + dedup all live. **Cleanup pending user authorization in chat:** `outreach_items` 2263-2277 → `archived` (15 thin-excerpt rows); item #2268 drafts → `rejected` + item → `reviewed`; #2258 (3 good Joanna Penn / Nadim Sadek drafts) left for user to approve via Slack now that buttons work; #2259-2262 (good 1000-char excerpts) still flowing through the drafter. Not touching LXC 112 further this session.
+- CI drift guards added: PLATFORM_MAP sync, full sha256 helper-family bit-identity (catches `sha256Raw` inside `hmacSha256`), hash-payload concat-order pin, no-public-self-loop URL check, blocksUi-shape guard, webhook-rawbody audit, Slack-signature end-to-end, normalize-rss-no-followit, **code-node-return-shape**, **normalize-rss-thin-excerpt-skip** (10 guard scripts; audit.js assertion count: 23 → 37, holding steady at 37 this round; the 2 new guards add their own self-contained checks)
 - X channel deferred indefinitely (paid plan cost)
 - 4 code-quality minors from earlier review addressed
 
@@ -71,70 +72,62 @@ Read this file first on any session resume. Safe to delete once Phase 2 is tagge
 | Followup 8 — Slack blocksUi shape fix + form dropdown dedup + guardrails | ✅ | **DEPLOYED 2026-05-21 19:35 UTC.** Root cause via systematic-debugging: Slack v2 node (typeVersion 2.3) reads `blocksUi` with `ensureType: 'object'`, which accepts a bare array; `Slack/V2/GenericFunctions.js:194` then treats the value as an object expecting `.blocks` — bare array has none, so the spread into the request body produces integer keys (`"0"`, `"1"`) and `chat.postMessage` never receives `blocks`. Slack posts only `text` and server-renders it as a synthetic `rich_text` block. Bug present since workflows authored — explains why outreach-bot Slack messages never showed approve/reject buttons. Fix: 4 nodes' `parameters.blocksUi` changed from `={{ JSON.stringify($json.slack_blocks) }}` to `={{ { blocks: $json.slack_blocks } }}` (object wrapper). Separately: form dropdown was showing 9 options for 3 integrations because `Fetch Postiz Integrations` runs once per input item (n8n default) and `Postgres Load Drafts` emits 3 items, so 3 drafts × 3 fetches = 9 integration entries. Dedup-by-id in `Code Render HTML` reduces to N unique. New `Assert Slack Blocks Sent` Code node in review.json throws on silent drop. New `blocksui-shape-audit.js` CI guard rejects any `messageType: block` Slack node with broken expression. 4 workflows imported, all 4 reactivated, single n8n restart; healthy 2s post-restart; journal shows all 4 `Activated workflow` lines; DB confirms all 4 `active=1`; broken expression count in DB = 0. Commits `43b3251`, `5c283ec`. |
 | Followup 9 — Slack signature + parser hardening | ✅ | **DEPLOYED 2026-05-21 20:39 UTC.** Root cause via systematic-debugging: `Verify Slack Signature` reconstructed the signed string by feeding the parsed `payload` JSON back through JavaScript `encodeURIComponent`, but Slack signs the bytes its Go server actually sent — produced by `url.QueryEscape`. The two encoders disagree on `( ) ' * ~ ! +` and space; any real Slack callback containing those characters (usernames with apostrophes, action values with parens, etc.) failed HMAC reconstruction and got rejected with `Invalid Slack signature` 401s. Fix: enable `options.rawBody=true` on `Webhook Slack Interactive` so n8n attaches the original request bytes under `item.binary.data` (base64); the verify node HMAC's those bytes directly — no re-encoding, no encoder-divergence surface. Secondary defect surfaced by the same incident: the "Open full form" link button had no explicit `action_id`, so Slack auto-assigned telemetry callbacks like `e/DS5`; even after fixing signatures the action_id parser threw `Malformed action_id`. The button now ships a stable `open_form_<oid>`, the parser returns `{verb: 'ignore'}` for any non-actionable verb (including `open_form` and unknown auto-IDs), and a new `Actionable Verb?` IF gate between `Verify Slack Signature` and `Look Up Draft` routes ignored verbs straight to an existing 200 response without touching the DB. Two new CI guards added to the `sha256-audit` job: `webhook-rawbody-audit.js` asserts every HMAC-bound Slack webhook carries `options.rawBody === true`; `slack-signature-end-to-end.js` builds a Go-`url.QueryEscape`-encoded synthetic Slack payload, runs it through the live `Verify Slack Signature` Code node sandbox, and asserts all 16 vectors (apostrophes, parens, tildes, plus signs, spaces, multibyte UTF-8) verify correctly. Pre-deploy gate: 0 ready rows confirmed. Workflow re-imported + reactivated + restarted; healthy 1s post-restart; journal shows `Activated workflow "outreach-review-notify"`; DB confirms `active=1`, `options.rawBody` present, `open_form_` pattern present, `Actionable Verb?` IF node present. Commit `7ad32a9`. |
 | Followup 10 — RSS expansion + follow.it cleanup + soft-block bundle | ✅ | **DEPLOYED 2026-05-21 22:10 UTC + backfill applied same session.** Feed list expanded from 5 → 10 active (Reedsy removed as dead; added Writer Unboxed, Kill Zone Blog, Writers in the Storm, John August, Go Into The Story, Steven Pressfield). `Normalize RSS` gained `unwrapFollowIt(url)` helper: HEAD-with-manual-redirect for `api.follow.it/*` hosts, parses canonical from `Location` header's `?q=<urlencoded>` param, 3s timeout, falls back to original on any error. Two `Apply Soft Block` Code nodes (RSS path + manual webhook path) with `SOFT_BLOCK_PATTERNS` = annerallen.com / countercraft.substack.com / `reddit\.com\/r\/writing\b` (word-boundary so r/writingadvice etc. still allowed). Backfill via `scripts/backfill-followit-urls.sh --apply` canonicalized 20 historical follow.it rows to thecreativepenn.com permalinks (0 conflicts, 0 skips). New `normalize-rss-no-followit.js` CI audit functionally tests the helper via VM sandbox with stubbed fetch. Workflow re-imported + reactivated + restarted; healthy 2s post-restart; DB confirms `Apply Soft Block` node, `unwrapFollowIt` helper, word-boundary regex, all 6 new feeds, Reedsy fully removed. Commits `8b22ccf`, `e1a0219` (regex widening fixup), `6473b1c`+`13de101` (regex tightening + JSON re-indent), `9f5a5ea` (HANDOFF). |
+| Followup 11 — Assert return-shape + Normalize RSS excerpt fallback + thin-skip | ✅ | **DEPLOYED 2026-05-22 16:22 UTC.** Closes both blockers from prior handoff. **Issue B (dup notifications) root cause:** `Assert Slack Blocks Sent` Code node in `apps/outreach-workflows/n8n/review.json` had `mode: runOnceForEachItem` but returned `[{ json: $json }]` array-wrapped; n8n's `validateRunCodeEachItem` in each-item mode expects bare `{ json: ... }` and walks the array trying `.json` on the array itself (undefined) → throws `"A 'json' property isn't an object [item 0]"` AFTER Slack posted but BEFORE the downstream `Log Notification` dedup write ran. `outcomes` never recorded a `notified` row, so the next 2-min review-notify cycle re-fetched + re-posted via the dedup-aware query. Bounded at 2 stuck items (#2258 + #2268) × ~195 cycles = 220 errored executions over ~13h. **Fix:** `return [{ json: $json }];` → `return { json: $json };` in that one node. **Issue A (useless drafts) root cause:** new RSS feeds (Writer Unboxed, Kill Zone Blog, Writers in the Storm, John August, Go Into The Story, Steven Pressfield) emit thin/empty `contentSnippet` — items 2263-2277 all had `LENGTH(source_excerpt)=0` after `Normalize RSS` (`apps/outreach-workflows/n8n/discover.json`); Sonnet then drafted useless "No usable excerpt or community context was found..." copy. **Fix in this bundle:** extend `Normalize RSS` excerpt extraction to fall back through `contentSnippet || content || description || ''`, strip HTML tags, collapse whitespace; thin-excerpt skip at discover-time — items with final excerpt < 50 chars are dropped before insertion into `outreach_items` so Sonnet never sees emptiness. **Out of scope (future work):** the `unwrapFollowIt` helper added in Followup 10 doesn't actually unwrap most follow.it tracking URLs because the first HEAD redirect for `api.follow.it/track-rss-story-click/v3/<opaque>` returns the follow.it homepage, not the canonical article — silent fallback, no crash, URLs stay as tracking proxies. **CI guards (both wired into `outreach-ci.yml` `sha256-audit`):** `code-node-return-shape-audit.js` rejects any `runOnceForEachItem` Code node returning `[{ json: ... }]`; Workflow D's `publish-dispatcher.json:Verify Hash` grandfathered with inline-citation reasoning (T25 row 62 SUCCESS suggests n8n tolerates the pattern in some upstream-node shapes; touching Workflow D is out of scope per session boundary — see task #128). `normalize-rss-thin-excerpt-skip.js` sandbox-runs the new code with 6 input vectors covering the contentSnippet/content/description fallback chain, the thin-skip threshold, and HTML stripping (3 kept + 3 skipped). Existing `normalize-rss-no-followit.js` fixture lengths bumped past the 50-char threshold so the older guard still passes. Audit count: 37 → 47 pass after this bundle (audit.js itself still 37 pass; +2 new guards add their own checks). **Post-deploy validation:** journal at 16:22:03 UTC shows `Activated workflow "outreach-discover"` + `Activated workflow "outreach-review-notify"`; n8n healthy 2s post-restart; the first post-restart review-notify cycle at 16:22:38 UTC wrote `outcomes` row id 30 (`{"kind":"notified","outreach_item_id":2268}`) — confirming Assert fix works, `Log Notification` runs, and dedup will now suppress re-notifications. **Cleanup pending user authorization in chat:** `UPDATE outreach_items SET status='archived' WHERE id BETWEEN 2263 AND 2277 AND status='drafting' AND (source_excerpt IS NULL OR LENGTH(source_excerpt) < 50)` (15 rows); `UPDATE drafts SET status='rejected' WHERE outreach_item_id=2268 AND status='needs_human_review'` (3 drafts) + `UPDATE outreach_items SET status='reviewed' WHERE id=2268`. NOT touched: #2258 (3 good Joanna Penn / Nadim Sadek drafts in needs_human_review — user should approve via Slack now that buttons work), #2259-2262 (good 1000-char excerpts still drafting). Commit `d7cd71c455688cda3cc5ca49d8d78fe8a42bcb9c`. |
 
-## Top priority next session (post-RSS-deploy issues — investigate FIRST)
+## Top priority next session
 
-Two issues surfaced after the RSS bundle deploy (commit `9f5a5ea`, 2026-05-21 22:10 UTC). Both are blocking Phase 1 operational validation (user can't process real items if drafts are useless or Slack is flooded with dupes).
+Issue A and Issue B from the prior handoff are both **RESOLVED** as of Followup 11 (2026-05-22 16:22 UTC). The dedup row `outcomes` id 30 written at 16:22:38 UTC confirms the Assert fix + Log Notification + dedup query are all live. Issue A's thin-excerpt skip prevents future useless drafts; the follow.it 2nd-redirect deeper issue is parked as future work.
 
-### A. All organic outreach drafts return "No usable excerpt"
+Resume priorities in order:
 
-**Symptom:** every Slack notification on organic outreach items (from the new RSS feeds + manual ingest, items ~1998+) shows draft text that starts with:
+### (a) Confirm cleanup ran
 
-> "No usable excerpt or community context was found in this source. Without knowing what the author wrote or what problem they are wrestling with, there is nothing specific to respond to helpfully. Recommend skipping or revisiting if the feed content becomes available."
+The Followup 11 deploy left a planned-but-unauthorized cleanup. **If the user has not yet authorized it in chat, this is the first thing to do on resume.** Verify state first, then run only if user gives the go-ahead:
 
-**Hypothesis space** (verify before fixing):
-1. RSS feeds emit thin/empty `contentSnippet` for many items — `Normalize RSS` stores `(item.json.contentSnippet || '').slice(0, 1000)`. If the feed only provides a title-shaped snippet, Sonnet can't draft meaningfully.
-2. The follow.it unwrap (Followup 10) only changes `source_url`, not `source_excerpt`. If the unwrapped URL is the source-of-truth but the feed-emitted snippet is empty/marketing-y, the draft step sees no real content.
-3. The draft workflow's Sonnet prompt may need to fetch the canonical URL's body when the excerpt is thin — currently it draftss off `source_excerpt` alone.
-4. Per-feed differences: some feeds may emit `description` instead of `contentSnippet`, or HTML-escaped fields that get stripped.
-
-**Investigate (read-only first):**
 ```bash
-# What does source_excerpt look like for recent organic items?
-ssh root@192.168.1.52 "pct exec 114 -- su - postgres -c \"psql -d outreach -c 'SELECT id, source_platform, LEFT(source_url, 60), LENGTH(source_excerpt) AS excerpt_len, LEFT(source_excerpt, 120) AS excerpt_preview FROM outreach_items WHERE discovered_at > now() - INTERVAL '\\''12 hours'\\'' ORDER BY id DESC LIMIT 20;'\""
-```
-Cross-reference with the source feeds. Pull a sample item from each new feed via `curl <feed-url> | head -200` to see what each feed actually exposes per item.
+# Read-only audit before doing anything
+ssh root@192.168.1.52 "pct exec 114 -- su - postgres -c \"psql -d outreach -c 'SELECT id, status, LENGTH(source_excerpt) AS excerpt_len FROM outreach_items WHERE id BETWEEN 2263 AND 2277 ORDER BY id;'\""
+ssh root@192.168.1.52 "pct exec 114 -- su - postgres -c \"psql -d outreach -c 'SELECT id, variant, status FROM drafts WHERE outreach_item_id IN (2258, 2268) ORDER BY outreach_item_id, id;'\""
 
-**Likely fix scope:** extend `Normalize RSS` to fall back to `item.json.content` or `item.json.description` when `contentSnippet` is empty, AND/OR fetch the canonical URL body for items where the excerpt is shorter than N characters. The draft workflow's prompt may also need a "if excerpt is empty, recommend skipping" branch that doesn't generate the misleading "No usable excerpt" text — instead skip-draft and mark the item as `manual_only` or `archived`.
-
-Task #124 tracks this.
-
-### B. Duplicate Slack notifications for the same outreach item
-
-**Symptom:** outreach item #2268 received many duplicate notifications in `#plotlens-outreach`. Possibly N other items too.
-
-**Hypothesis space:**
-1. Review-notify fires once **per draft variant** (3 variants/item → 3 messages/item) instead of grouping per item.
-2. Review-notify re-fires **every 2-min cycle** because drafts in `needs_human_review` aren't dedup-tracked across cycles. Until you approve or reject, each cycle posts again. This bug was masked previously because the blocksUi bug made all messages text-only — once buttons started working, the duplication became visible.
-3. Webhook callback failures from earlier today (signature bug + auto-id link-button bug) may have left orphan executions retrying.
-
-**Investigate (read-only):**
-```bash
-# How many notifications has Slack received for the same outreach item?
-# (We can count by execution_entity workflowId/mode/startedAt window)
-ssh root@192.168.1.52 "ssh root@192.168.1.80 'pct exec 112 -- sqlite3 /root/.n8n/database.sqlite \"SELECT date(startedAt), mode, status, COUNT(*) FROM execution_entity WHERE workflowId='\\''rEv1eWoUtReAcH001'\\'' AND startedAt > '\\''2026-05-21 22:00:00'\\'' GROUP BY date(startedAt), mode, status ORDER BY date(startedAt) DESC;\"'"
-
-# Drafts for outreach_item 2268
-ssh root@192.168.1.52 "pct exec 114 -- su - postgres -c \"psql -d outreach -c 'SELECT id, variant, status, created_at FROM drafts WHERE outreach_item_id=2268;'\""
-
-# Read the review-notify scheduled-trigger Code/Postgres nodes to see what 'eligible draft' query returns
-```
-Look at `apps/outreach-workflows/n8n/review.json` nodes around the Schedule Trigger and the first Postgres "Fetch needs-review" query. The fix is almost certainly:
-- Add a `notified_at` column to `drafts` (schema migration) and gate the Fetch query on `notified_at IS NULL`.
-- Or, post ONE Slack message per outreach_item (not per draft variant) with a draft-variant selector in the Block Kit body.
-- Or, both: notify once per item, mark notified_at to suppress re-firing.
-
-Task #125 tracks this.
-
-### Quick mitigation (do NOT auto-execute)
-
-If the noise is intolerable before a real fix lands, the controller can manually mark recent unapproved drafts as `rejected` (same pattern we used for row 1997's cleanup):
-```bash
-# Suppress further notifications by transitioning drafts → rejected.
-# This DROPS the drafts; do not run unless the human reviewer has decided to skip them.
-ssh root@192.168.1.52 "pct exec 114 -- su - postgres -c \"psql -d outreach -c \\\"UPDATE drafts SET status='rejected' WHERE outreach_item_id=2268 RETURNING id, status;\\\"\""
+# After user OKs, the planned writes:
+# 1. Archive thin-excerpt rows that pre-date the Followup 11 fix
+ssh root@192.168.1.52 "pct exec 114 -- su - postgres -c \"psql -d outreach -c \\\"UPDATE outreach_items SET status='archived' WHERE id BETWEEN 2263 AND 2277 AND status='drafting' AND (source_excerpt IS NULL OR LENGTH(source_excerpt) < 50) RETURNING id, status;\\\"\""
+# 2. Reject the useless drafts on #2268 + close the item
+ssh root@192.168.1.52 "pct exec 114 -- su - postgres -c \"psql -d outreach -c \\\"UPDATE drafts SET status='rejected' WHERE outreach_item_id=2268 AND status='needs_human_review' RETURNING id, status;\\\"\""
 ssh root@192.168.1.52 "pct exec 114 -- su - postgres -c \"psql -d outreach -c \\\"UPDATE outreach_items SET status='reviewed' WHERE id=2268;\\\"\""
 ```
+
+**Do NOT touch:** #2258 (3 good Joanna Penn / Nadim Sadek drafts in `needs_human_review` — user should approve via Slack now that buttons work) or #2259-2262 (good 1000-char excerpts still flowing through the drafter).
+
+### (b) Verify Hash proper fix (task #128)
+
+Followup 11's `code-node-return-shape-audit.js` grandfathers Workflow D's `publish-dispatcher.json:Verify Hash` with an inline citation. T25 row 62 SUCCESS suggests n8n tolerates the array-wrap pattern in some upstream-node shapes, but the grandfather is a known smell. Task #128 covers:
+- Pre-deploy gate (0 `ready` rows in publish_jobs before cutover, same as B4).
+- Synthetic publish_job smoke through the entire dispatcher path to prove the new shape works end-to-end (Bluesky test post that gets manually deleted, same shape as B7).
+- Removal of the grandfather entry from `code-node-return-shape-audit.js` once the pattern is proven and Workflow D's node is migrated.
+
+This is the only remaining audit grandfather. Phase 2 T30 can still tag without it (T30's gates are unchanged) but addressing it before tag is the cleaner path.
+
+### (c) Phase 1 operational validation (user-driven, in progress)
+
+Use the system for ≥1 week, process ≥10 real outreach items end-to-end. Now that dedup + thin-skip work, the noise floor is fixed and the drafter only sees items with real excerpts. Once 10 real items are approved + dispatched, tag Phase 1: `git tag -a outreach-phase1-shipped -m "Phase 1: approval gate end-to-end"`. This unblocks T30.
+
+While the user is doing this, **do not deploy workflow changes** unless they explicitly confirm — n8n restart interrupts their session.
+
+### (d) Phase 2 T30 (tag)
+
+After (c) completes AND ≥5 production posts in `sent_to_postiz` (currently 1 — row 62 from T25) AND ArgoCD `temporal` + `postiz` Applications stay Synced/Healthy for a full 24h window:
+```bash
+ssh root@192.168.1.52 "pct exec 114 -- su - postgres -c \"psql -d outreach -c 'SELECT COUNT(*) FROM publish_jobs WHERE status = '\\''sent_to_postiz'\\'';'\""
+ssh root@192.168.1.52 "kubectl get applications -n argocd temporal postiz"
+```
+Then `gh pr merge 18 --squash` (no `--delete-branch`; auto-cleanup handles it). Switch `apps/temporal/argocd-application.yaml` + `apps/postiz/argocd-application.yaml` `targetRevision` from `outreach/phase0-phase1` to `main`/`HEAD`. Then `git tag -a outreach-phase2-shipped -m "Phase 2: Postiz + Temporal + Workflow D"`.
+
+### (e) Channel onboarding (user-gated)
+
+- **Reddit Devvit revisit** if Reddit relaxes the Responsible Builder Policy.
+- **LinkedIn** when Marketing Developer Platform approval comes through.
+- **X — deferred indefinitely** (user-confirmed 2026-05-21 due to $100/mo Basic plan cost). Root cause + wiring instructions in `docs/runbooks/postiz-channel-onboarding.md` "### X" section.
 
 ## Resume procedure (next steps in order)
 
@@ -152,42 +145,30 @@ git log --oneline main..HEAD | head -15
 ssh root@192.168.1.52 "pct exec 114 -- su - postgres -c \"psql -d outreach -c 'SELECT id, status, destination_platform, destination_account, created_at FROM publish_jobs ORDER BY id DESC LIMIT 10;'\""
 ```
 
-### 1. Slack platform-picker (TOP PRIORITY — user-requested)
+### 1. Confirm Followup 11 cleanup ran (TOP PRIORITY)
 
-**Goal:** today's Slack quick-approve hardcodes `approved_platform='bluesky'` (the only platform you can actually publish to from Slack). Extend the Slack interactive flow so the reviewer can pick a platform/integration at click-time.
+See "Top priority next session" section above — the planned thin-excerpt archive (2263-2277) + #2268 draft rejection were left pending user authorization in chat. Verify state first, run only with user OK. The dedup row `outcomes` id 30 at 16:22:38 UTC confirms Followup 11 fixed both prior-handoff Issue A and Issue B, but the data left over from before the fix needs the explicit cleanup.
 
-**Why this matters:** post-followup-2, Slack approve → bluesky dispatch works end-to-end. But mastodon and any future channel can only be approved via the form. The Slack button path is currently a one-channel shortcut.
+### 2. Verify Hash proper fix (task #128)
 
-**Approach sketch** (subject to your read of the n8n + Slack code):
-- `Build Slack Blocks` (Workflow C) currently posts a Slack message with Approve / Reject buttons. Add a static_select Block Kit element (or a button cluster) listing the platforms.
-- Slack interactive payloads will then include a `state_values[<block_id>][<action_id>].selected_option.value` in the response.
-- `Verify Slack Signature` + the existing `Webhook Slack Interactive` already validate the inbound payload — extend them to extract the selected platform.
-- `Build Slack Approval` then derives `approved_destination` (Postiz integration ID) from the chosen platform. Source options:
-  - **Easiest:** hardcode a platform→default-integration-id map (e.g., `bluesky → cmpefsrxp0005kbb1ttpbkjnf`, `mastodon → cmpegkub20001j0auhv9epe72`) inside the Code node. Trivial to maintain at current 3-integration scale.
-  - **Cleanest:** add a Postiz `/integrations` fetch step to the Slack approval flow (like B2 did for the form path) and pick the first integration matching the selected platform identifier. More moving parts.
-- Update the hash payload to use the chosen platform (it currently always uses `'bluesky'`).
-- `Write Slack Approval (CTE)` is already shape-correct — it pulls `approved_platform` from `Build Slack Approval`'s output via `queryReplacement` position 10.
+Workflow D's `publish-dispatcher.json:Verify Hash` is the lone grandfathered entry in Followup 11's `code-node-return-shape-audit.js`. Plan a pre-deploy gate (0 `ready` rows, same as B4) + a synthetic publish_job smoke through the dispatcher (same shape as B7) + removal of the grandfather entry. Not blocking for Phase 2 T30 but addresses the only remaining audit smell.
 
-**Pre-deploy gate (same as B4):** ensure 0 `ready` rows in publish_jobs before deploying the hash-payload shape change, since rows in flight at the moment of the cutover would fail hash verification.
-
-**Read first:** `apps/outreach-workflows/n8n/review.json` nodes `Build Slack Blocks`, `Webhook Slack Interactive`, `Verify Slack Signature`, `Build Slack Approval`, `Write Slack Approval (CTE)`, `HTTP Confirm Approval`. The Block Kit doc for `static_select` actions: https://api.slack.com/reference/block-kit/block-elements#static_select.
-
-### 2. Phase 1 operational validation (user-driven, in progress)
+### 3. Phase 1 operational validation (user-driven, in progress)
 
 Use the system for ≥1 week, process ≥10 real outreach items end-to-end. Once done, tag Phase 1: `git tag -a outreach-phase1-shipped -m "Phase 1: approval gate end-to-end"`. This unblocks T30.
 
 While the user is doing this, **do not deploy workflow changes** unless they explicitly confirm — n8n restart interrupts their session.
 
-### 3. Phase 2 T30 (tag)
+### 4. Phase 2 T30 (tag)
 
-After step 2 completes AND ≥5 production posts in `sent_to_postiz` (currently 1 — row 62 from T25) AND ArgoCD `temporal` + `postiz` Applications stay Synced/Healthy for a full 24h window:
+After step 3 completes AND ≥5 production posts in `sent_to_postiz` (currently 1 — row 62 from T25) AND ArgoCD `temporal` + `postiz` Applications stay Synced/Healthy for a full 24h window:
 ```bash
 ssh root@192.168.1.52 "pct exec 114 -- su - postgres -c \"psql -d outreach -c 'SELECT COUNT(*) FROM publish_jobs WHERE status = '\\''sent_to_postiz'\\'';'\""
 ssh root@192.168.1.52 "kubectl get applications -n argocd temporal postiz"
 ```
 Then `gh pr merge 18 --squash` (no `--delete-branch`; auto-cleanup handles it). Switch `apps/temporal/argocd-application.yaml` + `apps/postiz/argocd-application.yaml` `targetRevision` from `outreach/phase0-phase1` to `main`/`HEAD`. Then `git tag -a outreach-phase2-shipped -m "Phase 2: Postiz + Temporal + Workflow D"`.
 
-### 4. Channel onboarding (user-gated)
+### 5. Channel onboarding (user-gated)
 
 - **Reddit Devvit revisit** if Reddit relaxes the Responsible Builder Policy.
 - **LinkedIn** when Marketing Developer Platform approval comes through.
@@ -401,6 +382,7 @@ Still worth saving in future sessions (not done yet):
 ## Recent commits (last 15 on branch — `git log --oneline main..HEAD | head -15`)
 
 ```
+d7cd71c455688cda3cc5ca49d8d78fe8a42bcb9c feat(outreach): assert return-shape + RSS excerpt fallback + 2 CI guards
 9f5a5ea docs(handoff): RSS expansion + follow.it + soft-block deployed
 13de101 fix(outreach): restore discover.json indent shape after JSON round-trip
 6473b1c fix(outreach): tighten r/writing soft-block to word boundary
@@ -415,7 +397,6 @@ e1a0219 fix(outreach): widen annerallen soft-block regex to match scheme://host 
 dba7ace test(outreach): minor cleanups + no-public-self-loop drift guard
 d92ae02 fix(workflow-smoke): use 127.0.0.1:5678 self-loop + error-output Slack alert
 fd49eba docs(handoff): Slack platform-picker deployed + CI drift guards landed
-999db7d test(outreach): pin sha256 hash-payload concatenation order
 ```
 
 (100+ commits total on the branch — `git log --oneline main..HEAD` for the full list.)
@@ -424,11 +405,11 @@ fd49eba docs(handoff): Slack platform-picker deployed + CI drift guards landed
 
 In priority order:
 
-1. **Issue A — "No usable excerpt" drafts** (top priority). All organic outreach items post-RSS-deploy produce useless drafts. See "Top priority next session" section above for investigation steps. Task #124.
+1. **Confirm Followup 11 cleanup** — Issues A & B from prior handoff are RESOLVED by Followup 11 (commit `d7cd71c455688cda3cc5ca49d8d78fe8a42bcb9c`, deployed 2026-05-22 16:22 UTC), but the data left behind needs explicit user authorization to clean up. Planned: archive thin-excerpt items 2263-2277 (15 rows), reject useless drafts on #2268 + close item, leave #2258 (good drafts) + #2259-2262 (good excerpts) alone. See "Top priority next session" section above for exact SQL.
 
-2. **Issue B — Duplicate Slack notifications** (top priority, runs in parallel with #1). Item #2268 received many duplicate notifications; need dedup. See top section. Task #125.
+2. **Verify Hash proper fix** (task #128) — Workflow D's `publish-dispatcher.json:Verify Hash` is grandfathered in the new `code-node-return-shape-audit.js`. Plan covers pre-deploy gate + synthetic publish_job smoke + grandfather removal. Not blocking T30 but the only remaining audit smell.
 
-3. **Phase 1 operational validation** (blocked until #1 and #2 fixed) — ≥10 real items / ≥1 week of real usage; then tag `outreach-phase1-shipped`. Only step blocking Phase 2 tag.
+3. **Phase 1 operational validation** — ≥10 real items / ≥1 week of real usage; then tag `outreach-phase1-shipped`. Only step blocking Phase 2 tag. Dedup + thin-skip are now live so the noise floor is fixed.
 
 4. **Phase 2 T30** — after #3 done + ≥5 production posts in `sent_to_postiz` (currently 1 — row 62 from T25) + 24h ArgoCD `temporal` + `postiz` Synced/Healthy window. Then `gh pr merge 18 --squash` and flip ArgoCD `targetRevision` from `outreach/phase0-phase1` to `main`/`HEAD`.
 
