@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postiz-config
+  namespace: plotlens-marketing
+data:
+  STORAGE_PROVIDER: "local"  # Postiz writes media to local fs initially; revisit MinIO after smoke
+  IS_GENERAL: "true"          # required per Postiz docs for self-hosted
+  NX_ADD_PLUGINS: "false"
+  # Locked after T14 admin signup (jacorbello@gmail.com).
+  DISABLE_REGISTRATION: "true"
+  # Nginx inside the Postiz container serves /uploads/ from the literal /uploads path
+  UPLOAD_DIRECTORY: "/uploads"
+  NEXT_PUBLIC_UPLOAD_DIRECTORY: "/uploads"
+  # Backend internal URL (within the same pod, pm2 manages both processes)
+  BACKEND_INTERNAL_URL: "http://localhost:3000"
+  # Temporal cluster address — frontend service in same namespace
+  TEMPORAL_ADDRESS: "temporal-frontend.plotlens-marketing.svc.cluster.local:7233"
+  TZ: "UTC"

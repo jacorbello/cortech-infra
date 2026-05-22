@@ -1,0 +1,20 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: temporal
+  namespace: plotlens-marketing
+  labels:
+    app.kubernetes.io/name: temporal
+    app.kubernetes.io/component: server
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: history
+      app.kubernetes.io/name: temporal
+  endpoints:
+    - port: metrics
+      interval: 30s
+  namespaceSelector:
+    matchNames:
+      - plotlens-marketing

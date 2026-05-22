@@ -1,0 +1,231 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dashboard-app-plotlens-marketing
+  namespace: observability
+  labels:
+    grafana_dashboard: "1"
+    app.kubernetes.io/name: grafana-dashboard
+    app.kubernetes.io/component: application
+    release: prometheus
+  annotations:
+    grafana_folder: "Applications"
+data:
+  plotlens-marketing.json: |-
+    {
+      "annotations": {
+        "list": [
+          {
+            "builtIn": 1,
+            "datasource": {"type": "grafana", "uid": "-- Grafana --"},
+            "enable": true,
+            "hide": true,
+            "iconColor": "rgba(0, 211, 255, 1)",
+            "name": "Annotations & Alerts",
+            "type": "dashboard"
+          }
+        ]
+      },
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 1,
+      "id": null,
+      "links": [],
+      "panels": [
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "thresholds"},
+              "mappings": [
+                {"options": {"0": {"color": "red", "index": 0, "text": "DOWN"}}, "type": "value"},
+                {"options": {"1": {"color": "green", "index": 1, "text": "UP"}}, "type": "value"}
+              ],
+              "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}
+            },
+            "overrides": []
+          },
+          "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0},
+          "id": 1,
+          "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+          "pluginVersion": "11.0.0",
+          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "max(kube_pod_status_ready{namespace=\"plotlens-marketing\", pod=~\"postiz-.*\", condition=\"true\"})", "legendFormat": "Status", "refId": "A"}],
+          "title": "Postiz Status",
+          "type": "stat"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "thresholds"},
+              "mappings": [
+                {"options": {"0": {"color": "red", "index": 0, "text": "DOWN"}}, "type": "value"},
+                {"options": {"1": {"color": "green", "index": 1, "text": "UP"}}, "type": "value"}
+              ],
+              "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}
+            },
+            "overrides": []
+          },
+          "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0},
+          "id": 2,
+          "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["min"], "fields": "", "values": false}, "textMode": "auto"},
+          "pluginVersion": "11.0.0",
+          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "min(kube_pod_status_ready{namespace=\"plotlens-marketing\", pod=~\"temporal-(frontend|history|matching|worker)-.*\", condition=\"true\"})", "legendFormat": "Status", "refId": "A"}],
+          "title": "Temporal Status (min across pods)",
+          "type": "stat"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "thresholds"},
+              "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 1}, {"color": "red", "value": 3}]}
+            },
+            "overrides": []
+          },
+          "gridPos": {"h": 4, "w": 8, "x": 8, "y": 0},
+          "id": 3,
+          "options": {"colorMode": "background", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+          "pluginVersion": "11.0.0",
+          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "sum(increase(kube_pod_container_status_restarts_total{namespace=\"plotlens-marketing\"}[1h]))", "legendFormat": "Restarts (1h)", "refId": "A"}],
+          "title": "Container Restarts (1h, all pods)",
+          "type": "stat"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "thresholds"},
+              "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}
+            },
+            "overrides": []
+          },
+          "gridPos": {"h": 4, "w": 8, "x": 16, "y": 0},
+          "id": 4,
+          "options": {"colorMode": "value", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+          "pluginVersion": "11.0.0",
+          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "count(kube_pod_info{namespace=\"plotlens-marketing\"})", "legendFormat": "Pods", "refId": "A"}],
+          "title": "Pods in namespace",
+          "type": "stat"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "custom": {"axisBorderShow": false, "drawStyle": "line", "fillOpacity": 10, "lineInterpolation": "smooth", "lineWidth": 2, "showPoints": "never", "spanNulls": false, "stacking": {"group": "A", "mode": "none"}},
+              "mappings": [],
+              "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]},
+              "unit": "bytes"
+            },
+            "overrides": []
+          },
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+          "id": 5,
+          "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+          "pluginVersion": "11.0.0",
+          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "sum(container_memory_working_set_bytes{namespace=\"plotlens-marketing\", pod!=\"\"}) by (pod)", "legendFormat": "{{pod}}", "refId": "A"}],
+          "title": "Memory Working Set by Pod",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "custom": {"axisBorderShow": false, "drawStyle": "line", "fillOpacity": 10, "lineInterpolation": "smooth", "lineWidth": 2, "showPoints": "never", "spanNulls": false, "stacking": {"group": "A", "mode": "none"}},
+              "mappings": [],
+              "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]},
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+          "id": 6,
+          "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+          "pluginVersion": "11.0.0",
+          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"plotlens-marketing\", pod!=\"\"}[5m])) by (pod)", "legendFormat": "{{pod}}", "refId": "A"}],
+          "title": "CPU Usage by Pod",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "loki", "uid": "loki"},
+          "gridPos": {"h": 8, "w": 24, "x": 0, "y": 12},
+          "id": 7,
+          "options": {"dedupStrategy": "none", "enableLogDetails": true, "prettifyLogMessage": false, "showCommonLabels": false, "showLabels": false, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true},
+          "pluginVersion": "11.0.0",
+          "targets": [{"datasource": {"type": "loki", "uid": "loki"}, "expr": "{namespace=\"plotlens-marketing\"} |~ \"(?i)error|warn|fail|exception\"", "refId": "A"}],
+          "title": "plotlens-marketing errors (Loki)",
+          "type": "logs"
+        },
+        {
+          "datasource": {"type": "prometheus", "uid": "${datasource}"},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "custom": {"axisBorderShow": false, "drawStyle": "line", "fillOpacity": 10, "lineInterpolation": "smooth", "lineWidth": 2, "showPoints": "never", "spanNulls": false, "stacking": {"group": "A", "mode": "none"}},
+              "mappings": [],
+              "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]},
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
+          "id": 8,
+          "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+          "pluginVersion": "11.0.0",
+          "targets": [{"datasource": {"type": "prometheus", "uid": "${datasource}"}, "expr": "increase(kube_pod_container_status_restarts_total{namespace=\"plotlens-marketing\"}[5m])", "legendFormat": "{{pod}}/{{container}}", "refId": "A"}],
+          "title": "Container restarts over time",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {"type": "loki", "uid": "loki"},
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20},
+          "id": 9,
+          "options": {"dedupStrategy": "none", "enableLogDetails": true, "prettifyLogMessage": false, "showCommonLabels": false, "showLabels": false, "showTime": true, "sortOrder": "Descending", "wrapLogMessage": true},
+          "pluginVersion": "11.0.0",
+          "targets": [{"datasource": {"type": "loki", "uid": "loki"}, "expr": "{namespace=\"plotlens-marketing\", container=\"postiz\"} |~ \"(?i)temporal|workflow\"", "refId": "A"}],
+          "title": "Postiz Temporal worker chatter",
+          "type": "logs"
+        },
+        {
+          "datasource": {"type": "grafana", "uid": "-- Grafana --"},
+          "gridPos": {"h": 6, "w": 24, "x": 0, "y": 28},
+          "id": 10,
+          "options": {
+            "mode": "markdown",
+            "content": "## publish_jobs / outreach_items panels deferred\\n\\nThis dashboard surfaces Kubernetes-layer health for the `plotlens-marketing` namespace. SQL-backed panels (publish_jobs status breakdown, outreach_items rollup, hash-mismatch trigger rejections) are deferred to Phase 2.1 — they require a Grafana Postgres datasource pointed at LXC 114 (`outreach` DB) which is not yet provisioned in cluster.\\n\\n**Run these manually for now** (from a workstation with Infisical CLI):\\n\\n```\\nADMIN_URL=$(infisical secrets get OUTREACH_DB_ADMIN_URL --projectId=db72a923-3cd8-4636-b1ff-80845dc070ca --env=dev --plain)\\n\\n# publish_jobs by status (last 24h)\\npsql \"$ADMIN_URL\" -c \"SELECT status, COUNT(*) FROM publish_jobs WHERE created_at > now() - interval '24h' GROUP BY status ORDER BY 2 DESC;\"\\n\\n# Stalled ready jobs\\npsql \"$ADMIN_URL\" -c \"SELECT id, destination_platform, scheduled_for, attempt_count FROM publish_jobs WHERE status='ready' AND COALESCE(scheduled_for, created_at) < now() - interval '15 minutes';\"\\n\\n# enforce_approval_match rejections (must be 0)\\npsql \"$ADMIN_URL\" -c \"SELECT date_trunc('hour', created_at) AS h, kind, COUNT(*) FROM outcomes WHERE kind LIKE 'trigger_rejection%' AND created_at > now() - interval '24h' GROUP BY 1,2 ORDER BY 1;\"\\n```\\n\\nSee `docs/runbooks/postiz-failed-job-recovery.md` for the canonical operator workflow."
+          },
+          "title": "DB-backed panels (manual for Phase 2)",
+          "type": "text"
+        }
+      ],
+      "refresh": "30s",
+      "schemaVersion": 39,
+      "tags": ["application", "plotlens", "outreach", "phase-2"],
+      "templating": {
+        "list": [
+          {
+            "current": {"selected": true, "text": "Prometheus", "value": "prometheus"},
+            "hide": 0,
+            "includeAll": false,
+            "label": "Datasource",
+            "multi": false,
+            "name": "datasource",
+            "options": [],
+            "query": "prometheus",
+            "queryValue": "",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "type": "datasource"
+          }
+        ]
+      },
+      "time": {"from": "now-24h", "to": "now"},
+      "timepicker": {},
+      "timezone": "browser",
+      "title": "PlotLens Marketing — Outreach Pipeline",
+      "uid": "app-plotlens-marketing",
+      "version": 1
+    }

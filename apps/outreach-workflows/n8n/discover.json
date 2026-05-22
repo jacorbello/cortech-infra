@@ -1,0 +1,358 @@
+{
+  "updatedAt": "2026-05-19T18:06:56.000Z",
+  "createdAt": "2026-05-19T17:46:12.672Z",
+  "id": "dScvr0utReAcHW01",
+  "name": "outreach-discover",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "outreach-discover",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "outreach-discover-wh",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "R8FUCCmGLkzJdEPB",
+          "name": "discover-webhook-secret"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const url = $input.item.json.body.url;\nif (!url || !url.match(/^https?:\\/\\//)) {\n  throw new Error('invalid url');\n}\nreturn [{\n  json: {\n    source_platform: 'manual',\n    source_url: url,\n    source_excerpt: $input.item.json.body.notes || null,\n    source_author: null,\n  }\n}];"
+      },
+      "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+      "name": "Normalize Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Soft-block list — domains/handles where we know engagement is unwelcome\n// or against community policy. Items matching these patterns are dropped at\n// discover time so the auto-draft pipeline never spends Anthropic tokens or\n// reviewer attention on them. Operators can still manually engage by visiting\n// the URL directly; this filter only stops the automation.\n//\n// To add a soft-block, add a row to SOFT_BLOCK_PATTERNS. The `pattern` is\n// matched against source_url AND source_author. The `reason` is logged for\n// audit visibility.\n//\n// NOTE: this Code node is duplicated on the manual-webhook path (Normalize\n// Input -> Apply Soft Block -> Insert Outreach Item) and the RSS path\n// (Normalize RSS -> Apply Soft Block RSS -> Insert RSS Item). Keep the\n// SOFT_BLOCK_PATTERNS list in sync between the two.\nconst SOFT_BLOCK_PATTERNS = [\n  { pattern: /(?:^|[\\/.])annerallen\\.com/i,           reason: 'AI-skeptical single author; manual engagement only' },\n  { pattern: /countercraft\\.substack\\.com/i,       reason: 'Lincoln Michel — AI-skeptical commentary; manual only' },\n  { pattern: /reddit\\.com\\/r\\/writing\\b/i,           reason: 'r/writing rule 3 bans AI-tool mentions' },\n];\n\nconst out = [];\nfor (const item of items) {\n  const j = item.json || {};\n  const url = String(j.source_url || '');\n  const author = String(j.source_author || '');\n  const haystack = url + ' ' + author;\n  const hit = SOFT_BLOCK_PATTERNS.find(p => p.pattern.test(haystack));\n  if (hit) {\n    console.log(`[Apply Soft Block] DROPPED ${url} (${hit.reason})`);\n    continue;\n  }\n  out.push(item);\n}\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        380
+      ],
+      "id": "11111111-2222-3333-4444-555555555555",
+      "name": "Apply Soft Block"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO outreach_items (source_platform, source_url, source_excerpt, source_author)\nVALUES ($1, $2, $3, $4)\nON CONFLICT (source_platform, source_url) DO NOTHING\nRETURNING id;",
+        "options": {
+          "queryReplacement": "={{ [$json.source_platform, $json.source_url, $json.source_excerpt, $json.source_author] }}"
+        }
+      },
+      "id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
+      "name": "Insert Outreach Item",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        900,
+        460
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "fOZmso5kyXr6Agdn",
+          "name": "outreach-db-n8n"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {accepted: true, id: $json.id} }}"
+      },
+      "id": "d4e5f6a7-b8c9-0123-defa-234567890123",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 30
+            }
+          ]
+        }
+      },
+      "id": "e5f6a7b8-c9d0-1234-efab-345678901234",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  { json: { name: \"The Creative Penn\", url: \"https://thecreativepenn.com/feed/\" } },\n  { json: { name: \"Writers Helping Writers\", url: \"https://writershelpingwriters.net/feed/\" } },\n  { json: { name: \"Jane Friedman\", url: \"https://janefriedman.com/feed/\" } },\n  { json: { name: \"Helping Writers Become Authors\", url: \"https://www.helpingwritersbecomeauthors.com/feed/\" } },\n  { json: { name: \"Writer Unboxed\", url: \"https://writerunboxed.com/feed/\" } },\n  { json: { name: \"Kill Zone Blog\", url: \"https://killzoneblog.com/feed\" } },\n  { json: { name: \"Writers in the Storm\", url: \"https://writersinthestormblog.com/feed/\" } },\n  { json: { name: \"John August\", url: \"https://johnaugust.com/feed/\" } },\n  { json: { name: \"Go Into The Story (Black List)\", url: \"https://gointothestory.blcklst.com/feed\" } },\n  { json: { name: \"Steven Pressfield\", url: \"https://stevenpressfield.com/feed/\" } }\n];"
+      },
+      "id": "f6a7b8c9-d0e1-2345-fabc-456789012345",
+      "name": "RSS Feed List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "a7b8c9d0-e1f2-3456-abcd-567890123456",
+      "name": "Split In Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        680,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{$json.url}}"
+      },
+      "id": "b8c9d0e1-f2a3-4567-bcde-678901234567",
+      "name": "RSS Read",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.1,
+      "position": [
+        900,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Unwrap follow.it tracking proxies. The Creative Penn (and any other publisher\n// who delegated their feed to follow.it) emits items with link AND guid both\n// pointing at https://api.follow.it/track-rss-story-click/v3/<opaque>?utm_source=follow.it.\n// The canonical URL is recoverable via a single HTTP 302: the redirect Location\n// header carries it as `?q=<urlencoded>`. We only HEAD api.follow.it/* hosts;\n// non-tracking URLs pass through untouched.\nasync function unwrapFollowIt(url) {\n  try {\n    if (!url || !/^https:\\/\\/api\\.follow\\.it\\//.test(url)) return url;\n    const res = await fetch(url, { method: 'HEAD', redirect: 'manual', signal: AbortSignal.timeout(3000) });\n    const loc = res.headers.get('location');\n    if (!loc) return url;\n    const m = loc.match(/[?&]q=([^&]+)/);\n    if (!m) return url;\n    const decoded = decodeURIComponent(m[1]);\n    return /^https?:\\/\\//.test(decoded) ? decoded : url;\n  } catch (_) {\n    return url;\n  }\n}\n\n// Extract a usable excerpt. Different feeds expose body content under different\n// keys (rss-parser normalises some but not all). The Creative Penn often emits\n// items with `contentSnippet` only, but Writer Unboxed / Kill Zone / etc.\n// sometimes emit only `content`, `description`, or none of them. Strip rudimentary\n// HTML tags and collapse whitespace so the downstream Anthropic prompt sees a\n// clean text snippet.\n//\n// Items with a final excerpt shorter than THIN_EXCERPT_THRESHOLD are dropped at\n// discover time — they generate \"No usable excerpt\" Anthropic drafts that waste\n// tokens and reviewer attention. The audit-trail loss is acceptable; the item\n// can come back later if the feed re-publishes with a fuller body.\nconst THIN_EXCERPT_THRESHOLD = 50;\nfunction extractExcerpt(item) {\n  const raw = item.json.contentSnippet || item.json.content || item.json.description || '';\n  return String(raw).replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ').trim().slice(0, 1000);\n}\n\nconst out = [];\nfor (const item of items) {\n  const excerpt = extractExcerpt(item);\n  if (excerpt.length < THIN_EXCERPT_THRESHOLD) {\n    console.log(`[Normalize RSS] SKIP thin-excerpt (${excerpt.length} chars) ${item.json.link}`);\n    continue;\n  }\n  out.push({\n    json: {\n      source_platform: 'rss',\n      source_url: await unwrapFollowIt(item.json.link),\n      source_excerpt: excerpt,\n      source_author: item.json.creator || null,\n    },\n  });\n}\nreturn out;"
+      },
+      "id": "c9d0e1f2-a3b4-5678-cdef-789012345678",
+      "name": "Normalize RSS",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Soft-block list — domains/handles where we know engagement is unwelcome\n// or against community policy. Items matching these patterns are dropped at\n// discover time so the auto-draft pipeline never spends Anthropic tokens or\n// reviewer attention on them. Operators can still manually engage by visiting\n// the URL directly; this filter only stops the automation.\n//\n// To add a soft-block, add a row to SOFT_BLOCK_PATTERNS. The `pattern` is\n// matched against source_url AND source_author. The `reason` is logged for\n// audit visibility.\n//\n// NOTE: this Code node is duplicated on the manual-webhook path (Normalize\n// Input -> Apply Soft Block -> Insert Outreach Item) and the RSS path\n// (Normalize RSS -> Apply Soft Block RSS -> Insert RSS Item). Keep the\n// SOFT_BLOCK_PATTERNS list in sync between the two.\nconst SOFT_BLOCK_PATTERNS = [\n  { pattern: /(?:^|[\\/.])annerallen\\.com/i,           reason: 'AI-skeptical single author; manual engagement only' },\n  { pattern: /countercraft\\.substack\\.com/i,       reason: 'Lincoln Michel — AI-skeptical commentary; manual only' },\n  { pattern: /reddit\\.com\\/r\\/writing\\b/i,           reason: 'r/writing rule 3 bans AI-tool mentions' },\n];\n\nconst out = [];\nfor (const item of items) {\n  const j = item.json || {};\n  const url = String(j.source_url || '');\n  const author = String(j.source_author || '');\n  const haystack = url + ' ' + author;\n  const hit = SOFT_BLOCK_PATTERNS.find(p => p.pattern.test(haystack));\n  if (hit) {\n    console.log(`[Apply Soft Block] DROPPED ${url} (${hit.reason})`);\n    continue;\n  }\n  out.push(item);\n}\nreturn out;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1230,
+        760
+      ],
+      "id": "22222222-3333-4444-5555-666666666666",
+      "name": "Apply Soft Block RSS"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO outreach_items (source_platform, source_url, source_excerpt, source_author)\nVALUES ($1, $2, $3, $4)\nON CONFLICT (source_platform, source_url) DO NOTHING\nRETURNING id;",
+        "options": {
+          "queryReplacement": "={{ [$json.source_platform, $json.source_url, $json.source_excerpt, $json.source_author] }}"
+        }
+      },
+      "id": "d0e1f2a3-b4c5-6789-defa-890123456789",
+      "name": "Insert RSS Item",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1340,
+        620
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "fOZmso5kyXr6Agdn",
+          "name": "outreach-db-n8n"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "Apply Soft Block",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Outreach Item": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "RSS Feed List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS Feed List": {
+      "main": [
+        [
+          {
+            "node": "Split In Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split In Batches": {
+      "main": [
+        [],
+        [
+          {
+            "node": "RSS Read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RSS Read": {
+      "main": [
+        [
+          {
+            "node": "Normalize RSS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize RSS": {
+      "main": [
+        [
+          {
+            "node": "Apply Soft Block RSS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apply Soft Block": {
+      "main": [
+        [
+          {
+            "node": "Insert Outreach Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apply Soft Block RSS": {
+      "main": [
+        [
+          {
+            "node": "Insert RSS Item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": {
+    "node:Schedule Trigger": {
+      "recurrenceRules": []
+    }
+  },
+  "meta": null,
+  "pinData": null,
+  "versionId": "32f197df-4a1f-48e9-bd74-e059b4c91ee6",
+  "activeVersionId": "32f197df-4a1f-48e9-bd74-e059b4c91ee6",
+  "versionCounter": 10,
+  "triggerCount": 2,
+  "tags": [],
+  "shared": [
+    {
+      "updatedAt": "2026-05-19T17:46:12.674Z",
+      "createdAt": "2026-05-19T17:46:12.674Z",
+      "role": "workflow:owner",
+      "workflowId": "dScvr0utReAcHW01",
+      "projectId": "JGmgbrvKk4KLD2WH",
+      "project": {
+        "updatedAt": "2025-09-03T13:34:38.940Z",
+        "createdAt": "2025-09-03T13:25:25.897Z",
+        "id": "JGmgbrvKk4KLD2WH",
+        "name": "Jeremy Corbello <jacorbello@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "267d3922-bc61-4b1d-a99c-8d3098aa7a70"
+      }
+    }
+  ],
+  "versionMetadata": {
+    "name": null,
+    "description": null
+  }
+}

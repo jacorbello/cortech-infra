@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-outreach-exporter
+  namespace: observability
+  labels:
+    app.kubernetes.io/name: postgres-outreach-exporter
+    app.kubernetes.io/component: exporter
+    release: prometheus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgres-outreach-exporter
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgres-outreach-exporter
+        release: prometheus
+    spec:
+      containers:
+        - name: exporter
+          image: quay.io/prometheuscommunity/postgres-exporter:v0.15.0
+          args:
+            - --extend.query-path=/etc/postgres-exporter/queries.yaml
+            # Keep only the custom queries (above) and the connection-up scrape.
+            # `--disable-default-metrics` strips the legacy default metric set;
+            # `--no-collector.X` switches off the built-in collectors (some, like
+            # `wal`, need superuser/pg_monitor — outreach_n8n is a plain role).
+            - --disable-default-metrics
+            - --disable-settings-metrics
+            - --no-collector.database
+            - --no-collector.locks
+            - --no-collector.replication
+            - --no-collector.replication_slot
+            - --no-collector.stat_bgwriter
+            - --no-collector.stat_database
+            - --no-collector.stat_user_tables
+            - --no-collector.statio_user_tables
+            - --no-collector.wal
+          env:
+            - name: DATA_SOURCE_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-outreach-exporter
+                  key: OUTREACH_DB_N8N_URL
+          ports:
+            - name: metrics
+              containerPort: 9187
+              protocol: TCP
+          volumeMounts:
+            - name: queries
+              mountPath: /etc/postgres-exporter
+              readOnly: true
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+          livenessProbe:
+            httpGet:
+              path: /
+              port: metrics
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 15
+            timeoutSeconds: 10
+      volumes:
+        - name: queries
+          configMap:
+            name: postgres-outreach-exporter-queries

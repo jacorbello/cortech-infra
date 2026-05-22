@@ -1,0 +1,22 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: postgres-outreach-exporter
+  namespace: observability
+  labels:
+    app.kubernetes.io/name: postgres-outreach-exporter
+    app.kubernetes.io/component: exporter
+    release: prometheus
+spec:
+  endpoints:
+    - port: metrics
+      scheme: http
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 25s
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgres-outreach-exporter
+  namespaceSelector:
+    matchNames:
+      - observability

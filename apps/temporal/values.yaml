@@ -1,0 +1,123 @@
+# Temporal server values for plotlens-marketing namespace.
+# Chart pin: temporal-server 0.74.0 (app 1.30.3), validated in Phase 0 spike.
+# See docs/runbooks/temporal-spike-findings.md for resource rationale and K3s gotchas.
+
+server:
+  replicaCount: 1
+
+  # Required per spike findings — prevents chart from initialising with Cassandra defaults
+  # regardless of persistence.sql settings (gotcha #6 in spike doc).
+  setConfigFilePath: true
+  configMapsToMount: "sprig"
+
+  config:
+    persistence:
+      default:
+        driver: sql
+        sql:
+          driver: postgres12
+          host: 192.168.1.83
+          port: 5432
+          database: temporal
+          user: temporal_app
+          existingSecret: temporal-secrets
+          secretKey: TEMPORAL_DATABASE_PASSWORD
+          maxConns: 20
+          maxIdleConns: 20
+          maxConnLifetime: "1h"
+      visibility:
+        driver: sql
+        sql:
+          driver: postgres12
+          host: 192.168.1.83
+          port: 5432
+          database: temporal_visibility
+          user: temporal_app
+          existingSecret: temporal-secrets
+          secretKey: TEMPORAL_DATABASE_PASSWORD
+          maxConns: 10
+          maxIdleConns: 10
+          maxConnLifetime: "1h"
+
+  frontend:
+    # Pin to k3s-wrk-1 — do not rely on scheduler taint behaviour (spike gotcha #2).
+    nodeSelector:
+      role: core-app
+    resources:
+      requests:
+        cpu: 50m
+        memory: 96Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+
+  history:
+    nodeSelector:
+      role: core-app
+    resources:
+      requests:
+        cpu: 50m
+        memory: 288Mi
+      limits:
+        cpu: 200m
+        memory: 512Mi
+
+  matching:
+    nodeSelector:
+      role: core-app
+    resources:
+      requests:
+        cpu: 50m
+        memory: 96Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+
+  worker:
+    nodeSelector:
+      role: core-app
+    resources:
+      requests:
+        cpu: 25m
+        memory: 96Mi
+      limits:
+        cpu: 100m
+        memory: 256Mi
+
+web:
+  enabled: true
+  replicaCount: 1
+  nodeSelector:
+    role: core-app
+  service:
+    type: ClusterIP
+    port: 8080
+  resources:
+    requests:
+      cpu: 10m
+      memory: 24Mi
+    limits:
+      cpu: 50m
+      memory: 64Mi
+
+schema:
+  # Databases already created in T3 by postgres admin; temporal_app lacks CREATEDB privilege.
+  createDatabase:
+    enabled: false
+  setup:
+    enabled: true
+  update:
+    enabled: true
+
+# Disable all bundled datastores and observability sidecars —
+# using external Postgres on LXC 114 (192.168.1.83) and cluster-wide Prometheus.
+cassandra:
+  enabled: false
+mysql:
+  enabled: false
+prometheus:
+  enabled: false
+grafana:
+  enabled: false
+elasticsearch:
+  enabled: false

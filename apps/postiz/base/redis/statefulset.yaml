@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postiz-redis
+  namespace: plotlens-marketing
+  labels:
+    app: postiz-redis
+    app.kubernetes.io/part-of: postiz
+spec:
+  serviceName: postiz-redis
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postiz-redis
+  template:
+    metadata:
+      labels:
+        app: postiz-redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7.4-alpine
+          ports:
+            - name: redis
+              containerPort: 6379
+          args:
+            - "--save"
+            - "60"
+            - "1"
+            - "--appendonly"
+            - "yes"
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          livenessProbe:
+            tcpSocket:
+              port: redis
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        storageClassName: nfs-node3
+        resources:
+          requests:
+            storage: 5Gi

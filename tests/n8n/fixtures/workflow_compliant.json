@@ -1,0 +1,22 @@
+{
+  "name": "discover",
+  "nodes": [
+    {
+      "id": "webhook-1",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "parameters": {"path": "outreach-discover"},
+      "credentials": {
+        "httpHeaderAuth": {"id": "1", "name": "discover-webhook-secret"}
+      }
+    },
+    {
+      "id": "pg-1",
+      "name": "Postgres",
+      "type": "n8n-nodes-base.postgres",
+      "credentials": {
+        "postgres": {"id": "2", "name": "outreach-db-n8n"}
+      }
+    }
+  ]
+}
