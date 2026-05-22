@@ -113,6 +113,8 @@ jobs:
         run: node apps/outreach-workflows/tests/sha256-audit/poll-workflow-status-writes-audit.js
       - name: Postiz list-window drift guard
         run: node apps/outreach-workflows/tests/sha256-audit/postiz-list-window-audit.js
+      - name: Poll reconcile state-machine sandbox test
+        run: node apps/outreach-workflows/tests/sha256-audit/poll-reconcile-state-machine.js
 
   manifests-lint:
     runs-on: ubuntu-latest
