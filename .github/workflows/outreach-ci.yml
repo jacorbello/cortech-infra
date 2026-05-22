@@ -103,6 +103,8 @@ jobs:
         run: node apps/outreach-workflows/tests/sha256-audit/normalize-rss-thin-excerpt-skip.js
       - name: Code-node return-shape drift guard
         run: node apps/outreach-workflows/tests/sha256-audit/code-node-return-shape-audit.js
+      - name: Slack platform_key propagation drift guard
+        run: node apps/outreach-workflows/tests/sha256-audit/slack-platform-key-propagation.js
 
   manifests-lint:
     runs-on: ubuntu-latest
