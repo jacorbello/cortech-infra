@@ -1,6 +1,6 @@
 # PlotLens Outreach — Session Handoff
 
-**As of:** 2026-05-21, 22:10 UTC — Phase 2.1 schema cleanup + 10 followups + X investigation + 5 DEPLOYED + 8 CI drift guards landed:
+**As of:** 2026-05-22 — Phase 2.1 schema cleanup + 10 followups + X investigation + 5 DEPLOYED + 8 CI drift guards landed. **Two new issues surfaced after the RSS-bundle deploy — see "Top priority next session" below.**
 - A1-A3 + B1-B7 schema/UX cleanup
 - Followups: unified channel dropdown, Slack quick-approve dispatch, schema test SQLSTATE hardening, X investigation
 - **Slack platform-picker deployed to LXC 112** at 17:09 UTC (workflow `rEv1eWoUtReAcH001`)
@@ -70,6 +70,71 @@ Read this file first on any session resume. Safe to delete once Phase 2 is tagge
 | Followup 7 — Smoke heartbeat fix + no-public-self-loop drift guard | ✅ | **DEPLOYED 2026-05-21 18:36 UTC.** Root cause via systematic-debugging: smoke's `Trigger Discover` POSTed to `https://n8n.corbello.io/webhook/outreach-discover` from inside LXC 112, where `/etc/hosts` maps that hostname to `127.0.1.1` (PVE auto-managed because container hostname is `n8n`); nothing listens on `127.0.1.1:443` so every run errored at the first HTTP call. Critical correction: bug was present from day one — only 2 scheduled runs ever fired (2026-05-20 + 2026-05-21 at 14:00 UTC because `GENERIC_TIMEZONE=America/Chicago`, not 09:00 UTC as the workflow description claims); both errored in 23ms. Fix: (1) `Trigger Discover.parameters.url` → `http://127.0.0.1:5678/webhook/outreach-discover`; (2) `Trigger Discover.onError = continueErrorOutput`; (3) new `Build HTTP Failure Alert` Code node wired to `main[1]` error output → existing `Slack Alert` (HTTP-layer failures now page, where before the alert path was downstream of the failing node). Also (4) new CI guard `no-public-self-loop.js` rejects any HTTP node URL containing `n8n.corbello.io` to prevent the bug class. Workflow re-imported + reactivated + restarted on LXC 112; healthy 2s post-restart; journal confirms `Activated workflow "outreach-smoke"` at 18:36:40. Did NOT change the schedule timezone (Chicago vs UTC is a doc cleanup, not a bug). Commits `d92ae02`, `dba7ace`. |
 | Followup 8 — Slack blocksUi shape fix + form dropdown dedup + guardrails | ✅ | **DEPLOYED 2026-05-21 19:35 UTC.** Root cause via systematic-debugging: Slack v2 node (typeVersion 2.3) reads `blocksUi` with `ensureType: 'object'`, which accepts a bare array; `Slack/V2/GenericFunctions.js:194` then treats the value as an object expecting `.blocks` — bare array has none, so the spread into the request body produces integer keys (`"0"`, `"1"`) and `chat.postMessage` never receives `blocks`. Slack posts only `text` and server-renders it as a synthetic `rich_text` block. Bug present since workflows authored — explains why outreach-bot Slack messages never showed approve/reject buttons. Fix: 4 nodes' `parameters.blocksUi` changed from `={{ JSON.stringify($json.slack_blocks) }}` to `={{ { blocks: $json.slack_blocks } }}` (object wrapper). Separately: form dropdown was showing 9 options for 3 integrations because `Fetch Postiz Integrations` runs once per input item (n8n default) and `Postgres Load Drafts` emits 3 items, so 3 drafts × 3 fetches = 9 integration entries. Dedup-by-id in `Code Render HTML` reduces to N unique. New `Assert Slack Blocks Sent` Code node in review.json throws on silent drop. New `blocksui-shape-audit.js` CI guard rejects any `messageType: block` Slack node with broken expression. 4 workflows imported, all 4 reactivated, single n8n restart; healthy 2s post-restart; journal shows all 4 `Activated workflow` lines; DB confirms all 4 `active=1`; broken expression count in DB = 0. Commits `43b3251`, `5c283ec`. |
 | Followup 9 — Slack signature + parser hardening | ✅ | **DEPLOYED 2026-05-21 20:39 UTC.** Root cause via systematic-debugging: `Verify Slack Signature` reconstructed the signed string by feeding the parsed `payload` JSON back through JavaScript `encodeURIComponent`, but Slack signs the bytes its Go server actually sent — produced by `url.QueryEscape`. The two encoders disagree on `( ) ' * ~ ! +` and space; any real Slack callback containing those characters (usernames with apostrophes, action values with parens, etc.) failed HMAC reconstruction and got rejected with `Invalid Slack signature` 401s. Fix: enable `options.rawBody=true` on `Webhook Slack Interactive` so n8n attaches the original request bytes under `item.binary.data` (base64); the verify node HMAC's those bytes directly — no re-encoding, no encoder-divergence surface. Secondary defect surfaced by the same incident: the "Open full form" link button had no explicit `action_id`, so Slack auto-assigned telemetry callbacks like `e/DS5`; even after fixing signatures the action_id parser threw `Malformed action_id`. The button now ships a stable `open_form_<oid>`, the parser returns `{verb: 'ignore'}` for any non-actionable verb (including `open_form` and unknown auto-IDs), and a new `Actionable Verb?` IF gate between `Verify Slack Signature` and `Look Up Draft` routes ignored verbs straight to an existing 200 response without touching the DB. Two new CI guards added to the `sha256-audit` job: `webhook-rawbody-audit.js` asserts every HMAC-bound Slack webhook carries `options.rawBody === true`; `slack-signature-end-to-end.js` builds a Go-`url.QueryEscape`-encoded synthetic Slack payload, runs it through the live `Verify Slack Signature` Code node sandbox, and asserts all 16 vectors (apostrophes, parens, tildes, plus signs, spaces, multibyte UTF-8) verify correctly. Pre-deploy gate: 0 ready rows confirmed. Workflow re-imported + reactivated + restarted; healthy 1s post-restart; journal shows `Activated workflow "outreach-review-notify"`; DB confirms `active=1`, `options.rawBody` present, `open_form_` pattern present, `Actionable Verb?` IF node present. Commit `7ad32a9`. |
+| Followup 10 — RSS expansion + follow.it cleanup + soft-block bundle | ✅ | **DEPLOYED 2026-05-21 22:10 UTC + backfill applied same session.** Feed list expanded from 5 → 10 active (Reedsy removed as dead; added Writer Unboxed, Kill Zone Blog, Writers in the Storm, John August, Go Into The Story, Steven Pressfield). `Normalize RSS` gained `unwrapFollowIt(url)` helper: HEAD-with-manual-redirect for `api.follow.it/*` hosts, parses canonical from `Location` header's `?q=<urlencoded>` param, 3s timeout, falls back to original on any error. Two `Apply Soft Block` Code nodes (RSS path + manual webhook path) with `SOFT_BLOCK_PATTERNS` = annerallen.com / countercraft.substack.com / `reddit\.com\/r\/writing\b` (word-boundary so r/writingadvice etc. still allowed). Backfill via `scripts/backfill-followit-urls.sh --apply` canonicalized 20 historical follow.it rows to thecreativepenn.com permalinks (0 conflicts, 0 skips). New `normalize-rss-no-followit.js` CI audit functionally tests the helper via VM sandbox with stubbed fetch. Workflow re-imported + reactivated + restarted; healthy 2s post-restart; DB confirms `Apply Soft Block` node, `unwrapFollowIt` helper, word-boundary regex, all 6 new feeds, Reedsy fully removed. Commits `8b22ccf`, `e1a0219` (regex widening fixup), `6473b1c`+`13de101` (regex tightening + JSON re-indent), `9f5a5ea` (HANDOFF). |
+
+## Top priority next session (post-RSS-deploy issues — investigate FIRST)
+
+Two issues surfaced after the RSS bundle deploy (commit `9f5a5ea`, 2026-05-21 22:10 UTC). Both are blocking Phase 1 operational validation (user can't process real items if drafts are useless or Slack is flooded with dupes).
+
+### A. All organic outreach drafts return "No usable excerpt"
+
+**Symptom:** every Slack notification on organic outreach items (from the new RSS feeds + manual ingest, items ~1998+) shows draft text that starts with:
+
+> "No usable excerpt or community context was found in this source. Without knowing what the author wrote or what problem they are wrestling with, there is nothing specific to respond to helpfully. Recommend skipping or revisiting if the feed content becomes available."
+
+**Hypothesis space** (verify before fixing):
+1. RSS feeds emit thin/empty `contentSnippet` for many items — `Normalize RSS` stores `(item.json.contentSnippet || '').slice(0, 1000)`. If the feed only provides a title-shaped snippet, Sonnet can't draft meaningfully.
+2. The follow.it unwrap (Followup 10) only changes `source_url`, not `source_excerpt`. If the unwrapped URL is the source-of-truth but the feed-emitted snippet is empty/marketing-y, the draft step sees no real content.
+3. The draft workflow's Sonnet prompt may need to fetch the canonical URL's body when the excerpt is thin — currently it draftss off `source_excerpt` alone.
+4. Per-feed differences: some feeds may emit `description` instead of `contentSnippet`, or HTML-escaped fields that get stripped.
+
+**Investigate (read-only first):**
+```bash
+# What does source_excerpt look like for recent organic items?
+ssh root@192.168.1.52 "pct exec 114 -- su - postgres -c \"psql -d outreach -c 'SELECT id, source_platform, LEFT(source_url, 60), LENGTH(source_excerpt) AS excerpt_len, LEFT(source_excerpt, 120) AS excerpt_preview FROM outreach_items WHERE discovered_at > now() - INTERVAL '\\''12 hours'\\'' ORDER BY id DESC LIMIT 20;'\""
+```
+Cross-reference with the source feeds. Pull a sample item from each new feed via `curl <feed-url> | head -200` to see what each feed actually exposes per item.
+
+**Likely fix scope:** extend `Normalize RSS` to fall back to `item.json.content` or `item.json.description` when `contentSnippet` is empty, AND/OR fetch the canonical URL body for items where the excerpt is shorter than N characters. The draft workflow's prompt may also need a "if excerpt is empty, recommend skipping" branch that doesn't generate the misleading "No usable excerpt" text — instead skip-draft and mark the item as `manual_only` or `archived`.
+
+Task #124 tracks this.
+
+### B. Duplicate Slack notifications for the same outreach item
+
+**Symptom:** outreach item #2268 received many duplicate notifications in `#plotlens-outreach`. Possibly N other items too.
+
+**Hypothesis space:**
+1. Review-notify fires once **per draft variant** (3 variants/item → 3 messages/item) instead of grouping per item.
+2. Review-notify re-fires **every 2-min cycle** because drafts in `needs_human_review` aren't dedup-tracked across cycles. Until you approve or reject, each cycle posts again. This bug was masked previously because the blocksUi bug made all messages text-only — once buttons started working, the duplication became visible.
+3. Webhook callback failures from earlier today (signature bug + auto-id link-button bug) may have left orphan executions retrying.
+
+**Investigate (read-only):**
+```bash
+# How many notifications has Slack received for the same outreach item?
+# (We can count by execution_entity workflowId/mode/startedAt window)
+ssh root@192.168.1.52 "ssh root@192.168.1.80 'pct exec 112 -- sqlite3 /root/.n8n/database.sqlite \"SELECT date(startedAt), mode, status, COUNT(*) FROM execution_entity WHERE workflowId='\\''rEv1eWoUtReAcH001'\\'' AND startedAt > '\\''2026-05-21 22:00:00'\\'' GROUP BY date(startedAt), mode, status ORDER BY date(startedAt) DESC;\"'"
+
+# Drafts for outreach_item 2268
+ssh root@192.168.1.52 "pct exec 114 -- su - postgres -c \"psql -d outreach -c 'SELECT id, variant, status, created_at FROM drafts WHERE outreach_item_id=2268;'\""
+
+# Read the review-notify scheduled-trigger Code/Postgres nodes to see what 'eligible draft' query returns
+```
+Look at `apps/outreach-workflows/n8n/review.json` nodes around the Schedule Trigger and the first Postgres "Fetch needs-review" query. The fix is almost certainly:
+- Add a `notified_at` column to `drafts` (schema migration) and gate the Fetch query on `notified_at IS NULL`.
+- Or, post ONE Slack message per outreach_item (not per draft variant) with a draft-variant selector in the Block Kit body.
+- Or, both: notify once per item, mark notified_at to suppress re-firing.
+
+Task #125 tracks this.
+
+### Quick mitigation (do NOT auto-execute)
+
+If the noise is intolerable before a real fix lands, the controller can manually mark recent unapproved drafts as `rejected` (same pattern we used for row 1997's cleanup):
+```bash
+# Suppress further notifications by transitioning drafts → rejected.
+# This DROPS the drafts; do not run unless the human reviewer has decided to skip them.
+ssh root@192.168.1.52 "pct exec 114 -- su - postgres -c \"psql -d outreach -c \\\"UPDATE drafts SET status='rejected' WHERE outreach_item_id=2268 RETURNING id, status;\\\"\""
+ssh root@192.168.1.52 "pct exec 114 -- su - postgres -c \"psql -d outreach -c \\\"UPDATE outreach_items SET status='reviewed' WHERE id=2268;\\\"\""
+```
 
 ## Resume procedure (next steps in order)
 
@@ -336,6 +401,12 @@ Still worth saving in future sessions (not done yet):
 ## Recent commits (last 15 on branch — `git log --oneline main..HEAD | head -15`)
 
 ```
+9f5a5ea docs(handoff): RSS expansion + follow.it + soft-block deployed
+13de101 fix(outreach): restore discover.json indent shape after JSON round-trip
+6473b1c fix(outreach): tighten r/writing soft-block to word boundary
+e1a0219 fix(outreach): widen annerallen soft-block regex to match scheme://host shape
+8b22ccf feat(outreach): expand RSS feeds, unwrap follow.it, soft-block list, backfill + CI guard
+7b30e8f docs(handoff): Slack signature + parser hardening deployed
 7ad32a9 fix(outreach): HMAC Slack signature over rawBody bytes, not re-encoded form
 5b0abca docs(handoff): Slack blocksUi + form dedup fix deployed; 8 followups now
 5c283ec test(outreach): add blocksUi shape drift guard for Slack nodes
@@ -345,27 +416,23 @@ dba7ace test(outreach): minor cleanups + no-public-self-loop drift guard
 d92ae02 fix(workflow-smoke): use 127.0.0.1:5678 self-loop + error-output Slack alert
 fd49eba docs(handoff): Slack platform-picker deployed + CI drift guards landed
 999db7d test(outreach): pin sha256 hash-payload concatenation order
-4d18467 test(outreach): extend sha256-audit to cover sha256Raw and hmacSha256
-4e90e95 test(outreach): PLATFORM_MAP drift guard for review.json
-a364a04 feat(workflow-c): Slack quick-approve platform picker
-8c6128f docs(plans): Slack platform-picker implementation plan
-fd985c5 docs(outreach): n8n workflow reference guide
-95ee978 docs(handoff): full refresh for compaction — Slack platform-picker queued as #1
 ```
 
-(99 commits total on the branch — `git log --oneline main..HEAD` for the full list.)
+(100+ commits total on the branch — `git log --oneline main..HEAD` for the full list.)
 
 ## TODOs for next session
 
 In priority order:
 
-1. ~~Slack platform-picker~~ ✅ Followup 5 deployed 2026-05-21 17:09 UTC. Workflow re-imported, reactivated, restarted; healthy 2s post-restart; journal + DB confirm `Activated workflow "outreach-review-notify"` with `active=1`. Smoke-validate with a real Slack approval click against any of the three "Approve → <platform>" buttons (brand Bluesky / Mastodon / personal Bluesky) and confirm `publish_jobs.destination_account` matches the picked integration's id. (Followup 9 deployed at 20:39 UTC further hardens the same path against signature encoder mismatches and link-button telemetry callbacks — real-click validation now exercises both fixes together.)
+1. **Issue A — "No usable excerpt" drafts** (top priority). All organic outreach items post-RSS-deploy produce useless drafts. See "Top priority next session" section above for investigation steps. Task #124.
 
-2. **Phase 1 operational validation** (user in-progress) — ≥10 real items / ≥1 week of real usage; then tag `outreach-phase1-shipped`. Only step blocking Phase 2 tag.
+2. **Issue B — Duplicate Slack notifications** (top priority, runs in parallel with #1). Item #2268 received many duplicate notifications; need dedup. See top section. Task #125.
 
-3. **Phase 2 T30** — after #2 done + ≥5 production posts in `sent_to_postiz` (currently 1 — row 62 from T25) + 24h ArgoCD `temporal` + `postiz` Synced/Healthy window. Then `gh pr merge 18 --squash` and flip ArgoCD `targetRevision` from `outreach/phase0-phase1` to `main`/`HEAD`.
+3. **Phase 1 operational validation** (blocked until #1 and #2 fixed) — ≥10 real items / ≥1 week of real usage; then tag `outreach-phase1-shipped`. Only step blocking Phase 2 tag.
 
-4. **Reddit / LinkedIn channel onboarding** when their gating clears. **X is deferred indefinitely** (paid plan cost — see "Phase 2.1 follow-ups" above for full diagnosis).
+4. **Phase 2 T30** — after #3 done + ≥5 production posts in `sent_to_postiz` (currently 1 — row 62 from T25) + 24h ArgoCD `temporal` + `postiz` Synced/Healthy window. Then `gh pr merge 18 --squash` and flip ArgoCD `targetRevision` from `outreach/phase0-phase1` to `main`/`HEAD`.
+
+5. **Reddit / LinkedIn channel onboarding** when their gating clears. **X is deferred indefinitely** (paid plan cost — see "Phase 2.1 follow-ups" above for full diagnosis).
 
 ## Access patterns reminder
 
