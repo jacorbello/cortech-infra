@@ -19,13 +19,13 @@ run_expect_pass "Mark Published CTE: idempotent on second invocation" "
       RETURNING id
     ),
     dr AS (
-      INSERT INTO drafts (outreach_item_id, variant, draft_text, status)
-      SELECT id, 'helpful_only', 'idem test draft', 'approved' FROM oi
+      INSERT INTO drafts (outreach_item_id, variant, model_provider, model_name, prompt_version, draft_text, suggested_destination, suggested_post_type, content_hash, status)
+      SELECT id, 'helpful_only', 'anthropic', 'claude-sonnet-4-6', 'draft-v1', 'idem test draft', 'x_post', 'thread', 'idem-hash', 'approved' FROM oi
       RETURNING id
     ),
     ap AS (
-      INSERT INTO approvals (draft_id, decision, approved_content_hash, approved_destination, approved_post_type, approved_platform, edited_text)
-      SELECT id, 'approved', 'idem-hash', 'idem-dest', 'reply', 'bluesky', 'idem test draft' FROM dr
+      INSERT INTO approvals (draft_id, approved_by, decision, approved_content_hash, approved_destination, approved_post_type, approved_platform, edited_text)
+      SELECT id, 'jeremy', 'approved', 'idem-hash', 'idem-dest', 'reply', 'bluesky', 'idem test draft' FROM dr
       RETURNING id
     ),
     pj AS (
@@ -96,13 +96,13 @@ run_expect_pass "Mark Published CTE: never promotes outreach_items from rejected
       RETURNING id
     ),
     dr AS (
-      INSERT INTO drafts (outreach_item_id, variant, draft_text, status)
-      SELECT id, 'helpful_only', 'reject test draft', 'approved' FROM oi
+      INSERT INTO drafts (outreach_item_id, variant, model_provider, model_name, prompt_version, draft_text, suggested_destination, suggested_post_type, content_hash, status)
+      SELECT id, 'helpful_only', 'anthropic', 'claude-sonnet-4-6', 'draft-v1', 'reject test draft', 'x_post', 'thread', 'reject-hash', 'approved' FROM oi
       RETURNING id
     ),
     ap AS (
-      INSERT INTO approvals (draft_id, decision, approved_content_hash, approved_destination, approved_post_type, approved_platform, edited_text)
-      SELECT id, 'approved', 'reject-hash', 'reject-dest', 'reply', 'bluesky', 'reject test draft' FROM dr
+      INSERT INTO approvals (draft_id, approved_by, decision, approved_content_hash, approved_destination, approved_post_type, approved_platform, edited_text)
+      SELECT id, 'jeremy', 'approved', 'reject-hash', 'reject-dest', 'reply', 'bluesky', 'reject test draft' FROM dr
       RETURNING id
     ),
     pj AS (
