@@ -109,6 +109,8 @@ jobs:
         run: node apps/outreach-workflows/tests/sha256-audit/draft-prompt-invariants.js
       - name: Workflow D no-rollup drift guard
         run: node apps/outreach-workflows/tests/sha256-audit/workflow-d-no-rollup-audit.js
+      - name: Poll workflow status-writes drift guard
+        run: node apps/outreach-workflows/tests/sha256-audit/poll-workflow-status-writes-audit.js
 
   manifests-lint:
     runs-on: ubuntu-latest
