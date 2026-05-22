@@ -7,7 +7,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/jacorbello/cortech-infra.git
-    targetRevision: outreach/phase0-phase1
+    targetRevision: main
     path: apps/postiz/overlays/production
   destination:
     server: https://kubernetes.default.svc
