@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
         - name: postiz
-          image: ghcr.io/gitroomhq/postiz-app:v2.13.0
+          image: ghcr.io/gitroomhq/postiz-app:v2.21.8
           ports:
             - name: http
               containerPort: 5000   # Postiz frontend
