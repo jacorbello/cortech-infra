@@ -72,6 +72,11 @@ spec:
                 secretKeyRef:
                   name: postiz-secrets
                   key: MASTODON_CLIENT_SECRET
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: postiz-secrets
+                  key: OPENAI_API_KEY
           envFrom:
             - configMapRef:
                 name: postiz-config
