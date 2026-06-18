@@ -7,7 +7,7 @@ metadata:
     app: vllm
     app.kubernetes.io/part-of: inference-platform
 spec:
-  replicas: 0
+  replicas: 1
   strategy:
     type: Recreate
   selector:
