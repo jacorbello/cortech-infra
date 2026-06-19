@@ -103,7 +103,10 @@ the dev conventions + homelab orientation). Two steps need a human, then I clone
      pct exec 126 -- sudo -iu claude gh repo clone "$r" "/home/claude/repos/${r##*/}"
    done
    ```
-3. **Restart** so the running session reloads the new user memory:
+3. **Copy gitignored local config** the clones don't include (`.env`, `.env.local`, `.npmrc`, etc.)
+   from your working checkouts to the same relative paths under `~/repos/<project>/` on the guest
+   (owned `claude`, mode `0600`). These hold secrets — copy directly (e.g. `tar`-pipe), never via git.
+4. **Restart** so the running session reloads the new user memory:
    `systemctl restart claude-telegram` (in-flight sessions don't pick up memory changes live).
 
 ## Ops
