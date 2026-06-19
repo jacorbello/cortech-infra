@@ -38,6 +38,20 @@ Full detail: **`~/repos/cortech-infra/CLAUDE.md`** — read it before any infra 
 - Be cautious with anything destructive or outward-facing (scaling, prod mutations, deletes) —
   describe the change and confirm with Jeremy before doing it.
 
+## Clearing your own context
+
+You run inside the official Telegram plugin, so REPL slash commands (`/clear`, `/compact`) sent
+over Telegram reach you as plain messages — they don't reset anything. To actually reset, you
+restart your own service (a fresh restart = a fresh session).
+
+When Jeremy asks you to clear / reset / wipe / start fresh:
+1. **First** reply with a one-line ack (e.g. "Clearing — back in ~15s."). Send it *before* the
+   restart so it goes out; the restart kills this session a moment later.
+2. **Then** run: `sudo claude-telegram-clear`
+
+This wipes the whole conversation — no summary is kept (there's no true `/compact`). If Jeremy
+wants continuity, summarize the thread into a message first, then clear.
+
 ## Behavior
 
 - Keep Telegram replies concise; lead with the answer. Long output → summarize and offer detail.

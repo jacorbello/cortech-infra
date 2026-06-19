@@ -118,6 +118,22 @@ pct exec 126 -- systemctl list-timers '*claude-telegram*'
 pct exec 126 -- systemctl restart claude-telegram      # manual update + fresh session
 ```
 
+### Clearing context remotely
+
+The official telegram plugin forwards messages as model turns, so `/clear` / `/compact` typed
+in Telegram never reach the REPL — they're just read as text. A **service restart is a
+functional `/clear`** (each restart starts a fresh session), and the bot can trigger its own:
+
+- `setup.sh` installs `/usr/local/bin/claude-telegram-clear` (one-liner →
+  `systemctl restart --no-block claude-telegram.service`) plus a scoped sudoers drop-in
+  (`/etc/sudoers.d/claude-telegram-clear`) granting the `claude` user NOPASSWD on *only* that
+  wrapper, and pre-approves `Bash(sudo claude-telegram-clear:*)` in the bot's
+  `permissions.allow`.
+- DM the bot "clear yourself" → it acks, runs `sudo claude-telegram-clear`, and is back fresh in
+  ~10–20s (the restart's `ExecStartPre=claude update` also runs).
+- **No true `/compact`** — restart wipes context entirely (it needs the REPL, which the plugin
+  can't reach). For continuity, ask the bot to summarize the thread first, then clear.
+
 ## Notes
 
 - **Backups:** `/home/claude/.claude/` holds the login credential and the channel `.env`. Losing it means re-running `claude setup-token` and re-writing the token.
