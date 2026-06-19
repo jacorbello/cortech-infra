@@ -81,7 +81,9 @@ All public services route through **LXC 100 (`proxy`)** which terminates TLS. K3
 | 123 | LXC | MinIO (S3) | cortech | etcd backups + doc storage |
 | 124 | LXC | nomad (Project N.O.M.A.D.) | cortech | Offline knowledge/education server |
 | 125 | LXC | timemachine | cortech | Samba 4.22 + Avahi for macOS Time Machine backups (1 TiB share) |
+| 126 | LXC | claude-telegram | cortech | Persistent Claude Code + Telegram channel host (`.153`). systemd service, daily self-update/restart. See `claude-telegram/` |
 | 205 | VM | Ollama LLM | cortech-node3 | GPU passthrough, Tesla T4 |
+| 208 | VM | Odysseus AI workspace | cortech-node3 | Docker host, LAN/VPN-only (no public ingress). See `vm/odysseus/` |
 
 ### K8s Workloads
 
@@ -124,6 +126,7 @@ All public services route through **LXC 100 (`proxy`)** which terminates TLS. K3
 | `k8s/` | Kubernetes manifests — Grafana dashboards, Proxmox exporter, ARC v2 runner values (`arc-v2/`), legacy v1 runner manifests (`actions-runner-system/`) |
 | `proxy/sites/` | NGINX server blocks for each `*.corbello.io` subdomain |
 | `pct/` | Proxmox LXC container configs |
+| `claude-telegram/` | LXC 126 — Claude Code + Telegram host: setup script, systemd units, runbook |
 | `minio/` | MinIO docker-compose deployment |
 | `docsync/` | Python daemon syncing docs from MinIO to Dify knowledge base |
 | `scripts/` | Operations scripts — `inventory/refresh.sh` (Proxmox → docs), `dify-ingest.py` |
