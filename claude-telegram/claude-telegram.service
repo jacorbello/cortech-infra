@@ -1,0 +1,27 @@
+[Unit]
+Description=Claude Code — Telegram channel host
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=claude
+WorkingDirectory=/home/claude/telegram-claude
+# /usr/local/bin (claude) and /home/claude/.bun/bin (bun, for the plugin's MCP server) are
+# NOT in the LXC's default PATH — set it explicitly or the service can't find either binary.
+Environment=PATH=/usr/local/bin:/home/claude/.bun/bin:/usr/bin:/bin
+# Claude subscription auth: CLAUDE_CODE_OAUTH_TOKEN from `claude setup-token` (setup-token does
+# NOT persist a credential, so it must be supplied as env). Secret — populate on the guest, never git.
+EnvironmentFile=/etc/claude-telegram/claude.env
+# NB: the telegram plugin reads its bot token from ~/.claude/channels/telegram/.env (mode 0600),
+# NOT from process env — so that token is intentionally NOT in this EnvironmentFile.
+# Self-update on every (re)start. '-' = best-effort; a failed update never blocks start.
+ExecStartPre=-/usr/local/bin/claude update
+# claude drops to non-interactive --print mode when stdout isn't a TTY (which it isn't under
+# systemd), then exits. Wrap in `script` to allocate a PTY so it runs the interactive channels
+# loop. -e makes script return claude's exit code so real failures aren't masked.
+ExecStart=/usr/bin/script -qec "/usr/local/bin/claude --channels plugin:telegram@claude-plugins-official" /dev/null
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

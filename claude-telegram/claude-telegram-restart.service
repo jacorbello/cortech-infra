@@ -1,0 +1,6 @@
+[Unit]
+Description=Restart claude-telegram (picks up claude update + fresh session)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl restart claude-telegram.service
