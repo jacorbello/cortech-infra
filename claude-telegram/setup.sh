@@ -112,6 +112,40 @@ echo "==> Bot operating instructions (user-level memory, always loaded)"
 sudo -u claude mkdir -p /home/claude/.claude
 install -o claude -g claude -m 644 "$HERE/claude-home-CLAUDE.md" /home/claude/.claude/CLAUDE.md
 
+echo "==> Remote self-clear (bot can restart itself for a fresh session)"
+# The official telegram plugin forwards messages as model turns, so REPL commands like /clear
+# never reach the client. A service restart = a fresh session = a functional /clear. Give the
+# bot a tightly-scoped way to bounce itself: a one-line wrapper + NOPASSWD sudo on just that
+# wrapper (no argv-matching, no blanket systemctl grant).
+cat > /usr/local/bin/claude-telegram-clear <<'SH'
+#!/bin/sh
+exec systemctl restart --no-block claude-telegram.service
+SH
+chown root:root /usr/local/bin/claude-telegram-clear; chmod 0755 /usr/local/bin/claude-telegram-clear
+cat > /etc/sudoers.d/claude-telegram-clear <<'SUDO'
+claude ALL=(root) NOPASSWD: /usr/local/bin/claude-telegram-clear
+SUDO
+chmod 0440 /etc/sudoers.d/claude-telegram-clear
+visudo -cf /etc/sudoers.d/claude-telegram-clear   # fail loudly rather than leave a bad sudoers file
+
+# Pre-approve permissions so the headless session runs the telegram MCP tool AND the clear
+# command without an (unanswerable) approval prompt. Merge into the plugin-written settings.json
+# so enabledPlugins isn't clobbered. The clear rule is scoped — no general Bash is granted.
+cat > /tmp/claude-settings-seed.js <<'JS'
+const fs = require('fs');
+const f = process.env.HOME + '/.claude/settings.json';
+let d = {};
+try { d = JSON.parse(fs.readFileSync(f, 'utf8')); } catch (e) {}
+d.permissions = d.permissions || {};
+const allow = new Set(d.permissions.allow || []);
+allow.add('mcp__plugin_telegram_telegram');
+allow.add('Bash(sudo claude-telegram-clear:*)');
+d.permissions.allow = [...allow];
+fs.writeFileSync(f, JSON.stringify(d, null, 2));
+console.log('permissions.allow:', d.permissions.allow.join(', '));
+JS
+sudo -iu claude node /tmp/claude-settings-seed.js
+
 echo "==> Claude auth env file (populated interactively post-setup; required by the unit)"
 install -d -m 700 /etc/claude-telegram
 # CLAUDE_CODE_OAUTH_TOKEN goes here after `claude setup-token`. Empty placeholder so the unit's
