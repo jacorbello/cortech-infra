@@ -28,9 +28,12 @@ if ! command -v node >/dev/null; then
   apt-get install -y nodejs
 fi
 
-echo "==> claude user + working dir"
+echo "==> claude user + working dir + persistent repos"
 id claude >/dev/null 2>&1 || useradd -m -s /bin/bash claude
-sudo -u claude mkdir -p /home/claude/telegram-claude
+sudo -u claude mkdir -p /home/claude/telegram-claude /home/claude/repos
+# Git identity for the bot's commits/PRs (gh auth login + clones are interactive, see README).
+sudo -iu claude git config --global user.name  "Jeremy Corbello"
+sudo -iu claude git config --global user.email "jacorbello@gmail.com"
 
 echo "==> Bun (hard dependency: the telegram plugin's MCP server launches via 'command: bun')"
 if [ ! -x /home/claude/.bun/bin/bun ]; then
@@ -104,6 +107,10 @@ fs.writeFileSync(f, JSON.stringify(d, null, 2));
 console.log('seeded onboarding + trust for', dir);
 JS
 sudo -iu claude node /tmp/claude-headless-seed.js
+
+echo "==> Bot operating instructions (user-level memory, always loaded)"
+sudo -u claude mkdir -p /home/claude/.claude
+install -o claude -g claude -m 644 "$HERE/claude-home-CLAUDE.md" /home/claude/.claude/CLAUDE.md
 
 echo "==> Claude auth env file (populated interactively post-setup; required by the unit)"
 install -d -m 700 /etc/claude-telegram

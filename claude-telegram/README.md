@@ -84,6 +84,28 @@ left needs a human:
 - **Plugin marketplace install** is done by cloning the repo manually + `claude plugin install`
   (claude's own `marketplace add` crashes in the LXC). See `setup.sh`.
 
+## Make the bot smarter (GitHub access + local repos)
+
+`setup.sh` sets the git identity, creates `~/repos`, and installs the bot's operating
+instructions (`claude-home-CLAUDE.md` → `~/.claude/CLAUDE.md`, always-loaded user memory with
+the dev conventions + homelab orientation). Two steps need a human, then I clone the repos:
+
+1. **Authenticate gh** (interactive, one-time; needs a TTY):
+   ```bash
+   ssh -t CORTECH "pct exec 126 -- sudo -iu claude gh auth login"    # GitHub.com · HTTPS · web/device flow
+   ssh CORTECH "pct exec 126 -- sudo -iu claude gh auth setup-git"   # gh as git credential helper for HTTPS push
+   ```
+   Persists in `/home/claude/.config/gh/`, survives reboots.
+2. **Clone the mapped repos** into `~/repos` (per `~/telegram-claude/CLAUDE.md`):
+   ```bash
+   for r in Family-Friendly-Inc/plotlens Family-Friendly-Inc/UnityHOA \
+            jacorbello/cortech-infra jacorbello/klvtool jacorbello/options-trading; do
+     pct exec 126 -- sudo -iu claude gh repo clone "$r" "/home/claude/repos/${r##*/}"
+   done
+   ```
+3. **Restart** so the running session reloads the new user memory:
+   `systemctl restart claude-telegram` (in-flight sessions don't pick up memory changes live).
+
 ## Ops
 
 ```bash
