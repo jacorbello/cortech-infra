@@ -77,6 +77,17 @@ spec:
                 secretKeyRef:
                   name: postiz-secrets
                   key: OPENAI_API_KEY
+            # Postiz reads X_API_KEY/X_API_SECRET; Infisical /postiz stores them as X_CONSUMER_KEY/X_SECRET_KEY
+            - name: X_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: postiz-secrets
+                  key: X_CONSUMER_KEY
+            - name: X_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: postiz-secrets
+                  key: X_SECRET_KEY
           envFrom:
             - configMapRef:
                 name: postiz-config
