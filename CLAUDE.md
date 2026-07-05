@@ -50,7 +50,7 @@ You can run remote commands via `ssh root@192.168.1.52 "<command>"`. Inventory r
 - **API VIP:** `192.168.1.90` (kube-vip), K3s v1.34.3+k3s1, embedded etcd HA
 - **3 server VMs** (200-202): k3s-srv-{1,2,3} at `.91-.93`, spread across cortech/node1/node2
 - **2 worker VMs** (203-204): k3s-wrk-1 (`.94`, `role=core-app`), k3s-wrk-2 (`.95`, `role=compute`)
-- **1 ephemeral worker** (206): k3s-wrk-3 (`.97`, GPU node, tainted `NoSchedule`)
+- **1 persistent worker** (206): k3s-wrk-3 (`.97`, on cortech-node3, 48 vCPU / ~193 GiB, `role=batch-compute`, `lifecycle=persistent`, untainted). Workhorse — carries Rancher/ArgoCD/Traefik/Harbor + more. NIC is single-queue virtio (`queues=` unset); enable multiqueue if egress softirq loss recurs.
 - **1 GPU inference worker** (207): k3s-wrk-4 (`.98`, on cortech-node3, 16 vCPU / 32 GiB, Ubuntu 24.04, K3s v1.34.5, `role=gpu-inference`, tainted `nvidia.com/gpu:NoSchedule`)
 - **K8s namespaces:** `observability`, `cattle-system` (Rancher), `argocd`, `harbor`, `plotlens`, `plotlens-website`, `sonarqube`, `infisical`, `arc-systems`, `arc-runners`, `platform`, `security`, `cert-manager`, plus project namespaces (`alastar`, `investigations`, `trading`)
 - **Kubeconfig** at `/root/.kube/config` on cortech master
