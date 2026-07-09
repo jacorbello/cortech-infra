@@ -1,0 +1,106 @@
+# Infisical server (self-hosted). External Postgres (LXC 114, .83) + Redis (LXC 116).
+# Not Helm/ArgoCD-managed — apply with: kubectl apply -f k8s/infisical/
+# Secret `infisical-secrets` (DB_CONNECTION_URI, REDIS_URL, ENCRYPTION_KEY, AUTH_SECRET)
+# is managed out-of-band and NOT committed here.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: infisical
+  namespace: infisical
+  labels:
+    app: infisical
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: infisical
+  template:
+    metadata:
+      labels:
+        app: infisical
+    spec:
+      containers:
+        - name: infisical
+          image: infisical/infisical:v0.162.2
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: SITE_URL
+              value: https://infisical.corbello.io
+            - name: TELEMETRY_ENABLED
+              value: "false"
+            - name: INVITE_ONLY_SIGNUP
+              value: "true"
+            - name: DB_CONNECTION_URI
+              valueFrom:
+                secretKeyRef:
+                  name: infisical-secrets
+                  key: DB_CONNECTION_URI
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: infisical-secrets
+                  key: REDIS_URL
+            - name: ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: infisical-secrets
+                  key: ENCRYPTION_KEY
+            - name: AUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: infisical-secrets
+                  key: AUTH_SECRET
+          livenessProbe:
+            httpGet:
+              path: /api/status
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /api/status
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: infisical
+  namespace: infisical
+  labels:
+    app: infisical
+spec:
+  type: ClusterIP
+  selector:
+    app: infisical
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: infisical-nodeport
+  namespace: infisical
+  labels:
+    app: infisical
+spec:
+  type: NodePort
+  selector:
+    app: infisical
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+      nodePort: 30880
