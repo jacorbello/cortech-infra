@@ -288,7 +288,7 @@ data:
           "id": 15,
           "options": {"legend": {"calcs": ["max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
           "pluginVersion": "11.0.0",
-          "targets": [{"datasource": "$datasource", "expr": "topk(10, sum by(namespace, pod)(rate(kube_pod_container_status_restarts_total[15m])) * 900)", "legendFormat": "{{namespace}}/{{pod}}", "refId": "A"}],
+          "targets": [{"datasource": "$datasource", "expr": "topk(10, sum by(namespace, pod)(increase(kube_pod_container_status_restarts_total[15m])))", "legendFormat": "{{namespace}}/{{pod}}", "refId": "A"}],
           "title": "Pod Restarts (per 15m, top 10)",
           "type": "timeseries"
         },
