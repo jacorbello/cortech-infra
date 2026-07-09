@@ -246,6 +246,108 @@ data:
           "targets": [{"datasource": "$datasource", "expr": "sum(rate(scheduler_schedule_attempts_total[5m])) by (result)", "legendFormat": "{{result}}", "refId": "A"}],
           "title": "Scheduler Attempts",
           "type": "timeseries"
+        },
+        {"type": "row", "id": 20, "gridPos": {"h": 1, "w": 24, "x": 0, "y": 24}, "collapsed": false, "title": "Node Resources", "panels": []},
+        {
+          "datasource": "$datasource",
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"drawStyle": "line", "fillOpacity": 10, "lineInterpolation": "smooth", "lineWidth": 2, "showPoints": "never", "axisPlacement": "auto", "scaleDistribution": {"type": "linear"}}, "mappings": [], "max": 100, "min": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 80}, {"color": "red", "value": 92}]}, "unit": "percent"}, "overrides": []},
+          "gridPos": {"h": 7, "w": 12, "x": 0, "y": 25},
+          "id": 12,
+          "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+          "pluginVersion": "11.0.0",
+          "targets": [{"datasource": "$datasource", "expr": "100 * (1 - avg by(instance)(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])))", "legendFormat": "{{instance}}", "refId": "A"}],
+          "title": "Node CPU Utilization",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "$datasource",
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"drawStyle": "line", "fillOpacity": 10, "lineInterpolation": "smooth", "lineWidth": 2, "showPoints": "never", "axisPlacement": "auto", "scaleDistribution": {"type": "linear"}}, "mappings": [], "max": 100, "min": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 85}, {"color": "red", "value": 95}]}, "unit": "percent"}, "overrides": []},
+          "gridPos": {"h": 7, "w": 12, "x": 12, "y": 25},
+          "id": 13,
+          "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+          "pluginVersion": "11.0.0",
+          "targets": [{"datasource": "$datasource", "expr": "100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)", "legendFormat": "{{instance}}", "refId": "A"}],
+          "title": "Node Memory Utilization",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "$datasource",
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"drawStyle": "line", "fillOpacity": 10, "lineInterpolation": "smooth", "lineWidth": 2, "showPoints": "never", "axisPlacement": "auto", "scaleDistribution": {"type": "linear"}}, "mappings": [], "max": 100, "min": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 80}, {"color": "red", "value": 90}]}, "unit": "percent"}, "overrides": []},
+          "gridPos": {"h": 7, "w": 12, "x": 0, "y": 32},
+          "id": 14,
+          "options": {"legend": {"calcs": ["last", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+          "pluginVersion": "11.0.0",
+          "targets": [{"datasource": "$datasource", "expr": "100 * (1 - node_filesystem_avail_bytes{mountpoint=\"/\",fstype!~\"rootfs|tmpfs\"} / node_filesystem_size_bytes{mountpoint=\"/\",fstype!~\"rootfs|tmpfs\"})", "legendFormat": "{{instance}}", "refId": "A"}],
+          "title": "Node Root Filesystem Used",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "$datasource",
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"drawStyle": "line", "fillOpacity": 10, "lineInterpolation": "smooth", "lineWidth": 2, "showPoints": "never", "axisPlacement": "auto", "scaleDistribution": {"type": "linear"}}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}, "unit": "short"}, "overrides": []},
+          "gridPos": {"h": 7, "w": 12, "x": 12, "y": 32},
+          "id": 15,
+          "options": {"legend": {"calcs": ["max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+          "pluginVersion": "11.0.0",
+          "targets": [{"datasource": "$datasource", "expr": "topk(10, sum by(namespace, pod)(rate(kube_pod_container_status_restarts_total[15m])) * 900)", "legendFormat": "{{namespace}}/{{pod}}", "refId": "A"}],
+          "title": "Pod Restarts (per 15m, top 10)",
+          "type": "timeseries"
+        },
+        {"type": "row", "id": 21, "gridPos": {"h": 1, "w": 24, "x": 0, "y": 39}, "collapsed": false, "title": "Workload Health", "panels": []},
+        {
+          "datasource": "$datasource",
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"drawStyle": "line", "fillOpacity": 20, "lineWidth": 2, "showPoints": "never", "stacking": {"group": "A", "mode": "normal"}, "axisPlacement": "auto", "scaleDistribution": {"type": "linear"}}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}, "unit": "short"}, "overrides": []},
+          "gridPos": {"h": 7, "w": 8, "x": 0, "y": 40},
+          "id": 16,
+          "options": {"legend": {"calcs": ["last", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+          "pluginVersion": "11.0.0",
+          "targets": [{"datasource": "$datasource", "expr": "sum by(phase)(kube_pod_status_phase{phase=~\"Pending|Failed|Unknown\"} == 1)", "legendFormat": "{{phase}}", "refId": "A"}],
+          "title": "Non-Running Pods by Phase",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "$datasource",
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"drawStyle": "line", "fillOpacity": 10, "lineWidth": 2, "showPoints": "always", "pointSize": 6, "axisPlacement": "auto", "scaleDistribution": {"type": "linear"}}, "mappings": [], "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}]}, "unit": "short"}, "overrides": []},
+          "gridPos": {"h": 7, "w": 8, "x": 8, "y": 40},
+          "id": 17,
+          "options": {"legend": {"calcs": ["sum"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+          "pluginVersion": "11.0.0",
+          "targets": [{"datasource": "$datasource", "expr": "sum by(namespace, pod)(kube_pod_container_status_last_terminated_reason{reason=\"OOMKilled\"} == 1)", "legendFormat": "{{namespace}}/{{pod}}", "refId": "A"}],
+          "title": "OOMKilled Containers",
+          "type": "timeseries"
+        },
+        {
+          "datasource": "$datasource",
+          "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"drawStyle": "line", "fillOpacity": 10, "lineInterpolation": "smooth", "lineWidth": 2, "showPoints": "never", "axisPlacement": "auto", "scaleDistribution": {"type": "linear"}}, "mappings": [], "max": 1, "min": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.25}, {"color": "red", "value": 0.5}]}, "unit": "percentunit"}, "overrides": []},
+          "gridPos": {"h": 7, "w": 8, "x": 16, "y": 40},
+          "id": 18,
+          "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "desc"}},
+          "pluginVersion": "11.0.0",
+          "targets": [{"datasource": "$datasource", "expr": "topk(10, sum by(namespace, pod)(rate(container_cpu_cfs_throttled_periods_total[5m])) / clamp_min(sum by(namespace, pod)(rate(container_cpu_cfs_periods_total[5m])), 1))", "legendFormat": "{{namespace}}/{{pod}}", "refId": "A"}],
+          "title": "CPU Throttling Ratio (top 10)",
+          "type": "timeseries"
+        },
+        {"type": "row", "id": 22, "gridPos": {"h": 1, "w": 24, "x": 0, "y": 47}, "collapsed": false, "title": "Storage", "panels": []},
+        {
+          "datasource": "$datasource",
+          "fieldConfig": {"defaults": {"color": {"mode": "continuous-GrYlRd"}, "mappings": [], "max": 100, "min": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 80}, {"color": "red", "value": 90}]}, "unit": "percent"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 16, "x": 0, "y": 48},
+          "id": 19,
+          "options": {"displayMode": "gradient", "orientation": "horizontal", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "showUnfilled": true, "valueMode": "color"},
+          "pluginVersion": "11.0.0",
+          "targets": [{"datasource": "$datasource", "expr": "100 * kubelet_volume_stats_used_bytes / kubelet_volume_stats_capacity_bytes", "legendFormat": "{{namespace}}/{{persistentvolumeclaim}}", "refId": "A"}],
+          "title": "PVC Usage",
+          "type": "bargauge"
+        },
+        {
+          "datasource": "$datasource",
+          "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "mappings": [{"options": {"0": {"color": "green", "index": 0, "text": "All Bound"}}, "type": "value"}], "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]}, "unit": "short"}, "overrides": []},
+          "gridPos": {"h": 8, "w": 8, "x": 16, "y": 48},
+          "id": 23,
+          "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+          "pluginVersion": "11.0.0",
+          "targets": [{"datasource": "$datasource", "expr": "sum(kube_persistentvolumeclaim_status_phase{phase=~\"Pending|Lost\"} == 1) or vector(0)", "legendFormat": "Unbound PVCs", "refId": "A"}],
+          "title": "Unbound PVCs",
+          "type": "stat"
         }
       ],
       "refresh": "30s",
