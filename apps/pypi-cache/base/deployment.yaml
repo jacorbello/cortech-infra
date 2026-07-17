@@ -44,19 +44,22 @@ spec:
             - containerPort: 5000
               name: http
               protocol: TCP
+          # TCP probe only: an httpGet on /index/ forces proxpi to fetch the
+          # ENTIRE PyPI root index (600k+ packages, slow over the homelab link),
+          # which overruns the probe timeout and SIGKILLs the pod (exit 137).
+          # pip only ever requests per-package paths (/index/<pkg>/), so port-open
+          # is the right readiness signal — no full-index fetch needed.
           livenessProbe:
-            httpGet:
-              path: /index/
+            tcpSocket:
               port: http
-            initialDelaySeconds: 15
+            initialDelaySeconds: 20
             periodSeconds: 30
             timeoutSeconds: 5
             failureThreshold: 3
           readinessProbe:
-            httpGet:
-              path: /index/
+            tcpSocket:
               port: http
-            initialDelaySeconds: 5
+            initialDelaySeconds: 10
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 3
