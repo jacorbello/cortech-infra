@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: proxpi-cache
+  namespace: pypi-cache
+  labels:
+    app: proxpi
+    app.kubernetes.io/part-of: pypi-cache
+spec:
+  # nfs-node3 is Retain, so the wheel cache survives a PVC/pod recreate — the
+  # whole point of the proxy is that the slow homelab->PyPI-CDN download happens
+  # once, then serves locally forever.
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nfs-node3
+  resources:
+    requests:
+      storage: 20Gi
