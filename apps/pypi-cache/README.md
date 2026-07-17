@@ -30,16 +30,20 @@ env:
     value: proxpi.pypi-cache.svc.cluster.local
 ```
 
-The plotlens repo CI keeps `PIP_EXTRA_INDEX_URL=https://pypi.org/simple/` as a
-**miss/outage fallback**: if proxpi can't serve a package, pip degrades to
-direct PyPI instead of hard-failing.
+The plotlens repo CI does **not** set `PIP_EXTRA_INDEX_URL`. It is tempting to
+add `=https://pypi.org/simple/` as an outage fallback, but pip merges candidates
+from both indexes and then pulls some wheels straight from `files.pythonhosted.org`
+(the pypi index's URLs) — bypassing this cache and re-hitting the exact slow-CDN
+read-timeout the proxy exists to avoid. So proxpi is the **only** index; CI keeps
+only `PIP_DEFAULT_TIMEOUT` + `PIP_RETRIES` (which also cover proxpi's cold-cache
+upstream fetch of a not-yet-seen wheel).
 
 ## Rollback
 
-Remove the two runner env vars (`helm upgrade` without them) — pip goes back to
-direct PyPI. proxpi being down only matters because it is pip's primary index;
-the extra-index fallback covers a proxy *miss* but not a proxy *outage*, so a
-prolonged outage warrants the env removal above.
+proxpi is pip's sole index, so a proxy outage blocks CI. To roll back, remove the
+two runner env vars (`helm upgrade` without them) — pip goes back to direct PyPI.
+That is the intended outage lever, **not** an extra-index fallback (see above for
+why the extra index is actively harmful).
 
 ## Verify
 
