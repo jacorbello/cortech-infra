@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: proxpi
+  namespace: pypi-cache
+  labels:
+    app: proxpi
+    app.kubernetes.io/part-of: pypi-cache
+spec:
+  replicas: 1
+  strategy:
+    # Single writer against a ReadWriteOnce NFS volume — never run two pods at
+    # once, so recreate rather than rolling-update.
+    type: Recreate
+  selector:
+    matchLabels:
+      app: proxpi
+  template:
+    metadata:
+      labels:
+        app: proxpi
+        app.kubernetes.io/part-of: pypi-cache
+    spec:
+      containers:
+        - name: proxpi
+          # proxpi: a caching reverse-proxy for PyPI. Serves the /simple index at
+          # /index/ and caches downloaded wheels on disk, so the flaky/slow
+          # homelab->files.pythonhosted.org fetch happens once per wheel.
+          image: epicwink/proxpi:1.3.0
+          env:
+            # Persist the wheel file cache to the PVC (default is an ephemeral
+            # temp dir that dies with the pod).
+            - name: PROXPI_CACHE_DIR
+              value: /cache
+            # 15 GiB of wheels — comfortably covers the plotlens dependency set
+            # with headroom; proxpi evicts LRU past this.
+            - name: PROXPI_CACHE_SIZE
+              value: "16106127360"
+            # Refresh the index listing every 30 min so new releases are visible
+            # (cached wheels themselves are immutable and kept regardless).
+            - name: PROXPI_INDEX_TTL
+              value: "1800"
+          ports:
+            - containerPort: 5000
+              name: http
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /index/
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /index/
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          volumeMounts:
+            - name: cache
+              mountPath: /cache
+      volumes:
+        - name: cache
+          persistentVolumeClaim:
+            claimName: proxpi-cache
