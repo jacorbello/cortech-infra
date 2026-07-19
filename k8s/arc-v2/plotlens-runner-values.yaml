@@ -8,7 +8,7 @@ scaleSetLabels:
   - "plotlens-runner"
 
 minRunners: 3
-maxRunners: 10
+maxRunners: 25
 
 containerMode:
   type: "dind"
@@ -49,11 +49,17 @@ template:
             mountPath: /tools
     containers:
       - name: runner
-        image: harbor.corbello.io/arc/plotlens-runner:v1
+        image: ghcr.io/actions/actions-runner:latest
         command: ["/home/runner/run.sh"]
         env:
           - name: RUNNER_GRACEFUL_STOP_TIMEOUT
             value: "15"
+          # Route pip through the in-cluster proxpi PyPI cache to survive
+          # degraded-ISP upload stalls during CI (see k8s/arc-v2 pypi-cache).
+          - name: PIP_INDEX_URL
+            value: http://proxpi.pypi-cache.svc.cluster.local:5000/index/
+          - name: PIP_TRUSTED_HOST
+            value: proxpi.pypi-cache.svc.cluster.local
         resources:
           requests:
             cpu: "1"
