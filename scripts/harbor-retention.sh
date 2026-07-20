@@ -82,7 +82,21 @@ build_immutable() { # -> POST body for an immutable-tag rule on ALWAYS_KEEP
   '
 }
 
-# ---- offline self-check: fails if the JSON builders drift -------------------
+# ---- response split: separates the trailing HTTP code from the body ---------
+# req() runs in a $(...) subshell, so it CANNOT set globals directly; instead it
+# prints "<code>\n<body>" and _split (run in the caller) populates the globals.
+REQ_CODE=""
+REQ_BODY=""
+_split() { # $1 = raw "code\nbody"
+  local raw="$1"
+  if [[ "$raw" == *$'\n'* ]]; then
+    REQ_CODE="${raw%%$'\n'*}"; REQ_BODY="${raw#*$'\n'}"
+  else
+    REQ_CODE="$raw"; REQ_BODY=""
+  fi
+}
+
+# ---- offline self-check: fails if the JSON builders or split logic drift -----
 if [ "${1:-}" = "--selftest" ]; then
   r="$(build_retention 42 7)"
   echo "$r" | jq -e '.scope.ref == 42 and .id == 7 and .algorithm == "or"
@@ -92,6 +106,14 @@ if [ "${1:-}" = "--selftest" ]; then
     || { echo "SELFTEST FAIL: retention payload"; echo "$r" | jq .; exit 1; }
   build_immutable | jq -e '.tag_selectors[0].pattern != "" and .disabled == false' >/dev/null \
     || { echo "SELFTEST FAIL: immutable payload"; exit 1; }
+  _split "$(printf '200\n{"x":1}')"
+  if [ "$REQ_CODE" != "200" ] || [ "$REQ_BODY" != '{"x":1}' ]; then
+    echo "SELFTEST FAIL: split code/body (code=$REQ_CODE body=$REQ_BODY)"; exit 1
+  fi
+  _split "204"
+  if [ "$REQ_CODE" != "204" ] || [ -n "$REQ_BODY" ]; then
+    echo "SELFTEST FAIL: split empty body (code=$REQ_CODE body=$REQ_BODY)"; exit 1
+  fi
   echo "SELFTEST OK"
   exit 0
 fi
@@ -107,19 +129,20 @@ if [ -z "${HARBOR_PASS:-}" ]; then
   fi
 fi
 
-# ---- HTTP helper: prints body, sets REQ_CODE; never logs creds -------------
-REQ_CODE=""
+# ---- HTTP: prints "<code>\n<body>"; never logs creds. Pair with _split. -----
 req() { # method path [json-body]
-  local method="$1" path="$2" body="${3:-}" out code
+  local method="$1" path="$2" body="${3:-}" tmp code
   local -a args=(-sS -u "${HARBOR_USER}:${HARBOR_PASS}"
-    -H "Content-Type: application/json" -X "$method" -w $'\n%{http_code}')
+    -H "Content-Type: application/json" -X "$method" -w '%{http_code}')
   [ -n "$body" ] && args+=(--data-binary "$body")
-  out="$(curl "${args[@]}" "${HARBOR_URL}/api/v2.0${path}")" || {
-    echo "curl failed: $method $path" >&2; exit 5; }
-  code="$(printf '%s' "$out" | tail -n1)"
-  REQ_CODE="$code"
-  printf '%s' "$out" | sed '$d'
+  tmp="$(mktemp)"
+  code="$(curl "${args[@]}" -o "$tmp" "${HARBOR_URL}/api/v2.0${path}")" || {
+    rm -f "$tmp"; echo "curl failed: $method $path" >&2; exit 5; }
+  printf '%s\n' "$code"
+  cat "$tmp"
+  rm -f "$tmp"
 }
+_R() { _split "$(req "$@")"; } # convenience: run req + populate REQ_CODE/REQ_BODY
 
 die_bad() { # $1=code $2=context $3=body
   case "$1" in
@@ -130,9 +153,9 @@ die_bad() { # $1=code $2=context $3=body
 
 echo "== Harbor ${HARBOR_URL}  project=${HARBOR_PROJECT}  (dry-run=${DRY_RUN}) =="
 
-proj="$(req GET "/projects/${HARBOR_PROJECT}")"; die_bad "$REQ_CODE" "get project" "$proj"
-PID="$(echo "$proj" | jq -r '.project_id')"
-RID="$(echo "$proj" | jq -r '.metadata.retention_id // empty')"
+_R GET "/projects/${HARBOR_PROJECT}"; die_bad "$REQ_CODE" "get project" "$REQ_BODY"
+PID="$(echo "$REQ_BODY" | jq -r '.project_id')"
+RID="$(echo "$REQ_BODY" | jq -r '.metadata.retention_id // empty')"
 echo "project_id=${PID}  existing_retention_id=${RID:-none}"
 
 # ---- retention --------------------------------------------------------------
@@ -143,10 +166,10 @@ render() { jq '{algorithm, rules: [.rules[] | {template, params, tag: .tag_selec
 # actually resolves; otherwise fall through and create a fresh policy.
 do_update=0
 if [ -n "${RID:-}" ] && [ "$RID" != "0" ]; then
-  cur="$(req GET "/retentions/${RID}")"
+  _R GET "/retentions/${RID}"
   if [[ "$REQ_CODE" == 2* ]]; then
     do_update=1
-    echo "-- current retention policy (id ${RID}) --"; echo "$cur" | render
+    echo "-- current retention policy (id ${RID}) --"; echo "$REQ_BODY" | render
   else
     echo "note: project metadata has retention_id ${RID} but GET returned ${REQ_CODE}; treating as stale — will create a fresh policy"
   fi
@@ -157,7 +180,7 @@ if [ "$do_update" -eq 1 ]; then
   if [ "$DRY_RUN" -eq 1 ]; then
     echo "-- would PUT /retentions/${RID} --"; echo "$body" | render
   else
-    resp="$(req PUT "/retentions/${RID}" "$body")"; die_bad "$REQ_CODE" "update retention" "$resp"
+    _R PUT "/retentions/${RID}" "$body"; die_bad "$REQ_CODE" "update retention" "$REQ_BODY"
     echo "retention policy ${RID} updated (${REQ_CODE})"
   fi
 else
@@ -165,15 +188,15 @@ else
   if [ "$DRY_RUN" -eq 1 ]; then
     echo "-- would POST /retentions (no valid existing policy) --"; echo "$body" | render
   else
-    resp="$(req POST "/retentions" "$body")"; die_bad "$REQ_CODE" "create retention" "$resp"
+    _R POST "/retentions" "$body"; die_bad "$REQ_CODE" "create retention" "$REQ_BODY"
     echo "retention policy created (${REQ_CODE})"
   fi
 fi
 
 # ---- immutability -----------------------------------------------------------
-rules="$(req GET "/projects/${PID}/immutabletagrules")"; die_bad "$REQ_CODE" "list immutable rules" "$rules"
+_R GET "/projects/${PID}/immutabletagrules"; die_bad "$REQ_CODE" "list immutable rules" "$REQ_BODY"
 # Harbor returns a JSON `null` (not `[]`) when a project has no rules — guard it.
-have="$(echo "$rules" | jq -r --arg keep "$ALWAYS_KEEP" \
+have="$(echo "$REQ_BODY" | jq -r --arg keep "$ALWAYS_KEEP" \
   '(. // []) | map(select(.tag_selectors[]?.pattern == $keep)) | length')"
 if [ "${have:-0}" -gt 0 ]; then
   echo "immutable rule for '${ALWAYS_KEEP}' already present — ok"
@@ -182,7 +205,7 @@ else
   if [ "$DRY_RUN" -eq 1 ]; then
     echo "-- would POST immutable rule --"; echo "$body" | jq '{tag: .tag_selectors[0].pattern, repo: .scope_selectors.repository[0].pattern}'
   else
-    resp="$(req POST "/projects/${PID}/immutabletagrules" "$body")"; die_bad "$REQ_CODE" "create immutable rule" "$resp"
+    _R POST "/projects/${PID}/immutabletagrules" "$body"; die_bad "$REQ_CODE" "create immutable rule" "$REQ_BODY"
     echo "immutable rule for '${ALWAYS_KEEP}' created (${REQ_CODE})"
   fi
 fi
