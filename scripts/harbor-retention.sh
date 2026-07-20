@@ -136,12 +136,26 @@ RID="$(echo "$proj" | jq -r '.metadata.retention_id // empty')"
 echo "project_id=${PID}  existing_retention_id=${RID:-none}"
 
 # ---- retention --------------------------------------------------------------
+render() { jq '{algorithm, rules: [.rules[] | {template, params, tag: .tag_selectors[0].pattern}], trigger}'; }
+
+# A project can carry a non-zero retention_id whose policy was since deleted
+# (Harbor leaves the ref dangling). Only take the update path if the GET
+# actually resolves; otherwise fall through and create a fresh policy.
+do_update=0
 if [ -n "${RID:-}" ] && [ "$RID" != "0" ]; then
-  cur="$(req GET "/retentions/${RID}")"; die_bad "$REQ_CODE" "get retention" "$cur"
-  echo "-- current retention policy --"; echo "$cur" | jq '{algorithm, rules: [.rules[] | {template, params, tag: .tag_selectors[0].pattern}], trigger}'
+  cur="$(req GET "/retentions/${RID}")"
+  if [[ "$REQ_CODE" == 2* ]]; then
+    do_update=1
+    echo "-- current retention policy (id ${RID}) --"; echo "$cur" | render
+  else
+    echo "note: project metadata has retention_id ${RID} but GET returned ${REQ_CODE}; treating as stale — will create a fresh policy"
+  fi
+fi
+
+if [ "$do_update" -eq 1 ]; then
   body="$(build_retention "$PID" "$RID")"
   if [ "$DRY_RUN" -eq 1 ]; then
-    echo "-- would PUT /retentions/${RID} --"; echo "$body" | jq '{algorithm, rules: [.rules[] | {template, params, tag: .tag_selectors[0].pattern}], trigger}'
+    echo "-- would PUT /retentions/${RID} --"; echo "$body" | render
   else
     resp="$(req PUT "/retentions/${RID}" "$body")"; die_bad "$REQ_CODE" "update retention" "$resp"
     echo "retention policy ${RID} updated (${REQ_CODE})"
@@ -149,7 +163,7 @@ if [ -n "${RID:-}" ] && [ "$RID" != "0" ]; then
 else
   body="$(build_retention "$PID")"
   if [ "$DRY_RUN" -eq 1 ]; then
-    echo "-- no policy; would POST /retentions --"; echo "$body" | jq '{algorithm, rules: [.rules[] | {template, params, tag: .tag_selectors[0].pattern}], trigger, scope}'
+    echo "-- would POST /retentions (no valid existing policy) --"; echo "$body" | render
   else
     resp="$(req POST "/retentions" "$body")"; die_bad "$REQ_CODE" "create retention" "$resp"
     echo "retention policy created (${REQ_CODE})"
@@ -158,8 +172,9 @@ fi
 
 # ---- immutability -----------------------------------------------------------
 rules="$(req GET "/projects/${PID}/immutabletagrules")"; die_bad "$REQ_CODE" "list immutable rules" "$rules"
+# Harbor returns a JSON `null` (not `[]`) when a project has no rules — guard it.
 have="$(echo "$rules" | jq -r --arg keep "$ALWAYS_KEEP" \
-  'map(select(.tag_selectors[]?.pattern == $keep)) | length')"
+  '(. // []) | map(select(.tag_selectors[]?.pattern == $keep)) | length')"
 if [ "${have:-0}" -gt 0 ]; then
   echo "immutable rule for '${ALWAYS_KEEP}' already present — ok"
 else
