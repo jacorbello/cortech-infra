@@ -25,14 +25,20 @@ set -Eeuo pipefail
 #   HARBOR_PASS    (default: read from k8s secret harbor/harbor-core)
 #   RETAIN_K       (default 10 — most-recent per-SHA tags kept per repo)
 #   RETAIN_CRON    (default "0 0 3 * * *" — Harbor 6-field cron, daily 03:00)
-#   ALWAYS_KEEP    (default "{stable*,latest*}" — glob never pruned/mutable)
+#   RETAIN_KEEP    (default "{stable*,latest*,buildcache}" — globs the retention
+#                   policy ALWAYS keeps, on top of the recent-K per-SHA tags)
+#   IMMUTABLE_KEEP (default "" — glob for an immutable-tag rule; EMPTY = disabled.
+#                   Do NOT point at :stable-homelab/:latest: they are re-pushed
+#                   every build and immutability blocks overwrite, breaking the
+#                   deploy. Use only a dedicated frozen promotion tag.)
 
 HARBOR_URL="${HARBOR_URL:-https://harbor.corbello.io}"
 HARBOR_PROJECT="${HARBOR_PROJECT:-plotlens}"
 HARBOR_USER="${HARBOR_USER:-admin}"
 RETAIN_K="${RETAIN_K:-10}"
 RETAIN_CRON="${RETAIN_CRON:-0 0 3 * * *}"
-ALWAYS_KEEP="${ALWAYS_KEEP:-{stable*,latest*\}}"
+RETAIN_KEEP="${RETAIN_KEEP:-{stable*,latest*,buildcache\}}"
+IMMUTABLE_KEEP="${IMMUTABLE_KEEP:-}"
 
 DRY_RUN=0
 case "${1:-}" in
@@ -53,7 +59,7 @@ build_retention() { # $1=project_id  [$2=existing_retention_id]
     --argjson pid "$pid" \
     --argjson k "$RETAIN_K" \
     --arg cron "$RETAIN_CRON" \
-    --arg keep "$ALWAYS_KEEP" \
+    --arg keep "$RETAIN_KEEP" \
     --arg rid "$rid" '
     {
       algorithm: "or",
@@ -74,8 +80,8 @@ build_retention() { # $1=project_id  [$2=existing_retention_id]
   '
 }
 
-build_immutable() { # -> POST body for an immutable-tag rule on ALWAYS_KEEP
-  jq -n --arg keep "$ALWAYS_KEEP" '
+build_immutable() { # $1=tag glob -> POST body for an immutable-tag rule
+  jq -n --arg keep "$1" '
     { disabled: false,
       scope_selectors: { repository: [ { kind: "doublestar", decoration: "repoMatches", pattern: "**" } ] },
       tag_selectors: [ { kind: "doublestar", decoration: "matches", pattern: $keep } ] }
@@ -104,7 +110,7 @@ if [ "${1:-}" = "--selftest" ]; then
     and (.rules[0].params.latestPushedK == 10)
     and (.rules[1].template == "always")' >/dev/null \
     || { echo "SELFTEST FAIL: retention payload"; echo "$r" | jq .; exit 1; }
-  build_immutable | jq -e '.tag_selectors[0].pattern != "" and .disabled == false' >/dev/null \
+  build_immutable "stable-frozen" | jq -e '.tag_selectors[0].pattern == "stable-frozen" and .disabled == false' >/dev/null \
     || { echo "SELFTEST FAIL: immutable payload"; exit 1; }
   _split "$(printf '200\n{"x":1}')"
   if [ "$REQ_CODE" != "200" ] || [ "$REQ_BODY" != '{"x":1}' ]; then
@@ -193,20 +199,27 @@ else
   fi
 fi
 
-# ---- immutability -----------------------------------------------------------
-_R GET "/projects/${PID}/immutabletagrules"; die_bad "$REQ_CODE" "list immutable rules" "$REQ_BODY"
-# Harbor returns a JSON `null` (not `[]`) when a project has no rules — guard it.
-have="$(echo "$REQ_BODY" | jq -r --arg keep "$ALWAYS_KEEP" \
-  '(. // []) | map(select(.tag_selectors[]?.pattern == $keep)) | length')"
-if [ "${have:-0}" -gt 0 ]; then
-  echo "immutable rule for '${ALWAYS_KEEP}' already present — ok"
+# ---- immutability (opt-in; OFF by default) ----------------------------------
+# Immutability blocks overwrite as well as delete, so it must never target the
+# moving :stable-homelab/:latest tags (re-pushed every build). Enable only for a
+# dedicated frozen promotion tag by setting IMMUTABLE_KEEP.
+if [ -z "$IMMUTABLE_KEEP" ]; then
+  echo "immutability: disabled (IMMUTABLE_KEEP unset) — retention alone protects tags from GC; set IMMUTABLE_KEEP to a frozen-tag glob to enable"
 else
-  body="$(build_immutable)"
-  if [ "$DRY_RUN" -eq 1 ]; then
-    echo "-- would POST immutable rule --"; echo "$body" | jq '{tag: .tag_selectors[0].pattern, repo: .scope_selectors.repository[0].pattern}'
+  _R GET "/projects/${PID}/immutabletagrules"; die_bad "$REQ_CODE" "list immutable rules" "$REQ_BODY"
+  # Harbor returns a JSON `null` (not `[]`) when a project has no rules — guard it.
+  have="$(echo "$REQ_BODY" | jq -r --arg keep "$IMMUTABLE_KEEP" \
+    '(. // []) | map(select(.tag_selectors[]?.pattern == $keep)) | length')"
+  if [ "${have:-0}" -gt 0 ]; then
+    echo "immutable rule for '${IMMUTABLE_KEEP}' already present — ok"
   else
-    _R POST "/projects/${PID}/immutabletagrules" "$body"; die_bad "$REQ_CODE" "create immutable rule" "$REQ_BODY"
-    echo "immutable rule for '${ALWAYS_KEEP}' created (${REQ_CODE})"
+    body="$(build_immutable "$IMMUTABLE_KEEP")"
+    if [ "$DRY_RUN" -eq 1 ]; then
+      echo "-- would POST immutable rule --"; echo "$body" | jq '{tag: .tag_selectors[0].pattern, repo: .scope_selectors.repository[0].pattern}'
+    else
+      _R POST "/projects/${PID}/immutabletagrules" "$body"; die_bad "$REQ_CODE" "create immutable rule" "$REQ_BODY"
+      echo "immutable rule for '${IMMUTABLE_KEEP}' created (${REQ_CODE})"
+    fi
   fi
 fi
 
