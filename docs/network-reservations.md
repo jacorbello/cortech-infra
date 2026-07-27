@@ -27,6 +27,35 @@ VIP flapping, NFS mount timeouts, and hosts dropping off the LAN entirely.
   no fixed MAC (advertised by whichever k3s server holds it), so it cannot be a
   normal reservation.
 
+## WAN / public ingress
+
+The WAN IP is dynamic. `corbello.ddns.net` (No-IP) tracks it, and **every** public
+hostname is a CNAME to that record — all `*.corbello.io` subdomains, plus
+`plotlens.ai` and the other apex domains served by the proxy. Nameservers are
+Namecheap's (`dns1`/`dns2.registrar-servers.com`).
+
+Keeping the record current is `noip-duc.service` on **LXC 100** (see `noip-duc/`).
+It authenticates with a No-IP **DDNS Key** and updates the whole key group
+(`all.ddnskey.com`). If that service is down when the ISP rotates the WAN IP, the
+record goes stale and *all* public ingress fails — including Let's Encrypt HTTP-01
+challenges, so certbot renewals start failing a few days later. Verify with:
+
+```bash
+a=$(dig +short corbello.ddns.net @1.1.1.1); b=$(curl -s https://api.ipify.org)
+echo "ddns=$a wan=$b"; [ "$a" = "$b" ] && echo MATCH || echo STALE
+```
+
+**Router port forwards — only three exist:**
+
+| Port | Proto | → Host |
+|------|-------|--------|
+| 80   | TCP   | `.100` proxy (NGINX) |
+| 443  | TCP   | `.100` proxy (NGINX) |
+| 51820 | UDP  | `.48` wireguard |
+
+K3s is **never** port-forwarded; cluster services reach the internet only through the
+proxy. Anything else that appears in the router's forwarding table should be removed.
+
 ## Host table
 
 `⚠` = DHCP host — needs a router reservation.

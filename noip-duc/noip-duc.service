@@ -1,0 +1,22 @@
+[Unit]
+Description=No-IP Dynamic Update Client — keeps corbello.ddns.net pointed at the WAN IP
+Documentation=https://www.noip.com/support/knowledgebase
+# Needs working egress on start; without network-online it races the veth coming up.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# DDNS Key credentials + hostname group (NOIP_USERNAME / NOIP_PASSWORD / NOIP_HOSTNAMES).
+# Secret — populated on the guest at mode 0600, never committed. See .env.example.
+EnvironmentFile=/etc/default/noip-duc
+# Long-running daemon: it polls on its own NOIP_CHECK_INTERVAL (default 5m), so there
+# is deliberately no companion .timer.
+ExecStart=/usr/bin/noip-duc
+# on-failure, not always: a clean exit means the binary chose to stop, and a restart
+# loop against No-IP looks like an abusive client.
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

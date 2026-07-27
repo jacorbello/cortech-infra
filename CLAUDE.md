@@ -63,6 +63,8 @@ Internet → corbello.ddns.net → PCT 100 "proxy" (NGINX + certbot TLS) → K3s
 
 All public services route through **LXC 100 (`proxy`)** which terminates TLS. K3s services are reached via Traefik on the API VIP.
 
+`corbello.ddns.net` is a No-IP dynamic record that every public hostname CNAMEs to; it is kept pointed at the current WAN IP by `noip-duc.service` on LXC 100 (see `noip-duc/`). If it goes stale, *all* public ingress goes dark. See `docs/network-reservations.md` for the WAN/forwarding details.
+
 ### Guests Outside K3s
 
 | ID | Type | Service | Node | Notes |
@@ -126,6 +128,7 @@ All public services route through **LXC 100 (`proxy`)** which terminates TLS. K3
 | `proxy/sites/` | NGINX server blocks for each `*.corbello.io` subdomain |
 | `pct/` | Proxmox LXC container configs |
 | `claude-telegram/` | LXC 126 — Claude Code + Telegram host: setup script, systemd units, runbook |
+| `noip-duc/` | LXC 100 — No-IP DUC keeping `corbello.ddns.net` on the current WAN IP: setup script, systemd unit, runbook |
 | `minio/` | MinIO docker-compose deployment |
 | `docsync/` | Python daemon syncing docs from MinIO to Dify knowledge base |
 | `scripts/` | Operations scripts — `inventory/refresh.sh` (Proxmox → docs), `dify-ingest.py` |
