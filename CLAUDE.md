@@ -95,7 +95,7 @@ All public services route through **LXC 100 (`proxy`)** which terminates TLS. K3
 | Grafana | https://grafana.corbello.io | observability | Prometheus + Loki dashboards |
 | ArgoCD | https://argocd.corbello.io | argocd | GitOps (server, repo-server, redis, dex, notifications) |
 | Harbor | https://harbor.corbello.io | harbor | Container registry (core, portal, registry, jobservice, trivy, redis) |
-| Infisical | https://infisical.corbello.io | infisical | Secrets management (v0.96.1-postgres, uses external Postgres + Redis) |
+| Infisical | https://infisical.corbello.io | infisical | Secrets management (v0.162.13, uses external Postgres + Redis) |
 | SonarQube | https://sonarqube.corbello.io | sonarqube | Code quality analysis |
 | ARC v2 | — | arc-systems / arc-runners | GitHub Actions runner controller (listener-based autoscaling, per-job) |
 
