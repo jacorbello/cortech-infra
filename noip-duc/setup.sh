@@ -12,9 +12,12 @@ set -Eeuo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 
-# Overridable only so test-preflight.sh can exercise the credential checks off-guest.
-# In the container this is always the real path.
+# Both overridable only so test-preflight.sh can exercise the preflight without
+# touching real paths — and so its positive case reliably stops at the drop-in
+# check instead of falling through to apt-get on a host that already has one.
+# In the container these are always the real paths.
 ENV_FILE="${NOIP_ENV_FILE:-/etc/default/noip-duc}"
+DROPIN="${NOIP_DROPIN:-/etc/systemd/system/noip-duc.service.d/10-cortech.conf}"
 
 # --- preflight -------------------------------------------------------------
 # A DUC with empty credentials doesn't fail loudly, it loops on auth errors.
@@ -39,8 +42,8 @@ if [ ${#missing[@]} -gt 0 ]; then
   echo "       (DDNS Key credentials live in Infisical dev) and re-run." >&2
   exit 1
 fi
-if [ ! -f /etc/systemd/system/noip-duc.service.d/10-cortech.conf ]; then
-  echo "ERROR: drop-in /etc/systemd/system/noip-duc.service.d/10-cortech.conf not found" >&2
+if [ ! -f "$DROPIN" ]; then
+  echo "ERROR: drop-in $DROPIN not found" >&2
   echo "       — pct push it first (see noip-duc/README.md)." >&2
   exit 1
 fi
