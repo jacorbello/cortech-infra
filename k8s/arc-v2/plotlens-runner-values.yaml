@@ -25,9 +25,17 @@ template:
         key: node.kubernetes.io/lifecycle
         operator: Equal
         value: ephemeral
+    # Pin homelab hostnames straight at the proxy LXC. Public DNS CNAMEs these
+    # to corbello.ddns.net (the WAN IP), so without this a pod two hops away on
+    # the same LAN hairpins out through the router and back — which times out
+    # under CI load. SonarQube failed ~16 runs/day this way.
     hostAliases:
       - hostnames:
           - harbor.corbello.io
+          - sonarqube.corbello.io
+          - plotlens.corbello.io
+          - api.plotlens.corbello.io
+          - microsoft.plotlens.corbello.io
         ip: 192.168.1.100
     initContainers:
       - name: install-kubectl
