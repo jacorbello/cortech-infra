@@ -6,6 +6,7 @@ set -Eeuo pipefail
 # Run as root INSIDE the container. Assumes these have already been placed by the host:
 #   /etc/systemd/system/noip-duc.service.d/10-cortech.conf   (pct push, from this dir)
 #   /etc/default/noip-duc                                    (see .env.example)
+#   /root/noip-duc-watchdog.{sh,service,timer}                (pct push, from this dir)
 #
 # The service unit itself comes from the .deb (/lib/systemd/system/noip-duc.service)
 # and is already correct; we only layer the drop-in on top.
@@ -80,11 +81,29 @@ fi
 
 echo "==> installed: $(noip-duc --version 2>&1 | head -1) at $(command -v noip-duc)"
 
+# --- watchdog --------------------------------------------------------------
+# noip-duc backs off internally up to 30m on lookup failures while systemd still
+# reports it active, so Restart=on-failure never fires and the record can sit
+# stale that long after a WAN change. The timer notices the drift and restarts it.
+if [ -f /root/noip-duc-watchdog.sh ]; then
+  echo "==> installing noip-duc watchdog"
+  install -m 0755 -o root -g root /root/noip-duc-watchdog.sh /usr/local/sbin/noip-duc-watchdog
+  install -m 0644 -o root -g root /root/noip-duc-watchdog.service /etc/systemd/system/
+  install -m 0644 -o root -g root /root/noip-duc-watchdog.timer /etc/systemd/system/
+else
+  echo "==> watchdog files not pushed — skipping (noip-duc itself is unaffected)"
+fi
+
 # --- enable ----------------------------------------------------------------
 echo "==> enabling noip-duc.service"
 systemctl daemon-reload
 systemctl enable --now noip-duc
 systemctl restart noip-duc
+
+if [ -x /usr/local/sbin/noip-duc-watchdog ]; then
+  echo "==> enabling noip-duc-watchdog.timer"
+  systemctl enable --now noip-duc-watchdog.timer
+fi
 
 echo
 echo "Setup complete. Verify the record now matches the WAN IP (run on the Proxmox master):"
