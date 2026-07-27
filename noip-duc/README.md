@@ -15,12 +15,19 @@ record follows the WAN IP automatically.
 | `setup.sh` | Idempotent guest provisioning (run as root inside PCT 100) |
 | `noip-duc.service.d/10-cortech.conf` | systemd drop-in — the only two deltas from the packaged unit |
 | `.env.example` | Template for `/etc/default/noip-duc` (DDNS Key credentials) |
+| `test-preflight.sh` | Checks the credential preflight. Runs anywhere — no container, root, or network |
 
 **There is no unit file here.** The `.deb` ships
 `/lib/systemd/system/noip-duc.service`, and it is already correct — it reads
 `EnvironmentFile=/etc/default/noip-duc`, runs `/usr/bin/noip-duc`, `Type=simple`,
 `Restart=on-failure`. A drop-in adds `network-online.target` ordering and
 `RestartSec=30` without shadowing the package, so an upstream fix still reaches us.
+
+`setup.sh` refuses to enable the service unless `NOIP_USERNAME`, `NOIP_PASSWORD` and
+`NOIP_HOSTNAMES` all have real values. A DUC with blank credentials starts happily and
+loops on auth failures while the record rots — and a file copied straight from
+`.env.example` is *non-empty* (`NOIP_HOSTNAMES` is prefilled), so testing the file rather
+than the values would let exactly that through. `./noip-duc/test-preflight.sh` covers it.
 
 ## Dependencies installed by setup.sh
 

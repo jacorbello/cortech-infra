@@ -12,12 +12,31 @@ set -Eeuo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
 
+# Overridable only so test-preflight.sh can exercise the credential checks off-guest.
+# In the container this is always the real path.
+ENV_FILE="${NOIP_ENV_FILE:-/etc/default/noip-duc}"
+
 # --- preflight -------------------------------------------------------------
 # A DUC with empty credentials doesn't fail loudly, it loops on auth errors.
-# Refuse to enable the service until the env file actually has content.
-if [ ! -s /etc/default/noip-duc ]; then
-  echo "ERROR: /etc/default/noip-duc is missing or empty." >&2
+# Refuse to enable the service until the env file has real values — a file copied
+# straight from .env.example is non-empty (NOIP_HOSTNAMES is prefilled) but has
+# blank NOIP_USERNAME/NOIP_PASSWORD, so an -s test alone lets that through.
+if [ ! -s "$ENV_FILE" ]; then
+  echo "ERROR: $ENV_FILE is missing or empty." >&2
   echo "       Populate it from noip-duc/.env.example (DDNS Key user/pass, mode 0600) first." >&2
+  exit 1
+fi
+missing=()
+for key in NOIP_USERNAME NOIP_PASSWORD NOIP_HOSTNAMES; do
+  # Require at least one non-whitespace character after the '=' — catches both
+  # `KEY=` and `KEY=   `. Greps rather than sourcing, so a malformed file can't
+  # execute anything as root.
+  grep -qE "^${key}=[^[:space:]]" "$ENV_FILE" || missing+=("$key")
+done
+if [ ${#missing[@]} -gt 0 ]; then
+  echo "ERROR: $ENV_FILE has no value for: ${missing[*]}" >&2
+  echo "       noip-duc would start and loop on auth failures. Fill them in" >&2
+  echo "       (DDNS Key credentials live in Infisical dev) and re-run." >&2
   exit 1
 fi
 if [ ! -f /etc/systemd/system/noip-duc.service.d/10-cortech.conf ]; then
@@ -25,8 +44,8 @@ if [ ! -f /etc/systemd/system/noip-duc.service.d/10-cortech.conf ]; then
   echo "       — pct push it first (see noip-duc/README.md)." >&2
   exit 1
 fi
-chown root:root /etc/default/noip-duc
-chmod 0600 /etc/default/noip-duc
+chown root:root "$ENV_FILE"
+chmod 0600 "$ENV_FILE"
 
 # An earlier revision shipped a full unit override here. It shadowed the packaged
 # unit for two directives that are now a drop-in; remove it if it's still around.
