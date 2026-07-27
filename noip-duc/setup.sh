@@ -4,8 +4,11 @@ set -Eeuo pipefail
 # Idempotent setup for the No-IP Dynamic Update Client on the proxy LXC (PCT 100).
 #
 # Run as root INSIDE the container. Assumes these have already been placed by the host:
-#   /etc/systemd/system/noip-duc.service   (pct push from noip-duc/noip-duc.service)
-#   /etc/default/noip-duc                  (populated on the guest — see .env.example)
+#   /etc/systemd/system/noip-duc.service.d/10-cortech.conf   (pct push, from this dir)
+#   /etc/default/noip-duc                                    (see .env.example)
+#
+# The service unit itself comes from the .deb (/lib/systemd/system/noip-duc.service)
+# and is already correct; we only layer the drop-in on top.
 
 export DEBIAN_FRONTEND=noninteractive
 
@@ -17,12 +20,20 @@ if [ ! -s /etc/default/noip-duc ]; then
   echo "       Populate it from noip-duc/.env.example (DDNS Key user/pass, mode 0600) first." >&2
   exit 1
 fi
-if [ ! -f /etc/systemd/system/noip-duc.service ]; then
-  echo "ERROR: /etc/systemd/system/noip-duc.service not found — pct push it first." >&2
+if [ ! -f /etc/systemd/system/noip-duc.service.d/10-cortech.conf ]; then
+  echo "ERROR: drop-in /etc/systemd/system/noip-duc.service.d/10-cortech.conf not found" >&2
+  echo "       — pct push it first (see noip-duc/README.md)." >&2
   exit 1
 fi
 chown root:root /etc/default/noip-duc
 chmod 0600 /etc/default/noip-duc
+
+# An earlier revision shipped a full unit override here. It shadowed the packaged
+# unit for two directives that are now a drop-in; remove it if it's still around.
+if [ -f /etc/systemd/system/noip-duc.service ]; then
+  echo "==> removing obsolete full-unit override /etc/systemd/system/noip-duc.service"
+  rm -f /etc/systemd/system/noip-duc.service
+fi
 
 # --- install ---------------------------------------------------------------
 if ! command -v noip-duc >/dev/null 2>&1; then
@@ -46,13 +57,6 @@ if ! command -v noip-duc >/dev/null 2>&1; then
 fi
 
 echo "==> installed: $(noip-duc --version 2>&1 | head -1) at $(command -v noip-duc)"
-
-# The unit hardcodes /usr/bin/noip-duc; fail now rather than at first boot if the
-# package ever moves the binary.
-if [ ! -x /usr/bin/noip-duc ]; then
-  echo "ERROR: /usr/bin/noip-duc not found (dpkg -L noip-duc) — fix ExecStart in the unit." >&2
-  exit 1
-fi
 
 # --- enable ----------------------------------------------------------------
 echo "==> enabling noip-duc.service"
