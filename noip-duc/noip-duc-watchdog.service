@@ -1,0 +1,10 @@
+[Unit]
+Description=Restart noip-duc if corbello.ddns.net has drifted from the WAN IP
+# Pointless to check when the thing it watches isn't installed.
+ConditionPathExists=/usr/bin/noip-duc
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/noip-duc-watchdog

@@ -16,6 +16,9 @@ record follows the WAN IP automatically.
 | `noip-duc.service.d/10-cortech.conf` | systemd drop-in — the only two deltas from the packaged unit |
 | `.env.example` | Template for `/etc/default/noip-duc` (DDNS Key credentials) |
 | `test-preflight.sh` | Checks the credential preflight. Runs anywhere — no container, root, or network |
+| `noip-duc-watchdog.sh` | Restarts noip-duc when the record has drifted from the WAN IP |
+| `noip-duc-watchdog.{service,timer}` | Runs the watchdog every 10 min |
+| `test-watchdog.sh` | Checks the watchdog's decision logic. Also runs anywhere |
 
 **There is no unit file here.** The `.deb` ships
 `/lib/systemd/system/noip-duc.service`, and it is already correct — it reads
@@ -28,6 +31,32 @@ record follows the WAN IP automatically.
 loops on auth failures while the record rots — and a file copied straight from
 `.env.example` is *non-empty* (`NOIP_HOSTNAMES` is prefilled), so testing the file rather
 than the values would let exactly that through. `./noip-duc/test-preflight.sh` covers it.
+
+## The watchdog, and why it exists
+
+`noip-duc` does **not** exit when its IP lookups fail. It escalates an internal
+backoff — up to `retrying after 30m` — while systemd still reports the unit
+`active`. So `Restart=on-failure` never fires, and a WAN change that lands during a
+DNS blip leaves the record stale for up to half an hour. Seen for real on
+2026-07-27: the WAN moved, LXC 100 briefly couldn't resolve
+`ip1.dynupdate.no-ip.com`, and the DUC sat in a 30-minute backoff reporting healthy.
+A restart fixed it in under a second.
+
+There is no flag to cap that backoff (checked `noip-duc --help`, 3.3.0), so
+`noip-duc-watchdog.timer` fires every 10 minutes and compares the **authoritative**
+record against the live WAN IP, restarting `noip-duc` only on a mismatch. It caps
+staleness at ~10 min. Deliberately narrow:
+
+- Queries `@nf1.no-ip.com`, never a public resolver — caches lag the TTL and would
+  cause spurious restarts on a perfectly current record.
+- If either lookup fails it does **nothing**. An inconclusive check says nothing
+  about the record, and restarting on our own transient failure is how a watchdog
+  turns one blip into a restart loop.
+- Won't restart a service that started less than 10 min ago, so a genuinely broken
+  credential gets one restart, not one every 10 minutes forever.
+
+This is a watchdog, not the second scheduler rejected under **Notes** — `noip-duc`
+still owns the 5-minute polling. If upstream ever caps the backoff, delete the unit.
 
 ## Dependencies installed by setup.sh
 
@@ -52,6 +81,9 @@ pct exec 100 -- mkdir -p /etc/systemd/system/noip-duc.service.d
 pct push 100 noip-duc/noip-duc.service.d/10-cortech.conf \
              /etc/systemd/system/noip-duc.service.d/10-cortech.conf
 pct push 100 noip-duc/setup.sh /root/noip-duc-setup.sh
+for f in noip-duc-watchdog.sh noip-duc-watchdog.service noip-duc-watchdog.timer; do
+  pct push 100 "noip-duc/$f" "/root/$f"
+done
 
 # 2. Create the secret ON THE GUEST (values from Infisical dev — see .env.example)
 pct exec 100 -- install -m 0600 -o root -g root /dev/null /etc/default/noip-duc
@@ -83,6 +115,13 @@ pct exec 100 -- journalctl -u noip-duc -n 50 --no-pager
 
 # Force a re-check
 pct exec 100 -- systemctl restart noip-duc
+
+# Watchdog: when it last ran, what it decided, and when it fires next
+pct exec 100 -- systemctl list-timers noip-duc-watchdog.timer --no-pager
+pct exec 100 -- journalctl -u noip-duc-watchdog -n 20 --no-pager
+
+# Ask the watchdog what it would do, without letting it act
+pct exec 100 -- /usr/local/sbin/noip-duc-watchdog --dry-run
 ```
 
 **Is the record correct?** The real check — run on the Proxmox master (the laptop has no `dig`):
@@ -94,8 +133,12 @@ echo "ddns=$a wan=$b"; [ "$a" = "$b" ] && echo MATCH || echo STALE
 
 **If it says STALE:**
 
-1. `journalctl -u noip-duc` — auth errors mean the DDNS Key was rotated or revoked in the
-   portal. Re-issue it, update `/etc/default/noip-duc`, restart.
+0. First: has it been stale under 10 minutes? The watchdog is probably about to fix
+   it. `systemctl list-timers noip-duc-watchdog.timer` shows when it next fires.
+1. `journalctl -u noip-duc` — `Failed to get IP ... retrying after 30m` means the
+   internal backoff; `systemctl restart noip-duc` clears it immediately. Auth errors
+   instead mean the DDNS Key was rotated or revoked in the portal — re-issue it,
+   update `/etc/default/noip-duc`, restart.
 2. Still stale with clean logs? The hostname may not be attached to the key's group, so
    `all.ddnskey.com` doesn't cover it. Check the portal.
 3. Resolver cache — this is the likely answer, and it bites hard. Public resolvers cache
@@ -113,8 +156,11 @@ manual pass: `pct exec 100 -- certbot renew --nginx`.
 
 ## Notes
 
-- **No `.timer`.** noip-duc daemonizes and polls on its own `NOIP_CHECK_INTERVAL`
-  (default 5m). A timer would be a second scheduler doing the same job.
+- **No polling timer.** noip-duc daemonizes and polls on its own
+  `NOIP_CHECK_INTERVAL` (default 5m); a timer duplicating that would be a second
+  scheduler doing the same job. The one timer here is a *watchdog* — it doesn't poll
+  the WAN on noip-duc's behalf, it notices when noip-duc has silently stopped doing
+  so. See **The watchdog** above.
 - **Version is not pinned.** No-IP publishes only `download/linux/latest`; versioned URLs
   404. `setup.sh` logs `noip-duc --version` so the journal records what landed.
 - **`Restart=on-failure`, not `always`** (from the packaged unit). A clean exit is the

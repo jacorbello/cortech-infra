@@ -34,7 +34,9 @@ hostname is a CNAME to that record — all `*.corbello.io` subdomains, plus
 `plotlens.ai` and the other apex domains served by the proxy. Nameservers are
 Namecheap's (`dns1`/`dns2.registrar-servers.com`).
 
-Keeping the record current is `noip-duc.service` on **LXC 100** (see `noip-duc/`).
+Keeping the record current is `noip-duc.service` on **LXC 100** (see `noip-duc/`),
+with `noip-duc-watchdog.timer` restarting it if the record drifts — noip-duc backs
+off up to 30m on lookup failures while still reporting `active`.
 It authenticates with a No-IP **DDNS Key** and updates the whole key group
 (`all.ddnskey.com`). If that service is down when the ISP rotates the WAN IP, the
 record goes stale and *all* public ingress fails — including Let's Encrypt HTTP-01

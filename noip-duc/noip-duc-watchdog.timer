@@ -1,0 +1,14 @@
+[Unit]
+Description=Check every 10 min that corbello.ddns.net still matches the WAN IP
+
+[Timer]
+# noip-duc's own backoff can reach 30m; a 10-minute check caps staleness at ~10m.
+# Tighter buys little — DNS propagation and the No-IP update itself are the floor.
+OnBootSec=5min
+OnUnitActiveSec=10min
+# Spread the two authoritative-NS queries so every homelab box doesn't fire at :00.
+RandomizedDelaySec=60
+Persistent=true
+
+[Install]
+WantedBy=timers.target
