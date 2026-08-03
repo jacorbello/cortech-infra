@@ -33,17 +33,29 @@ the router uplink, simultaneously:
 | Port | Host |
 |------|------|
 | gi1 / gi2 / gi44 / gi47 / gi48 | cortech-node1 / master / node2 / node5 / node3-gpu |
+| gi3 | unidentified device at 192.168.1.49 |
 | gi50 | router uplink — all WAN and household traffic |
+
+All **7** live ports drop, not just the six known hosts.
 
 Consequences per reboot:
 
 - K3s nodes mark each other `NotReady`; etcd loses quorum for the duration
 - All public ingress via proxy LXC 100 is down
-- NFS mounts may hang. Per `k3s-wrk-3-egress-packet-loss` notes, hung NFS on
-  k3s-wrk-3 has historically cleared only via `qm reset 206`
-- Guests do **not** reliably auto-start after an unclean stop — see
-  `power-loss-guests-no-autostart` — so a node that hard-fails needs manual
-  recovery in dependency order
+- **NFS mounts may hang on k3s-wrk-3.** In past network interruptions a hung NFS
+  mount on this node did not recover on its own and cleared only by resetting the
+  VM from the Proxmox master:
+  ```
+  ssh root@192.168.1.52 "qm reset 206"
+  ```
+- **Guests do not reliably auto-start after an unclean stop.** `onboot` is unset on
+  several guests, so after a hard stop they must be started manually in dependency
+  order from the master — control plane (200-202) first, then proxy LXC 100, then
+  Postgres (114) and Redis, then the rest:
+  ```
+  ssh root@192.168.1.52 "qm start 200; qm start 201; qm start 202"
+  ssh root@192.168.1.52 "pct start 100; pct start 114; pct start 116"
+  ```
 
 ## Prerequisites
 
@@ -59,12 +71,41 @@ Consequences per reboot:
 - [ ] A maintenance window when CI is idle — ARC runners mid-job will fail.
 - [ ] Someone available who can physically power-cycle if it hangs.
 
+## ⚠️ Switch commands below are UNVERIFIED
+
+Only the commands already exercised on this box are known-good: `show version`,
+`show system`, `show clock`, `show interfaces status`, `show vlan`,
+`show spanning-tree`, `show lldp neighbors`, `show ip interface`,
+`show mac address-table`, `show running-config`, `copy running-config
+startup-config`, and the `snmp-server` / `sntp` / `logging` config lines.
+
+Everything involving image selection and reboot — `show bootvar`,
+`boot system …`, `reload` — is **written from general Cisco practice and has not
+been run on this switch.** This firmware's CLI is a Cisco Small Business dialect,
+not IOS, and it has already rejected one IOS-syntax command outright
+(`snmp-server community <net> <mask>`; see `docs/switch-sg300.md`).
+
+**Before the window, confirm each one interactively with `?` completion**, or plan
+to drive the upgrade entirely from the web UI's Firmware Upgrade page, which
+avoids the CLI-syntax question altogether and is the safer default.
+
+## Note on SSH
+
+The switch is **password-auth only and needs a PTY** — `ssh sg300 'some command'`
+will not work (see `docs/switch-sg300.md`). Every step below assumes an
+**interactive** session: run `ssh sg300`, then type commands at the prompt. Run
+`terminal datadump` first or output pages at `--More--`.
+
+For a scripted check, the pattern is `sshpass -e ssh -tt sg300 <<'CMDS'`.
+
 ## Pre-flight checks
 
+Interactively, via `ssh sg300`:
+
 ```
-ssh sg300
+terminal datadump
 show version                 # confirm starting point is 1.1.2.0 / boot 1.1.0.6
-show bootvar                 # which image is active
+show bootvar                 # UNVERIFIED — which image is active
 show interfaces status       # record the 7 live ports to compare after
 copy running-config startup-config
 ```
@@ -76,15 +117,21 @@ post-upgrade throughput and error counters have a baseline.
 
 Per stage — do **not** batch these:
 
-1. Upload the image (web UI at `http://192.168.1.56/` is simplest, or TFTP).
-2. `show bootvar` — confirm the new image landed in the *inactive* slot.
-3. Set the inactive image active, then `reload`.
+1. Upload the image via the web UI at `http://192.168.1.56/` (Administration →
+   File Management → Firmware Upgrade). Preferred over TFTP/CLI — it sidesteps the
+   unverified CLI syntax entirely.
+2. Confirm the new image landed in the *inactive* slot before activating it. The
+   web UI shows active/inactive versions directly; `show bootvar` is the CLI
+   equivalent but is UNVERIFIED on this firmware.
+3. Set the inactive image active, then reboot.
 4. Wait for the switch to come back. Confirm from a LAN host before touching
-   anything else:
+   anything else — note `ping` is the only non-interactive check available, since
+   the switch needs a PTY:
    ```
    ping 192.168.1.56
-   ssh sg300 'show version'
    ```
+   Then `ssh sg300` interactively and run `show version` to confirm the new
+   version is actually running (a failed activation silently boots the old image).
 5. Verify the cluster recovered before starting the next stage:
    ```
    ssh root@192.168.1.52 "kubectl get nodes"
@@ -94,9 +141,16 @@ Per stage — do **not** batch these:
 
 ## Rollback
 
-- **Stage 1 or 3 (firmware):** boot the inactive image from the boot menu or
-  `boot system image-1|image-2`, then reload.
+- **Stage 1 or 3 (firmware):** activate the other image and reboot — via the web
+  UI, or from the serial console boot menu if the switch won't come up far enough
+  to serve the UI. (`boot system …` is the CLI equivalent but is UNVERIFIED here.)
 - **Stage 2 (boot code):** no software rollback. Serial console recovery only.
+- **Config after a boot-code failure:** `startup-config` lives in flash separately
+  from the boot loader, so a console recovery normally finds the saved config
+  intact — but do not rely on it. The off-box `show running-config` capture from
+  Prerequisites is the real safety net, and the running config here is close to
+  stock, so worst case it is a short manual re-entry (SNMP community + ACL, SNTP
+  server, logging host).
 - **Switch unreachable and console unavailable:** the homelab is offline until
   physically resolved. This is the scenario the prerequisites exist to prevent.
 
