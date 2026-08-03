@@ -4,7 +4,9 @@ The single LAN switch every homelab host sits behind. Unmanaged in practice — 
 running-config is close to factory default.
 
 - **Model:** SG300-52, 52-port Gigabit managed switch (`switch781f24`)
-- **Management:** `192.168.1.56` (web UI is HTTP-only; 443 is closed)
+- **Management:** `192.168.1.56` — a DHCP *reservation* on the router, so the
+  address is stable even though the switch's own config reads `DHCP`. Web UI is
+  HTTP-only; 443 is closed.
 - **Base MAC:** `f4:ea:67:78:1f:24`
 - **Firmware:** 1.1.2.0 (12-Nov-2011), boot 1.1.0.6, HW V02
 - **Credentials:** user `cisco` (privilege 15), password in Infisical `homelab` →
@@ -71,17 +73,12 @@ Effectively stock. The entire non-default running-config is a hostname, one user
 
 1. **Firmware is ~14 years old.** 1.1.2.0 shipped Nov 2011; the final SG300 release
    is 1.4.11.x. Its obsolete SSH ciphers are a direct symptom.
-2. **Management IP is a DHCP lease, not static.** `show ip interface` reports
-   `192.168.1.56/24 vlan 1 DHCP`. The router's DHCP pool was later moved to
-   `.200-.250` (see `network-reservations.md`), so `.56` is a lease from the old
-   pool — on renewal the management address will move and `ssh sg300` breaks.
-   Should be a static IP.
-3. **No time source.** `show clock` reads Dec 2011 with `No time source`, making
+2. **No time source.** `show clock` reads Dec 2011 with `No time source`, making
    every switch-side timestamp meaningless. Needs SNTP against `192.168.1.1`.
-4. **Invisible to monitoring.** With SNMP not listening and no syslog target, the
+3. **Invisible to monitoring.** With SNMP not listening and no syslog target, the
    Prometheus/Loki stack gets no port counters, no link-flap alerts, and no error
    rates from the device every homelab packet crosses.
-5. **Single points of failure.** No LAG on any node. Losing one port or cable
+4. **Single points of failure.** No LAG on any node. Losing one port or cable
    isolates a whole Proxmox host — for gi2 that is the master plus 11 guests
    including the public-ingress proxy.
 
