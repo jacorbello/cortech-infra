@@ -21,9 +21,17 @@ groups defined but no community and no listener; port 161 is closed.
 ```
 configure
 snmp-server server
-snmp-server community public ro 192.168.1.0 255.255.255.0
+snmp-server community public ro 192.168.1.97
 end
 copy running-config startup-config
+```
+
+Note the syntax: this firmware takes a **single management-station IP and no
+netmask**. The IOS-style `<network> <mask>` form is rejected with
+`% Wrong number of parameters or invalid range, size or characters entered`.
+
+```
+snmp-server community <string> {ro|rw|su} [ip-address] [view <name>]
 ```
 
 Verify from any LAN host:
@@ -32,15 +40,16 @@ Verify from any LAN host:
 snmpwalk -v2c -c public 192.168.1.56 sysDescr
 ```
 
-### On the community string
+### On the community string and the pinned node
 
-`public` read-only, restricted to the LAN subnet. SNMPv2c sends the community in
-cleartext, so this is only acceptable because the LAN is flat and trusted and the
-access is read-only — it grants interface counters, nothing writable.
+`public` read-only, accepted from exactly one host: `192.168.1.97` (k3s-wrk-3).
+SNMPv2c sends the community in cleartext, so this is only acceptable because the
+LAN is trusted and the grant is read-only — interface counters, nothing writable.
 
-The subnet-wide ACL is deliberate: the exporter pod's traffic is SNAT'd to
-whichever node it lands on, so a single-IP ACL would break on reschedule. Pin the
-deployment with a `nodeSelector` first if you want to narrow it.
+Because the ACL is a single IP and pod egress is SNAT'd to its node, the
+deployment carries a matching `nodeSelector` for `k3s-wrk-3`. **The two must stay
+in sync** — moving the pod without updating the switch ACL silently breaks the
+scrape. k3s-wrk-3 is `lifecycle=persistent`, so it is the stable choice.
 
 If this switch ever carries untrusted traffic, move to SNMPv3 with auth+priv
 (the v3 groups already exist) and put the credentials in Infisical.

@@ -18,6 +18,12 @@ spec:
         app.kubernetes.io/name: snmp-exporter
         release: prometheus
     spec:
+      # Pinned deliberately, not for capacity: pod egress to the LAN is SNAT'd to
+      # the node IP, and the switch's SNMP ACL accepts exactly one management
+      # station (192.168.1.97 = k3s-wrk-3). Moving this pod breaks the scrape
+      # unless the switch ACL moves with it. k3s-wrk-3 is lifecycle=persistent.
+      nodeSelector:
+        kubernetes.io/hostname: k3s-wrk-3
       containers:
       - name: snmp-exporter
         image: prom/snmp-exporter:v0.30.1
