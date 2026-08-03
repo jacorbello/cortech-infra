@@ -1,0 +1,81 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: syslog-receiver
+  namespace: observability
+  labels:
+    app.kubernetes.io/name: syslog-receiver
+    app.kubernetes.io/component: logging
+data:
+  receiver.py: |
+    """UDP syslog receiver that re-emits to stdout as JSON.
+
+    Exists because promtail's syslog target speaks RFC5424 only, while the SG300
+    (and most network gear) emits RFC3164. Rather than add Fluent Bit or Alloy to
+    the stack for one device, this prints to stdout and lets the promtail
+    DaemonSet — which already tails every pod's logs — pick it up for free.
+
+    ponytail: ~40 lines and no dependencies. If a second device with different
+    framing shows up, or parsing needs to get clever, replace this with Alloy
+    rather than growing it.
+    """
+    import json
+    import os
+    import re
+    import socket
+    import sys
+
+    PORT = int(os.environ.get("SYSLOG_PORT", "514"))
+    # Only these sources are accepted. Syslog is unauthenticated UDP and trivially
+    # spoofed, so an allow-list keeps a stray host from injecting log lines.
+    ALLOWED = {h.strip() for h in os.environ.get("ALLOWED_SENDERS", "").split(",") if h.strip()}
+
+    # RFC3164: "<PRI>TIMESTAMP HOST TAG: MSG". The SG300 does not always include a
+    # hostname, so everything after PRI is kept raw and only PRI is decoded.
+    PRI_RE = re.compile(rb"^<(\d{1,3})>(.*)$", re.S)
+
+    SEVERITIES = [
+        "emerg", "alert", "crit", "err", "warning", "notice", "info", "debug",
+    ]
+
+
+    def main() -> int:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(("0.0.0.0", PORT))
+        print(
+            json.dumps({"level": "info", "msg": f"listening on udp/{PORT}",
+                        "allowed": sorted(ALLOWED) or "ANY"}),
+            flush=True,
+        )
+
+        while True:
+            try:
+                data, addr = sock.recvfrom(8192)
+            except OSError as exc:
+                print(json.dumps({"level": "error", "msg": f"recv failed: {exc}"}), flush=True)
+                continue
+
+            src = addr[0]
+            if ALLOWED and src not in ALLOWED:
+                continue
+
+            severity, body = None, data
+            match = PRI_RE.match(data)
+            if match:
+                pri = int(match.group(1))
+                severity = SEVERITIES[pri & 0x7] if (pri & 0x7) < len(SEVERITIES) else None
+                body = match.group(2)
+
+            print(
+                json.dumps({
+                    "source": src,
+                    "severity": severity,
+                    "message": body.decode("utf-8", errors="replace").strip(),
+                }),
+                flush=True,
+            )
+
+
+    if __name__ == "__main__":
+        sys.exit(main())
