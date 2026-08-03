@@ -65,22 +65,39 @@ Effectively stock. The entire non-default running-config is a hostname, one user
 - **STP:** RSTP on, switch is root at default priority 32768 (won on MAC address,
   not by configuration). 71 topology changes lifetime.
 - **LLDP:** enabled, zero neighbors — nothing else on the LAN speaks it
-- **SNMP:** v3 groups defined but no user or community exists, and port 161 is
-  closed. Nothing is listening.
+- **SNMP:** v2c community `public`, read-only, ACL'd to `192.168.1.97` only.
+  Scraped by `snmp-exporter` in the `observability` namespace — see
+  `k8s/observability/exporters/snmp-exporter/`.
+- **NTP:** SNTP unicast against `pool.ntp.org`. The router (`192.168.1.1`) does
+  **not** run an NTP server, so a public pool is required.
 - **Syslog:** no remote host
 
 ## Known issues
 
 1. **Firmware is ~14 years old.** 1.1.2.0 shipped Nov 2011; the final SG300 release
    is 1.4.11.x. Its obsolete SSH ciphers are a direct symptom.
-2. **No time source.** `show clock` reads Dec 2011 with `No time source`, making
-   every switch-side timestamp meaningless. Needs SNTP against `192.168.1.1`.
-3. **Invisible to monitoring.** With SNMP not listening and no syslog target, the
-   Prometheus/Loki stack gets no port counters, no link-flap alerts, and no error
-   rates from the device every homelab packet crosses.
-4. **Single points of failure.** No LAG on any node. Losing one port or cable
+2. **No syslog target.** Prometheus now gets port counters via SNMP, but switch
+   events (`%SNMP-W-SNMPAUTHFAIL`, link up/down, STP topology changes) still go
+   nowhere. Now worth doing — the clock is accurate, so timestamps will correlate
+   with the rest of Loki.
+3. **Single points of failure.** No LAG on any node. Losing one port or cable
    isolates a whole Proxmox host — for gi2 that is the master plus 11 guests
    including the public-ingress proxy.
+
+## Configuration syntax
+
+The CLI resembles IOS but is not IOS. Notably `snmp-server community` takes a
+single management-station IP and **no netmask**:
+
+```
+snmp-server community <string> {ro|rw|su} [ip-address] [view <name>]
+```
+
+The IOS `<network> <mask>` form is rejected with `% Wrong number of parameters or
+invalid range, size or characters entered`. Check unfamiliar commands with `?`
+rather than assuming IOS syntax.
+
+A leading `$` on a config-mode line is horizontal scrolling, not truncation.
 
 ## Related
 
