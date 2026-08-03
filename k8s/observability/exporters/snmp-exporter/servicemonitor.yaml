@@ -24,13 +24,48 @@ spec:
       - "192.168.1.56"   # sg300 core switch — see docs/switch-sg300.md
       auth:
       - "public_v2"
+      # if_mib carries the interface counters; system adds sysUpTime/sysDescr,
+      # which if_mib does not include. system costs ~0.08s against if_mib's ~10s.
       module:
-      - "if_mib"
+      - "if_mib,system"
     relabelings:
     - sourceLabels: [__param_target]
       targetLabel: instance
     - targetLabel: device
       replacement: sg300
+    # Attach the physical port map once here rather than repeating label_replace
+    # in every dashboard query. Ports with nothing plugged in get no `host`
+    # label, so panels filter on host!="" to show only live links.
+    # Keep in sync with the port map in docs/switch-sg300.md.
+    metricRelabelings:
+    - sourceLabels: [ifName]
+      regex: gi1
+      targetLabel: host
+      replacement: cortech-node1
+    - sourceLabels: [ifName]
+      regex: gi2
+      targetLabel: host
+      replacement: cortech-master
+    - sourceLabels: [ifName]
+      regex: gi3
+      targetLabel: host
+      replacement: unknown-192.168.1.49
+    - sourceLabels: [ifName]
+      regex: gi44
+      targetLabel: host
+      replacement: cortech-node2
+    - sourceLabels: [ifName]
+      regex: gi47
+      targetLabel: host
+      replacement: cortech-node5
+    - sourceLabels: [ifName]
+      regex: gi48
+      targetLabel: host
+      replacement: cortech-node3-gpu
+    - sourceLabels: [ifName]
+      regex: gi50
+      targetLabel: host
+      replacement: router-uplink
   # Exporter's own health/process metrics.
   - port: metrics
     path: /metrics

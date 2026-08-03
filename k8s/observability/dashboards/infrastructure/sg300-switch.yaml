@@ -1,0 +1,244 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dashboard-infra-sg300-switch
+  namespace: observability
+  labels:
+    grafana_dashboard: "1"
+    app.kubernetes.io/name: grafana-dashboard
+    app.kubernetes.io/component: infrastructure
+    release: prometheus
+  annotations:
+    grafana_folder: "Infrastructure"
+data:
+  sg300-switch.json: |-
+    {
+      "annotations": {"list": []},
+      "editable": true,
+      "graphTooltip": 1,
+      "title": "SG300-52 Core Switch",
+      "uid": "sg300-switch",
+      "tags": ["infrastructure", "network", "snmp"],
+      "timezone": "browser",
+      "time": {"from": "now-6h", "to": "now"},
+      "refresh": "1m",
+      "schemaVersion": 39,
+      "panels": [
+        {
+          "type": "row",
+          "title": "Link state",
+          "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0}
+        },
+        {
+          "type": "stat",
+          "title": "Live ports",
+          "description": "Ports with ifOperStatus == up, including port channels.",
+          "gridPos": {"h": 4, "w": 4, "x": 0, "y": 1},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "targets": [
+            {"expr": "count(ifOperStatus{instance=\"192.168.1.56\"} == 1)", "refId": "A"}
+          ],
+          "options": {
+            "colorMode": "value",
+            "reduceOptions": {"calcs": ["lastNotNull"]}
+          },
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "red", "value": null},
+                  {"color": "green", "value": 7}
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "type": "stat",
+          "title": "Switch uptime",
+          "gridPos": {"h": 4, "w": 4, "x": 4, "y": 1},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "targets": [
+            {"expr": "sysUpTime{instance=\"192.168.1.56\"} / 100", "refId": "A"}
+          ],
+          "options": {"colorMode": "none", "reduceOptions": {"calcs": ["lastNotNull"]}},
+          "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []}
+        },
+        {
+          "type": "stat",
+          "title": "SNMP scrape duration",
+          "description": "A full if_mib walk of 52 ports takes ~9.5s. Approaching the 30s scrapeTimeout means the switch is struggling.",
+          "gridPos": {"h": 4, "w": 4, "x": 8, "y": 1},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "targets": [
+            {"expr": "snmp_scrape_duration_seconds{instance=\"192.168.1.56\"}", "refId": "A"}
+          ],
+          "options": {"colorMode": "value", "reduceOptions": {"calcs": ["lastNotNull"]}},
+          "fieldConfig": {
+            "defaults": {
+              "unit": "s",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "yellow", "value": 15},
+                  {"color": "red", "value": 25}
+                ]
+              }
+            },
+            "overrides": []
+          }
+        },
+        {
+          "type": "table",
+          "title": "Mapped ports",
+          "description": "The 7 physical links, from docs/switch-sg300.md. Host names come from ServiceMonitor metricRelabelings.",
+          "gridPos": {"h": 9, "w": 12, "x": 12, "y": 1},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "targets": [
+            {
+              "expr": "ifOperStatus{instance=\"192.168.1.56\", host!=\"\"}",
+              "format": "table",
+              "instant": true,
+              "refId": "A"
+            }
+          ],
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time": true, "__name__": true, "container": true,
+                  "endpoint": true, "ifDescr": true, "job": true,
+                  "namespace": true, "pod": true, "service": true,
+                  "device": true, "instance": true
+                },
+                "renameByName": {"host": "Host", "ifName": "Port", "Value": "Link"}
+              }
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": [
+              {
+                "matcher": {"id": "byName", "options": "Link"},
+                "properties": [
+                  {
+                    "id": "mappings",
+                    "value": [
+                      {"type": "value", "options": {"1": {"text": "up", "color": "green", "index": 0}}},
+                      {"type": "value", "options": {"2": {"text": "DOWN", "color": "red", "index": 1}}}
+                    ]
+                  },
+                  {"id": "custom.cellOptions", "value": {"type": "color-text"}}
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "type": "row",
+          "title": "Throughput",
+          "gridPos": {"h": 1, "w": 24, "x": 0, "y": 10}
+        },
+        {
+          "type": "timeseries",
+          "title": "Inbound (switch ← host)",
+          "gridPos": {"h": 9, "w": 12, "x": 0, "y": 11},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "targets": [
+            {
+              "expr": "rate(ifHCInOctets{instance=\"192.168.1.56\", host!=\"\"}[5m]) * 8",
+              "legendFormat": "{{host}} ({{ifName}})",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bps",
+              "min": 0,
+              "custom": {"fillOpacity": 8, "showPoints": "never", "lineWidth": 1}
+            },
+            "overrides": []
+          },
+          "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"]}}
+        },
+        {
+          "type": "timeseries",
+          "title": "Outbound (switch → host)",
+          "gridPos": {"h": 9, "w": 12, "x": 12, "y": 11},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "targets": [
+            {
+              "expr": "rate(ifHCOutOctets{instance=\"192.168.1.56\", host!=\"\"}[5m]) * 8",
+              "legendFormat": "{{host}} ({{ifName}})",
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "bps",
+              "min": 0,
+              "custom": {"fillOpacity": 8, "showPoints": "never", "lineWidth": 1}
+            },
+            "overrides": []
+          },
+          "options": {"legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"]}}
+        },
+        {
+          "type": "row",
+          "title": "Errors and discards",
+          "gridPos": {"h": 1, "w": 24, "x": 0, "y": 20}
+        },
+        {
+          "type": "timeseries",
+          "title": "Interface errors",
+          "description": "Sustained non-zero values point at a bad cable, duplex mismatch, or failing port. See the k3s-wrk-3 packet-loss history in docs/.",
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 21},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "targets": [
+            {
+              "expr": "rate(ifInErrors{instance=\"192.168.1.56\", host!=\"\"}[5m])",
+              "legendFormat": "in — {{host}} ({{ifName}})",
+              "refId": "A"
+            },
+            {
+              "expr": "rate(ifOutErrors{instance=\"192.168.1.56\", host!=\"\"}[5m])",
+              "legendFormat": "out — {{host}} ({{ifName}})",
+              "refId": "B"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {"unit": "pps", "min": 0, "custom": {"fillOpacity": 0, "lineWidth": 2}},
+            "overrides": []
+          },
+          "options": {"legend": {"displayMode": "list", "placement": "bottom"}}
+        },
+        {
+          "type": "timeseries",
+          "title": "Interface discards",
+          "description": "Discards without errors usually mean buffer exhaustion — the 1G uplink saturating, or a burst outrunning the port.",
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 21},
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "targets": [
+            {
+              "expr": "rate(ifInDiscards{instance=\"192.168.1.56\", host!=\"\"}[5m])",
+              "legendFormat": "in — {{host}} ({{ifName}})",
+              "refId": "A"
+            },
+            {
+              "expr": "rate(ifOutDiscards{instance=\"192.168.1.56\", host!=\"\"}[5m])",
+              "legendFormat": "out — {{host}} ({{ifName}})",
+              "refId": "B"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {"unit": "pps", "min": 0, "custom": {"fillOpacity": 0, "lineWidth": 2}},
+            "overrides": []
+          },
+          "options": {"legend": {"displayMode": "list", "placement": "bottom"}}
+        }
+      ]
+    }
