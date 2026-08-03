@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: syslog-receiver
+  namespace: observability
+  labels:
+    app.kubernetes.io/name: syslog-receiver
+    app.kubernetes.io/component: logging
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: syslog-receiver
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: syslog-receiver
+        app.kubernetes.io/component: logging
+    spec:
+      # Pinned for the same reason as snmp-exporter: the switch sends to a fixed
+      # IP, so the listener must stay on a known node. k3s-wrk-3 is
+      # lifecycle=persistent. hostPort 514 then makes it reachable at
+      # 192.168.1.97:514 — the SG300 sends syslog on the well-known port only,
+      # which is below the NodePort range, so hostPort is the way in.
+      nodeSelector:
+        kubernetes.io/hostname: k3s-wrk-3
+      containers:
+      - name: receiver
+        image: python:3.13-alpine
+        command: ["python3", "/app/receiver.py"]
+        env:
+        - name: SYSLOG_PORT
+          value: "514"
+        - name: ALLOWED_SENDERS
+          value: "192.168.1.56"   # sg300 only — syslog is spoofable, see receiver.py
+        ports:
+        - name: syslog
+          containerPort: 514
+          hostPort: 514
+          protocol: UDP
+        securityContext:
+          # Needed only to bind the privileged port; everything else is dropped.
+          runAsUser: 0
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+            add: ["NET_BIND_SERVICE"]
+        volumeMounts:
+        - name: script
+          mountPath: /app
+          readOnly: true
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "10m"
+          limits:
+            memory: "64Mi"
+            cpu: "100m"
+      volumes:
+      - name: script
+        configMap:
+          name: syslog-receiver
