@@ -114,10 +114,11 @@ Consequences per reboot:
       strength differs; read *Firmware provenance* below before stage 1. Cisco
       retired the line and removed the downloads, so these came from the Internet
       Archive rather than Cisco.
-- [ ] **Back up the current 1.1.2.0 image off-box before stage 1** — the flash
-      migration deletes it and it can no longer be downloaded from Cisco. If
-      `copy image tftp://…` works on this firmware (UNVERIFIED), use it. Without
-      this, returning to 1.1.2.0 is impossible, not merely risky.
+- [x] **Current 1.1.2.0 image backed up off-box 2026-08-06.** `copy image
+      tftp://<host>/<file>` **works on this firmware** (now verified) — see
+      *Backing up the running image* below. Copies held on the Proxmox master at
+      `/root/sg300-image-backup/` and on the dev machine at `~/cortech-backups/`,
+      SHA-1 `5acfb1ed…`.
 - [x] **Config backup captured 2026-08-06** via `scripts/sg300-config-backup.sh`
       (`~/cortech-backups/`, full copy mode 600 + redacted copy). **Re-run
       immediately before the window**, and run `copy running-config
@@ -168,6 +169,23 @@ second crossover fixed it, confirming the diagnosis.
 > produced several false "cable is dead" conclusions here. Read incrementally
 > with a deadline instead; see the loopback approach above.
 
+## Backing up the running image
+
+Stage 1's flash migration deletes the running image and Cisco no longer hosts
+1.1.2.0, so capture it first. `copy image tftp://…` is **verified working** on
+1.1.2.0 and is read-only against the switch — it copies *out*.
+
+There is no TFTP daemon on the master. Rather than install one, a throwaway
+receive-only server was used (`scratchpad`, ~60 lines, no package, exits after one
+transfer). Any TFTP server that permits file creation works.
+
+1. Start a TFTP receiver on `192.168.1.52` listening on udp/69.
+2. On the switch, interactively:
+   ```
+   copy image tftp://192.168.1.52/sx300-fw-1.1.2.0-backup.ros
+   ```
+3. Expect ~6.5 MB. Verify the size and hash against the switch afterwards.
+
 ## Firmware provenance
 
 Cisco retired the 300 Series and removed the downloads; all three official release
@@ -183,6 +201,23 @@ pages. What was verified instead:
 | `Sx300-FW-1.3.5.58.bin` | 6,976,867 | Correct Cisco image magic (`CI032.00P` + `PACK`). **Single-source** |
 
 All four artifacts are in hand as of 2026-08-06.
+
+### Both archive sources verified against real Cisco-flashed hardware
+
+The strongest available evidence that these Archive collections carry genuine,
+unmodified Cisco images:
+
+| Collection | Proven by |
+|---|---|
+| `sx-300-firmware-bootcode` | Its `SG300-20_Firmware_1_1_2_0_backup.ros` is **byte-identical (SHA-1 `5acfb1ed…`) to the 1.1.2.0 image pulled off this switch**, which shipped from Cisco with that firmware |
+| `cisco-sx300-series-switch-firmware` | Its `1.4.11.5` matches an independently-reported SHA-256 from a copy extracted off a Cisco-flashed switch |
+
+The boot code is byte-identical to the `sx-300-firmware-bootcode` copy (bar an
+8-byte flash-state prefix), so it inherits that collection's verification.
+
+This is corroboration against real hardware, **not** a Cisco signature check — a
+crafted valid image remains theoretically possible. But "unverifiable binaries off
+the internet" is no longer an accurate description of these files.
 
 > **The irreversible step rests on the weakest-verified file.** Stage 1 uses
 > `1.3.5.58`, which is single-source — and stage 1 is the point of no return. The
