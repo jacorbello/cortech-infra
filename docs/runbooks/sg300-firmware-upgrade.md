@@ -59,8 +59,9 @@ Consequences per reboot:
 
 ## Prerequisites
 
-- [ ] **Serial console cable** (RJ-45 console port) and a tested connection to a
-      laptop. Non-negotiable for stage 2.
+- [x] **Working serial console — SATISFIED (2026-08-05), see below.** Verified by
+      reading a real login prompt off the port. Re-verify immediately before the
+      window; owning a cable is not the same as having a working console.
 - [ ] Physical access to the switch.
 - [ ] Firmware images downloaded and checksummed **before** the window:
       `1.3.7.18`, boot code `1.3.5.06`, `1.4.11.5`. Requires a Cisco.com account;
@@ -70,6 +71,47 @@ Consequences per reboot:
       `show running-config` saved to a file in this repo.
 - [ ] A maintenance window when CI is idle — ARC runners mid-job will fail.
 - [ ] Someone available who can physically power-cycle if it hangs.
+
+### Console status: WORKING (2026-08-05)
+
+The SG300-52's console port is **DB-9 male**, not RJ-45. A StarTech ICUSB232FTN
+(USB → DB-9 female, **null modem**) is connected to the Proxmox master and
+enumerates as `/dev/ttyUSB0` via `ftdi_sio`. On its own it **could not** talk to
+the switch — its null-modem crossover is wrong for this port. Adding a **DB-9
+null-modem adapter (M/F) in series** cancels the crossover and the console works.
+
+**Working configuration:** master USB → ICUSB232FTN → DB-9 null-modem adapter →
+switch console port. **115200 baud, 8N1, no flow control.**
+
+```
+$ python3 /tmp/loopback2.py console
+ 115200:  112 bytes | User Name: ... press ENTER key to retry authentication ...
+```
+
+Lower baud rates return garbage rather than silence, which is the normal
+wrong-speed signature and further confirms 115200.
+
+Diagnosis path, for whoever hits this next — everything below was tested, not
+assumed:
+
+| Checked | Result |
+|---|---|
+| Driver / device node | `ftdi_sio` binds `/dev/ttyUSB0` cleanly |
+| Adapter + cable | **Good** — pins 2-3 bridged echoed a 26-byte probe at all 6 baud rates |
+| Connector gender | Female adapter → male switch port, mates correctly |
+| Baud rate | All 6 rates silent *before* the canceller; 115200 works after |
+| Switch-side config | Console is enabled by default; running-config is stock |
+| Adapter TX | Transmit LED flashed on send; **RX LED never did** — the tell |
+
+The never-flashing RX LED was the decisive symptom: both TX outputs faced each
+other and our RX was tied to the switch's RX, so nothing drove it. Adding the
+second crossover fixed it, confirming the diagnosis.
+
+> **Testing gotcha.** Do not read the port with `timeout N head -c BYTES` (or
+> piped `cat`). `head` blocks until it has BYTES, and when `timeout` kills it the
+> block-buffered stdout is discarded — a short reply reads as total silence. This
+> produced several false "cable is dead" conclusions here. Read incrementally
+> with a deadline instead; see the loopback approach above.
 
 ## ⚠️ Switch commands below are UNVERIFIED
 
