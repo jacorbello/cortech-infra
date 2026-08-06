@@ -8,22 +8,66 @@
 Cisco requires stepped upgrades from firmware older than 1.3.5. The direct jump
 from 1.1.2.0 to 1.4.x is unsupported and fails.
 
-| Stage | From → To | Reboot | Rollback |
-|-------|-----------|--------|----------|
-| 1 | firmware 1.1.2.0 → **1.3.7.18** | yes | boot inactive image |
-| 2 | boot code → **1.3.5.06** | yes | **none — see below** |
-| 3 | firmware 1.3.7.18 → **1.4.11.5** | yes | boot inactive image |
+Path below is from Cisco's own release notes for 1.4.11.5 (§ *Change in Flash File
+System*), retrieved via the Wayback Machine — Cisco has retired the 300 Series and
+removed the originals.
 
-Total: three LAN outages, 45–90 minutes end to end including verification.
+| Stage | Step | Reboot | Rollback |
+|-------|------|--------|----------|
+| 1 | firmware 1.1.2.0 → **1.3.5.58** | yes + flash migration | **none after this — see below** |
+| 2 | boot file → **1.3.5.06** | yes | none |
+| 3 | firmware → **1.4.1.3** | yes | boot inactive image |
+| 4 | firmware → **1.4.11.5** | yes | boot inactive image |
+
+Four stages, not three. Budget 60–120 minutes with verification between each.
+
+> **Sx300 takes 1.3.5.x, not 1.3.7.x.** The release notes specify 1.3.7.x for
+> **Sx500** models only. An earlier draft of this runbook had 1.3.7.18 for stage 1,
+> which is the wrong branch for this device.
+
+Cisco's text, verbatim:
+
+> When upgrading the device from version prior to 1.3.5.x:
+> • For Sx200/Sx300 models, first upgrade the device image to image version
+> 1.3.5.x and upgrade the boot file to 1.3.5.06
+> […]
+> After the device is running version 1.3.5.x/1.3.7.x, you can upgrade the device
+> to version 1.4.0.48 or 1.4.1.3
+
+Going straight from 1.3.5.x to 1.4.11.5 is not the documented path, and community
+reports describe it failing with a "file too large" error.
+
+### Stage 1 destroys the rollback image
+
+This is the single most important fact in this runbook, and it reverses an earlier
+claim here that the 1.1.2.0 rollback was "real":
+
+> During the first bootup of the new image version (1.3.5.x or 1.3.7.x), the flash
+> file system is upgraded and:
+> • This process takes a few minutes. "…" progress in the console is displayed
+> • The syslog file is deleted during this process.
+> • **The original image file is deleted. The two images on the Flash after the
+> upgrade will have the same version (1.3.5.x/1.3.7.x).**
+
+So the moment stage 1 completes, **1.1.2.0 is gone from both slots.** There is no
+going back to the current firmware by activating the other image. Getting back to
+pre-1.3.5 afterwards is a *downgrade* operation that rewrites the flash file
+system, and Cisco warns:
+
+> Powering off the device during this process might damage the file system. In such
+> cases, booting might require connecting to the device using the console cable and
+> loading the image file using XMODEM.
+
+**Practical consequence:** starting stage 1 commits you to at least 1.3.5.58.
+Consider that the point of no return, not stage 2.
 
 ### The one genuinely dangerous step
 
-The switch stores **two firmware images** (active and inactive), so a bad firmware
-flash is recoverable — boot the other image. **Boot code has no second slot.** An
-interrupted or corrupt boot-code flash bricks the switch, and the only recovery is
-the serial console via the boot menu.
+Boot code (stage 2) has no second slot. An interrupted or corrupt boot-code flash
+bricks the switch and the only recovery is serial console + XMODEM.
 
-Do not start stage 2 without console access physically in hand.
+Stages 3 and 4 keep a real rollback: the inactive slot holds the previous 1.4.x
+image.
 
 ## Blast radius
 
@@ -63,10 +107,13 @@ Consequences per reboot:
       reading a real login prompt off the port. Re-verify immediately before the
       window; owning a cable is not the same as having a working console.
 - [ ] Physical access to the switch.
-- [ ] Firmware images downloaded and checksummed **before** the window:
-      `1.3.7.18`, boot code `1.3.5.06`, `1.4.11.5`. Requires a Cisco.com account;
-      the SG300 line is effectively end-of-support, so confirm the downloads still
-      resolve before scheduling.
+- [x] **Firmware images obtained and verified 2026-08-06** — see *Firmware
+      provenance* below. Cisco has retired the line and **removed the downloads**;
+      these came from the Internet Archive.
+- [ ] **Back up the current 1.1.2.0 image off-box before stage 1** — the flash
+      migration deletes it and it can no longer be downloaded from Cisco. If
+      `copy image tftp://…` works on this firmware (UNVERIFIED), use it. Without
+      this, returning to 1.1.2.0 is impossible, not merely risky.
 - [x] **Config backup captured 2026-08-06** (`~/cortech-backups/`, full copy mode
       600 + redacted copy). Re-run immediately before the window.
 - [ ] `copy running-config startup-config` done, plus a config backup off-box via
@@ -117,6 +164,27 @@ second crossover fixed it, confirming the diagnosis.
 > block-buffered stdout is discarded — a short reply reads as total silence. This
 > produced several false "cable is dead" conclusions here. Read incrementally
 > with a deadline instead; see the loopback approach above.
+
+## Firmware provenance
+
+Cisco retired the 300 Series and removed the downloads; all three official release
+URLs are dead (verified 2026-08-06). Files came from the Internet Archive, so they
+are **not Cisco-hosted binaries** and Cisco's published checksums are gone with the
+pages. What was verified instead:
+
+| Artifact | Size | Verification |
+|---|---|---|
+| `Sx300-FW-1.4.11.5.bin` | 7,494,516 | SHA-256 `4a715c35…d0c078` — **exact match** to an independently-reported hash from a copy extracted off a switch originally flashed by Cisco, in a different archive item under a different filename |
+| `Boot-Code-1.3.5.06.rfb` | 393,232 | **Byte-identical** to `sx300_boot-13506.rfb` in a second, unrelated archive item, apart from an 8-byte flash-state prefix (`00…` vs `FF…`) before the `CI03` magic |
+| `Sx300-FW-1.3.5.58.bin` | 6,976,867 | Correct Cisco image magic (`CI032.00P` + `PACK`); **single-source, no independent corroboration** |
+
+Still needed for the corrected path: **`1.4.1.3`** (`sx300_fw-1413.ros`).
+
+All files carry genuine Cisco image headers, not archive containers. The SG300
+bootloader validates an image's own checksum before committing, so a *corrupt*
+file is rejected rather than flashed. The residual risk is a deliberately crafted
+valid-but-malicious image — judged low for an obscure 2011–2016 firmware archive,
+but it is a real, accepted risk, not an eliminated one.
 
 ## ⚠️ Switch commands below are UNVERIFIED
 
@@ -175,6 +243,11 @@ Per stage — do **not** batch these:
    2      image-2    1.1.2.0     Not active
    ```
 3. Set the inactive image active, then reboot.
+   **On stage 1's first boot the flash file system migrates.** This takes several
+   minutes, shows `…` progress on the serial console, deletes the syslog file, and
+   leaves both image slots on 1.3.5.58. Do **not** power-cycle during it — Cisco
+   warns this can damage the file system and force XMODEM recovery. Watch it on
+   the console rather than guessing from ping.
 4. Wait for the switch to come back. Confirm from a LAN host before touching
    anything else — note `ping` is the only non-interactive check available, since
    the switch needs a PTY:
@@ -190,14 +263,23 @@ Per stage — do **not** batch these:
    ```
 6. Only then proceed to the next stage.
 
+Stage order matters: **image first, then boot file.** Cisco's wording is "first
+upgrade the device image to 1.3.5.x and upgrade the boot file to 1.3.5.06".
+
+The boot file cannot be downgraded while a 1.4.x image is active — so if the boot
+code ever needs to go back, that must happen before stage 3.
+
 ## Rollback
 
-- **Stage 1 or 3 (firmware):** activate the other image and reboot — via the web
-  UI, or from the serial console boot menu if the switch won't come up far enough
-  to serve the UI. (`boot system …` is the CLI equivalent but is UNVERIFIED here.)
-  As of the 2026-08-06 backup **both slots hold 1.1.2.0**, so after stage 1 the
-  inactive slot still carries a known-good image and this rollback is real.
-- **Stage 2 (boot code):** no software rollback. Serial console recovery only.
+- **Stage 1 — no rollback.** The flash migration deletes 1.1.2.0 from both slots.
+  Once stage 1 boots, the earliest reachable version is 1.3.5.58. Returning to
+  pre-1.3.5 later is a file-system-rewriting downgrade that Cisco warns can damage
+  flash if interrupted.
+- **Stage 2 (boot code):** no software rollback. Serial console + XMODEM only.
+- **Stages 3 and 4 (firmware):** activate the other image and reboot — via the web
+  UI, or the serial console boot menu if the switch won't serve the UI.
+  (`boot system …` is the CLI equivalent but is UNVERIFIED here.) The inactive slot
+  holds the previous 1.4.x image, so these rollbacks are real.
 - **Config after a boot-code failure:** `startup-config` lives in flash separately
   from the boot loader, so a console recovery normally finds the saved config
   intact — but do not rely on it. The off-box `show running-config` capture from
@@ -210,6 +292,7 @@ Per stage — do **not** batch these:
 ## Post-upgrade verification
 
 - [ ] `show version` reports 1.4.11.5
+- [ ] `show bootvar` shows both slots on the expected version
 - [ ] `show interfaces status` — same 7 ports up, same speeds/duplex
 - [ ] `show running-config` — SNMP community, SNTP server, and logging host
       survived. **Re-verify these explicitly**; config format can shift across
