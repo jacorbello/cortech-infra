@@ -67,6 +67,8 @@ Consequences per reboot:
       `1.3.7.18`, boot code `1.3.5.06`, `1.4.11.5`. Requires a Cisco.com account;
       the SG300 line is effectively end-of-support, so confirm the downloads still
       resolve before scheduling.
+- [x] **Config backup captured 2026-08-06** (`~/cortech-backups/`, full copy mode
+      600 + redacted copy). Re-run immediately before the window.
 - [ ] `copy running-config startup-config` done, plus a config backup off-box via
       `scripts/sg300-config-backup.sh`. **Do not commit the full config** — it
       contains the local user's password hash and the SNMP community string. The
@@ -121,12 +123,12 @@ second crossover fixed it, confirming the diagnosis.
 Only the commands already exercised on this box are known-good: `show version`,
 `show system`, `show clock`, `show interfaces status`, `show vlan`,
 `show spanning-tree`, `show lldp neighbors`, `show ip interface`,
-`show mac address-table`, `show running-config`, `copy running-config
-startup-config`, and the `snmp-server` / `sntp` / `logging` config lines.
+`show mac address-table`, `show running-config`, **`show bootvar`**, `copy
+running-config startup-config`, and the `snmp-server` / `sntp` / `logging` config
+lines.
 
-Everything involving image selection and reboot — `show bootvar`,
-`boot system …`, `reload` — is **written from general Cisco practice and has not
-been run on this switch.** This firmware's CLI is a Cisco Small Business dialect,
+Everything involving image *selection* and reboot — `boot system …`, `reload` —
+is **written from general Cisco practice and has not been run on this switch.** This firmware's CLI is a Cisco Small Business dialect,
 not IOS, and it has already rejected one IOS-syntax command outright
 (`snmp-server community <net> <mask>`; see `docs/switch-sg300.md`).
 
@@ -150,7 +152,7 @@ Interactively, via `ssh sg300`:
 ```
 terminal datadump
 show version                 # confirm starting point is 1.1.2.0 / boot 1.1.0.6
-show bootvar                 # UNVERIFIED — which image is active
+show bootvar                 # which image is active — verified working
 show interfaces status       # record the 7 live ports to compare after
 copy running-config startup-config
 ```
@@ -165,9 +167,13 @@ Per stage — do **not** batch these:
 1. Upload the image via the web UI at `http://192.168.1.56/` (Administration →
    File Management → Firmware Upgrade). Preferred over TFTP/CLI — it sidesteps the
    unverified CLI syntax entirely.
-2. Confirm the new image landed in the *inactive* slot before activating it. The
-   web UI shows active/inactive versions directly; `show bootvar` is the CLI
-   equivalent but is UNVERIFIED on this firmware.
+2. Confirm the new image landed in the *inactive* slot before activating it.
+   `show bootvar` reports this directly and is verified working:
+   ```
+   Image  Filename   Version     Status
+   1      image-1    1.1.2.0     Active*
+   2      image-2    1.1.2.0     Not active
+   ```
 3. Set the inactive image active, then reboot.
 4. Wait for the switch to come back. Confirm from a LAN host before touching
    anything else — note `ping` is the only non-interactive check available, since
@@ -189,6 +195,8 @@ Per stage — do **not** batch these:
 - **Stage 1 or 3 (firmware):** activate the other image and reboot — via the web
   UI, or from the serial console boot menu if the switch won't come up far enough
   to serve the UI. (`boot system …` is the CLI equivalent but is UNVERIFIED here.)
+  As of the 2026-08-06 backup **both slots hold 1.1.2.0**, so after stage 1 the
+  inactive slot still carries a known-good image and this rollback is real.
 - **Stage 2 (boot code):** no software rollback. Serial console recovery only.
 - **Config after a boot-code failure:** `startup-config` lives in flash separately
   from the boot loader, so a console recovery normally finds the saved config
