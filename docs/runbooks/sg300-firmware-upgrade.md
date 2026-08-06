@@ -67,8 +67,11 @@ Consequences per reboot:
       `1.3.7.18`, boot code `1.3.5.06`, `1.4.11.5`. Requires a Cisco.com account;
       the SG300 line is effectively end-of-support, so confirm the downloads still
       resolve before scheduling.
-- [ ] `copy running-config startup-config` done, plus a config backup off-box:
-      `show running-config` saved to a file in this repo.
+- [ ] `copy running-config startup-config` done, plus a config backup off-box via
+      `scripts/sg300-config-backup.sh`. **Do not commit the full config** — it
+      contains the local user's password hash and the SNMP community string. The
+      script writes the full copy outside the repo (mode 600) and a redacted copy
+      alongside it, and fails if redaction did not take.
 - [ ] A maintenance window when CI is idle — ARC runners mid-job will fail.
 - [ ] Someone available who can physically power-cycle if it hangs.
 
