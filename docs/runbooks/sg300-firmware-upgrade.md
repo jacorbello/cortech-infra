@@ -34,8 +34,10 @@ Cisco's text, verbatim:
 > After the device is running version 1.3.5.x/1.3.7.x, you can upgrade the device
 > to version 1.4.0.48 or 1.4.1.3
 
-Going straight from 1.3.5.x to 1.4.11.5 is not the documented path, and community
-reports describe it failing with a "file too large" error.
+Going straight from 1.3.5.x to 1.4.11.5 is not the documented path. Community
+posts describe it failing with a "file too large" error — **anecdotal and
+uncited**; the load-bearing reason to step via 1.4.1.3 is that it is what Cisco
+documents, not that report.
 
 ### Stage 1 destroys the rollback image
 
@@ -107,20 +109,21 @@ Consequences per reboot:
       reading a real login prompt off the port. Re-verify immediately before the
       window; owning a cable is not the same as having a working console.
 - [ ] Physical access to the switch.
-- [x] **Firmware images obtained and verified 2026-08-06** — see *Firmware
-      provenance* below. Cisco has retired the line and **removed the downloads**;
-      these came from the Internet Archive.
+- [x] **All four firmware artifacts obtained and verified 2026-08-06**
+      (`1.3.5.58`, boot `1.3.5.06`, `1.4.1.3`, `1.4.11.5`) — per-file verification
+      strength differs; read *Firmware provenance* below before stage 1. Cisco
+      retired the line and removed the downloads, so these came from the Internet
+      Archive rather than Cisco.
 - [ ] **Back up the current 1.1.2.0 image off-box before stage 1** — the flash
       migration deletes it and it can no longer be downloaded from Cisco. If
       `copy image tftp://…` works on this firmware (UNVERIFIED), use it. Without
       this, returning to 1.1.2.0 is impossible, not merely risky.
-- [x] **Config backup captured 2026-08-06** (`~/cortech-backups/`, full copy mode
-      600 + redacted copy). Re-run immediately before the window.
-- [ ] `copy running-config startup-config` done, plus a config backup off-box via
-      `scripts/sg300-config-backup.sh`. **Do not commit the full config** — it
-      contains the local user's password hash and the SNMP community string. The
-      script writes the full copy outside the repo (mode 600) and a redacted copy
-      alongside it, and fails if redaction did not take.
+- [x] **Config backup captured 2026-08-06** via `scripts/sg300-config-backup.sh`
+      (`~/cortech-backups/`, full copy mode 600 + redacted copy). **Re-run
+      immediately before the window**, and run `copy running-config
+      startup-config` on the switch first. **Do not commit the full config** — it
+      contains the local user's password hash and the SNMP community string; the
+      script keeps it outside the repo and fails if redaction did not take.
 - [ ] A maintenance window when CI is idle — ARC runners mid-job will fail.
 - [ ] Someone available who can physically power-cycle if it hangs.
 
@@ -176,9 +179,20 @@ pages. What was verified instead:
 |---|---|---|
 | `Sx300-FW-1.4.11.5.bin` | 7,494,516 | SHA-256 `4a715c35…d0c078` — **exact match** to an independently-reported hash from a copy extracted off a switch originally flashed by Cisco, in a different archive item under a different filename |
 | `Boot-Code-1.3.5.06.rfb` | 393,232 | **Byte-identical** to `sx300_boot-13506.rfb` in a second, unrelated archive item, apart from an 8-byte flash-state prefix (`00…` vs `FF…`) before the `CI03` magic |
-| `Sx300-FW-1.3.5.58.bin` | 6,976,867 | Correct Cisco image magic (`CI032.00P` + `PACK`); **single-source, no independent corroboration** |
+| `sx300_fw-1413.ros` | 7,394,631 | Correct Cisco image magic; MD5/SHA-1/size match the archive manifest. **Single-source** |
+| `Sx300-FW-1.3.5.58.bin` | 6,976,867 | Correct Cisco image magic (`CI032.00P` + `PACK`). **Single-source** |
 
-Still needed for the corrected path: **`1.4.1.3`** (`sx300_fw-1413.ros`).
+All four artifacts are in hand as of 2026-08-06.
+
+> **The irreversible step rests on the weakest-verified file.** Stage 1 uses
+> `1.3.5.58`, which is single-source — and stage 1 is the point of no return. The
+> two well-corroborated artifacts (1.4.11.5, boot 1.3.5.06) are used in later
+> stages, two of which have real rollbacks. That asymmetry is worth accepting
+> deliberately rather than by accident.
+
+**Why 1.4.1.3 and not 1.4.0.48:** Cisco names either as valid. 1.4.1.3 was chosen
+because it is what could be sourced from the Archive; nothing in the release notes
+favours one over the other for this SKU.
 
 All files carry genuine Cisco image headers, not archive containers. The SG300
 bootloader validates an image's own checksum before committing, so a *corrupt*
@@ -266,8 +280,11 @@ Per stage — do **not** batch these:
 Stage order matters: **image first, then boot file.** Cisco's wording is "first
 upgrade the device image to 1.3.5.x and upgrade the boot file to 1.3.5.06".
 
-The boot file cannot be downgraded while a 1.4.x image is active — so if the boot
-code ever needs to go back, that must happen before stage 3.
+Cisco states the boot file cannot be downgraded while a 1.4.0.x/1.4.1.x image is
+active — though it says so *within* its downgrade-to-below-1.3.5 procedure, not as
+a general rule. **Inference, not Cisco's stated conclusion:** treat boot-code
+reversal as something that must happen before stage 3. Erring conservative here
+costs nothing.
 
 ## Rollback
 
