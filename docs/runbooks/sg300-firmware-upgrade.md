@@ -1,7 +1,10 @@
 # Runbook: SG300-52 firmware upgrade (1.1.2.0 → 1.4.11.5)
 
-**Status: planned, not executed.** Nothing in here has been run. See
-`docs/switch-sg300.md` for the switch itself.
+**Status: DEFERRED (2026-08-06) — deliberately, not abandoned.** Nothing here has
+been executed. All prerequisites are satisfied and the runbook is ready to follow
+on short notice; the decision was that the upgrade is not currently worth its
+risk. Reasoning in *Decision record* at the end. See `docs/switch-sg300.md` for
+the switch itself.
 
 ## Why this is not a one-step upgrade
 
@@ -360,11 +363,64 @@ costs nothing.
 
 ## Decision record
 
-Not yet scheduled. The upgrade is hygiene rather than a response to a known
-exploited vulnerability — there is no specific CVE forcing the timeline. The
-counter-argument is that a 2011 firmware on the single device carrying all homelab
-traffic is a poor place to be indefinitely, and its obsolete SSH crypto is a daily
-reminder.
+**2026-08-06 — deferred.** Prerequisites are all satisfied (console, verified
+firmware, config backup, running-image backup). The upgrade was still declined.
 
-The blocking prerequisite is serial console access. Without it, stage 2 risks
-bricking the core switch with no recovery path.
+### Why
+
+**No exposure.** The switch's management plane is not reachable from the internet
+— the only router forwards are 80/443 → proxy LXC 100 and 51820/UDP → WireGuard
+(`docs/network-reservations.md`). Exploiting its weak SSH ciphers or plaintext web
+UI requires an attacker already on the LAN, at which point the switch firmware is
+not the pressing problem.
+
+**No forcing CVE.** Nothing known-exploited is driving a timeline. The switch is
+healthy: zero errors and zero discards across all seven live ports.
+
+**The benefit is management-plane only.** Modern SSH crypto, HTTPS on the admin UI,
+and accumulated bug fixes. Real, but all on a surface nothing untrusted can reach.
+
+**The feature argument does not hold.** The 1.4.11.5 release notes are a
+maintenance document with no "what's new" section, and the 1.4.0 notes could not
+be sourced — Cisco removed them. The one feature change identifiable for 1.4.0.x
+is a **PoE controller** firmware upgrade, which does not apply to this non-PoE
+SKU. More importantly, every capability this homelab would actually use is already
+present on 1.1.2.0: VLANs, LAG (`Po1-8` exist, unconfigured), RSTP, SNMP v2c+v3,
+remote syslog, SNTP, LLDP. **The two improvements worth making — LAG and VLAN
+segmentation — need no upgrade at all.**
+
+> Recorded so this is not re-litigated from memory: the 1.1 → 1.4 feature delta
+> could **not** be sourced. Absence of evidence, not evidence of absence — but no
+> one should assert a feature benefit here without finding the 1.4.0 notes first.
+
+**The cost is concrete.** Four reboots of the only switch in the building, taking
+down all five Proxmox nodes and the router uplink each time. Stage 1 is
+irreversible. Stage 2 can brick the device. The firmware is well-corroborated but
+unsigned. 60–120 minutes of outage with a small but real chance of much worse.
+
+**The payoff decays anyway.** 1.4.11.5 is itself end-of-support and shipped in
+2020. There is no version that reaches a maintained release — that needs new
+hardware.
+
+### What would change this
+
+- A specific, exploited CVE affecting this firmware
+- A need for HTTPS management (port 443 is closed on 1.1.2.0; the UI is HTTP-only)
+- Exposing the management plane beyond the trusted LAN
+- Replacing the switch, which moots the question
+
+### Higher-value work on this switch, all possible on 1.1.2.0
+
+1. **LAG.** Every Proxmox node is single-homed. One cable or port failure isolates
+   a whole host — for `gi2`, the master plus 11 guests including public ingress.
+   An availability risk that will eventually bite.
+2. **VLAN segmentation.** Everything is untagged VLAN 1, so household devices share
+   a broadcast domain with the homelab. A bigger security win than patching the
+   management plane of an unreachable device.
+
+### Standing assets
+
+Not wasted if this is revisited: working serial console (115200, two null modems in
+series), four verified firmware artifacts, config backup, the 1.1.2.0 running image
+(`~/cortech-backups/`, SHA-1 `5acfb1ed…`) which cannot be re-downloaded from Cisco,
+and this corrected 4-stage runbook.
