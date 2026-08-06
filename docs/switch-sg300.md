@@ -70,23 +70,21 @@ Effectively stock. The entire non-default running-config is a hostname, one user
   `k8s/observability/exporters/snmp-exporter/`.
 - **NTP:** SNTP unicast against `pool.ntp.org`. The router (`192.168.1.1`) does
   **not** run an NTP server, so a public pool is required.
-- **Syslog:** no remote host
+- **Syslog:** `logging host 192.168.1.97` → `syslog-receiver` in `observability`
+  → Loki. Link up/down, STP changes, and SNMP auth failures are queryable in
+  Grafana: `{namespace="observability", pod=~"syslog-receiver.*"} | json`
 
 ## Known issues
 
 1. **Firmware is ~14 years old — upgrade DEFERRED by decision, not oversight.** 1.1.2.0 shipped Nov 2011; the final SG300 release
    is 1.4.11.5. Its obsolete SSH ciphers are a direct symptom. Upgrading is a
-   **three-stage, three-reboot** job (Cisco requires stepping via 1.3.7.18 and
-   boot code 1.3.5.06) and the boot-code stage has no rollback. **Deferred
+   **four-stage, four-reboot** job (Cisco requires stepping via 1.3.5.58, boot
+   code 1.3.5.06, then 1.4.1.3) and the boot-code stage has no rollback. **Deferred
    2026-08-06**: management plane is not internet-reachable, no forcing CVE, and
    every capability this homelab needs (VLANs, LAG, SNMP, syslog) already works on
    1.1.2.0. Full reasoning and the ready-to-run procedure are in
    `runbooks/sg300-firmware-upgrade.md`.
-2. **No syslog target.** Prometheus now gets port counters via SNMP, but switch
-   events (`%SNMP-W-SNMPAUTHFAIL`, link up/down, STP topology changes) still go
-   nowhere. Now worth doing — the clock is accurate, so timestamps will correlate
-   with the rest of Loki.
-3. **Single points of failure.** No LAG on any node. Losing one port or cable
+2. **Single points of failure.** No LAG on any node. Losing one port or cable
    isolates a whole Proxmox host — for gi2 that is the master plus 11 guests
    including the public-ingress proxy.
 
