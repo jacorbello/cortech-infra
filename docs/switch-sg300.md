@@ -74,11 +74,14 @@ Effectively stock. The entire non-default running-config is a hostname, one user
 
 ## Known issues
 
-1. **Firmware is ~14 years old.** 1.1.2.0 shipped Nov 2011; the final SG300 release
+1. **Firmware is ~14 years old — upgrade DEFERRED by decision, not oversight.** 1.1.2.0 shipped Nov 2011; the final SG300 release
    is 1.4.11.5. Its obsolete SSH ciphers are a direct symptom. Upgrading is a
    **three-stage, three-reboot** job (Cisco requires stepping via 1.3.7.18 and
-   boot code 1.3.5.06) and the boot-code stage has no rollback. Planned but not
-   scheduled — see `runbooks/sg300-firmware-upgrade.md`.
+   boot code 1.3.5.06) and the boot-code stage has no rollback. **Deferred
+   2026-08-06**: management plane is not internet-reachable, no forcing CVE, and
+   every capability this homelab needs (VLANs, LAG, SNMP, syslog) already works on
+   1.1.2.0. Full reasoning and the ready-to-run procedure are in
+   `runbooks/sg300-firmware-upgrade.md`.
 2. **No syslog target.** Prometheus now gets port counters via SNMP, but switch
    events (`%SNMP-W-SNMPAUTHFAIL`, link up/down, STP topology changes) still go
    nowhere. Now worth doing — the clock is accurate, so timestamps will correlate
