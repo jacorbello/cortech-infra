@@ -20,8 +20,12 @@ if [ ${#dbs[@]} -eq 0 ]; then
   dbs=(${DEFAULT_DBS})
 fi
 
-if [ ! -d "$DEST" ]; then
-  echo "FATAL: $DEST does not exist — is the NFS share mounted?" >&2
+# An unmounted /mnt/db-backups leaves the bare mountpoint directory behind, which
+# is present AND writable — so a plain -d/touch check would happily write every
+# dump onto the master's root filesystem and slowly fill the node running the
+# cluster. Only an actual mount will do.
+if ! mountpoint -q "$DEST"; then
+  echo "FATAL: $DEST is not a mountpoint — refusing to dump to local disk" >&2
   exit 1
 fi
 
@@ -37,7 +41,23 @@ for db in "${dbs[@]}"; do
   tmp="/tmp/${file}"
 
   echo "==> ${db}"
-  if ! pct exec "$CT" -- su postgres -c "pg_dump '${db}' | gzip -9 > '${tmp}'"; then
+
+  # Retention runs first and unconditionally: parked under a `continue` it would
+  # never prune a database whose dump keeps failing, and that directory would
+  # grow without bound while the script reported failure every night.
+  # ponytail: flat N-day retention. Add weekly/monthly tiers if a dump ever needs
+  # to survive longer than the window.
+  if [ -d "${DEST}/${db}" ]; then
+    find "${DEST}/${db}" -name '*.sql.gz' -mtime "+${RETENTION_DAYS}" -delete
+  fi
+
+  # `set -o pipefail` matters more than it looks: without it the exit status is
+  # gzip's, not pg_dump's, so a failed dump still yields a *complete, valid*
+  # gzip stream of partial SQL that sails through every check below.
+  # `-s /bin/bash` because postgres' login shell may not support pipefail, and
+  # `cd /tmp` silences the harmless 'could not change directory to /root'.
+  if ! pct exec "$CT" -- su postgres -s /bin/bash -c \
+    "set -o pipefail; cd /tmp && pg_dump '${db}' | gzip -9 > '${tmp}'"; then
     echo "ERROR: pg_dump failed for ${db}" >&2
     pct exec "$CT" -- rm -f "$tmp" || true
     failed=1
@@ -45,23 +65,36 @@ for db in "${dbs[@]}"; do
   fi
 
   mkdir -p "${DEST}/${db}"
-  pct pull "$CT" "$tmp" "${DEST}/${db}/${file}" --perms 600
-  pct exec "$CT" -- rm -f "$tmp"
+  if ! pct pull "$CT" "$tmp" "${DEST}/${db}/${file}" --perms 600; then
+    echo "ERROR: pct pull failed for ${db}" >&2
+    # Always clear the in-container temp, or repeated failures fill LXC 114's
+    # /tmp and the next dump truncates for lack of space.
+    pct exec "$CT" -- rm -f "$tmp" || true
+    rm -f "${DEST}/${db}/${file}"
+    failed=1
+    continue
+  fi
+  pct exec "$CT" -- rm -f "$tmp" || true
 
-  # An empty or truncated dump is worse than no dump — it looks like a backup.
-  if ! gzip -t "${DEST}/${db}/${file}" || [ ! -s "${DEST}/${db}/${file}" ]; then
-    echo "ERROR: ${file} is empty or corrupt, removing" >&2
+  # Empty, corrupt, or truncated-before-any-schema dumps are worse than no dump:
+  # they look like backups. gzip -t alone can't catch a short-but-complete stream,
+  # hence the schema probe.
+  # `grep -c` (not -q/-m1): an early-exiting grep makes zcat take SIGPIPE, which
+  # under `pipefail` fails the pipeline and condemns a perfectly good dump.
+  tables=$(zcat "${DEST}/${db}/${file}" 2>/dev/null | grep -c 'CREATE TABLE' || true)
+  if ! gzip -t "${DEST}/${db}/${file}" 2>/dev/null \
+    || [ ! -s "${DEST}/${db}/${file}" ] \
+    || [ "${tables:-0}" -eq 0 ]; then
+    echo "ERROR: ${file} is empty, corrupt, or has no schema — removing" >&2
     rm -f "${DEST}/${db}/${file}"
     failed=1
     continue
   fi
 
-  size=$(du -h "${DEST}/${db}/${file}" | cut -f1)
-  echo "    ${file} (${size})"
-
-  # ponytail: flat N-day retention. Add weekly/monthly tiers if a dump ever needs
-  # to survive longer than the window.
-  find "${DEST}/${db}" -name '*.sql.gz' -mtime "+${RETENTION_DAYS}" -delete
+  # --apparent-size reads st_size; plain `du` reports allocated blocks, which NFS
+  # hasn't accounted for yet right after a write and misreports ~485K as 512.
+  size=$(du --apparent-size -h "${DEST}/${db}/${file}" | cut -f1)
+  echo "    ${file} (${size}, ${tables} tables)"
 done
 
 exit "$failed"
