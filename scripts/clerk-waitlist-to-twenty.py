@@ -124,6 +124,25 @@ def desired(entry):
     }
 
 
+def same(field, stored, wanted):
+    """Compare what Twenty returns against what we'd send.
+
+    Twenty normalises datetimes to '...423Z' while isoformat() produces
+    '...423000+00:00', so a string compare would report every record as changed
+    and re-PATCH all of them on every run.
+    """
+    if field == "waitlistJoinedAt":
+        if not stored:
+            return False
+        try:
+            return datetime.fromisoformat(
+                stored.replace("Z", "+00:00")
+            ) == datetime.fromisoformat(wanted)
+        except ValueError:
+            return False
+    return stored == wanted
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
@@ -151,7 +170,8 @@ def main():
         # Only push fields that actually differ — keeps human edits to names intact.
         diff = {
             k: v for k, v in want.items()
-            if k in ("waitlistStatus", "waitlistJoinedAt") and have.get(k) != v
+            if k in ("waitlistStatus", "waitlistJoinedAt")
+            and not same(k, have.get(k), v)
         }
         if diff:
             print(f"  ~ {want['emails']['primaryEmail']} {list(diff)}")
