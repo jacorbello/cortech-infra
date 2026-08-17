@@ -1,0 +1,11 @@
+[Unit]
+Description=Postgres dumps from LXC 114 to node3 NFS
+After=network-online.target remote-fs.target
+Wants=network-online.target
+# Refuse to start at all if the NFS share isn't mounted, rather than dumping
+# onto the master's root filesystem.
+RequiresMountsFor=/mnt/db-backups
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/pg-backup.sh

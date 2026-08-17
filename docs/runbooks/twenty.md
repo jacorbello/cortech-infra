@@ -89,9 +89,50 @@ ssh root@192.168.1.52 "pct exec 114 -- su - postgres -c 'dropdb twenty && create
 ssh root@192.168.1.52 "pct exec 114 -- su - postgres -c 'pg_restore -d twenty'" < twenty-<date>.dump
 ```
 
-Store dumps in MinIO alongside the other Postgres dumps. Attachments live on the
+Automated: `scripts/pg-backup.sh` runs on the Proxmox master via the
+`pg-backup.timer` systemd timer (daily 03:15, `Persistent=true` so a missed run
+catches up after a reboot). It dumps `twenty` and `outreach` through `pct exec`,
+so no DB password lives in cron, and writes to node3's dedicated
+`storage-pool/backups` dataset mounted at `/mnt/db-backups`. 14-day retention;
+each dump is `gzip -t`-verified and deleted if empty, because a truncated dump
+that looks like a backup is worse than none.
+
+```bash
+systemctl list-timers pg-backup.timer   # next run
+journalctl -u pg-backup.service -n 30   # last run
+ls -lh /mnt/db-backups/twenty/          # the dumps themselves
+```
+
+Attachments live on the
 NFS PVC (`nfs-node3`, reclaim policy `Retain`) — back the share up with the rest of
 the node3 NFS export, not separately.
+
+## Waitlist sync (Clerk -> Twenty)
+
+`scripts/clerk-waitlist-to-twenty.py` mirrors Clerk waitlist entries into Twenty as
+People. Idempotent — it matches on the custom `clerkWaitlistId` field, so re-runs
+only create what's missing and patch `waitlistStatus`/`waitlistJoinedAt` when they
+change. Human edits to names survive.
+
+```bash
+scripts/clerk-waitlist-to-twenty.py --dry-run   # always look first
+scripts/clerk-waitlist-to-twenty.py
+```
+
+Credentials are read from Infisical at runtime (`/twenty/API_KEY` in `dev`,
+`CLERK_SECRET_KEY` in **`prod`** — the `dev` one is `sk_test_` and holds only QA
+users). Custom Person fields it depends on: `clerkWaitlistId`, `waitlistJoinedAt`,
+`waitlistStatus`, `signupSource`.
+
+Known gaps:
+
+- Clerk's waitlist stores only email + timestamp, so `signupSource` is `UNKNOWN`
+  for every pre-existing entry. Attribution needs UTM capture on the plotlens.ai
+  waitlist form; nothing here can backfill it.
+- Clerk keeps `status: pending` even after an invite is sent, so the script reads
+  the nested `invitation.status` to decide `INVITED`.
+- No Companies are created. The audience is individuals (38 of the first 47 are
+  free-mail), so domain grouping would manufacture junk records.
 
 ## Upgrade
 
