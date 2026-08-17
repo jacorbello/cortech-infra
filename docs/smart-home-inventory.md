@@ -5,14 +5,21 @@ Home Assistant runs on VM 101 (`homeassistant`, `192.168.1.61`), published at
 `/mnt/data/supervisor/homeassistant` inside the VM; reach it without a console via
 `ssh root@192.168.1.52 "qm guest exec 101 -- /bin/cat <path>"`.
 
-Snapshot date: 2026-08-17. Sourced from HA's device registry plus an ARP sweep of
-`192.168.1.0/24` from the Proxmox master. Hand-maintained — re-run the sweep to refresh.
+Snapshot date: 2026-08-17. Regenerate with `scripts/ha-device-audit.sh`, which joins
+HA's device registry against an nmap sweep of `192.168.1.0/24` run from the Proxmox
+master. Proxmox cluster guests are filtered out by default (they live in
+`docs/inventory.md`); pass `HA_AUDIT_ALL=1` to include them.
+
+The join is on MAC, not IP, because several IoT devices sit in the DHCP pool and move
+address. Note that it cannot match every adopted device: `homekit_controller`,
+`playstation_network` and `mobile_app` identify by accessory ID and register no MAC at
+all, so those are reported in a separate section and must be checked by hand.
 
 ## Adopted by Home Assistant
 
 | Device | Model | IP | Notes |
 |--------|-------|-----|-------|
-| Upstairs thermostat | ecobee3 lite | .39 | Primary HVAC |
+| Upstairs thermostat | ecobee3 lite | .39 | Primary HVAC. Paired via `homekit_controller`, NOT the ecobee integration |
 | Juliettes Room | ecobee EBERS41 | — | Remote room sensor |
 | Lukes Room | ecobee EBERS41 | — | Remote room sensor |
 | LG webOS TV 05AD | OLED77C1PUB | — | |
@@ -31,19 +38,33 @@ integration available.
 
 | Device | IP | MAC vendor | Integration |
 |--------|-----|-----------|-------------|
-| Downstairs thermostat | .143 | ecobee | Already-configured `ecobee` integration — this one is simply unadopted |
+| Downstairs thermostat | .143 | ecobee | Needs the `ecobee` integration adding (API key from `developer.ecobee.com`) |
+
+There is **no `ecobee` integration configured** — verified against
+`.storage/core.config_entries`. The Upstairs unit reached HA over HomeKit instead, which
+is why only one of the two thermostats is present. Adding the real ecobee integration is
+account-wide and picks up both thermostats plus the remote sensors; the
+`homekit_controller` entry for Upstairs should be deleted afterwards so one integration
+owns the hardware.
 
 ### Lighting and plugs (TP-Link Kasa)
 
-| Device | IP | Type |
-|--------|-----|------|
-| HS103 | .23 | Smart plug |
-| (HS103 sibling) | .79 | Smart plug |
-| HS100 | .117 | Smart plug |
-| HS200 | .234 | Wall switch |
-| HS220 | .248 | Dimmer switch |
+| Device | IP | Model | Protocol | Credentials |
+|--------|-----|-------|----------|-------------|
+| Courtney's lamp | .23 | HS103 | legacy (tcp/9999) | none |
+| Jeremy's lamp | .79 | HS103 | legacy (tcp/9999) | none |
+| My Swag | .117 | HS100 | legacy (tcp/9999) | none |
+| Wall switch | .234 | HS200 | KLAP (tcp/80) | TP-Link cloud login |
+| Dimmer switch | .248 | HS220 | KLAP (tcp/80) | TP-Link cloud login |
 
-`tplink` integration, local push, no cloud account needed.
+All use the `tplink` integration, but the fleet is split across two firmware
+generations. The three legacy devices answer the plaintext protocol on 9999 and adopt
+with no credentials. `.234` and `.248` answer only on 80 — newer KLAP firmware, which
+requires a TP-Link cloud login during the config flow even though control stays local.
+
+**None of these models has energy monitoring.** HS103/HS100/HS200/HS220 report no
+emeter, so per-device power or cost dashboards are not buildable on this hardware.
+That needs HS110 or KP115 devices.
 
 ### Lighting (Leviton)
 
@@ -98,3 +119,14 @@ Static reservations sit below `.200`; the router's DHCP pool is `.200-.250` (mov
 after a pool/static overlap outage — see `docs/network-reservations.md`). A handful of
 IoT devices currently hold leases between `.190` and `.199`, outside both ranges. Harmless
 today, but reserve anything you want to address by IP.
+
+These smart-home devices currently sit **inside** the DHCP pool and will drift:
+
+| Device | IP |
+|--------|-----|
+| HS200 wall switch | .234 |
+| HS220 dimmer | .248 |
+| Roku (`Master`) | .225 |
+
+Adoption survives the drift — the `tplink` and `roku` integrations track devices by MAC,
+not address — but anything referencing these by IP needs a router reservation.
