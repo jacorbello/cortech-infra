@@ -39,11 +39,23 @@ Non-secret config lives in the `twenty-config` ConfigMap and, because
 ## First-time setup
 
 1. DB + role on LXC 114:
-   ```bash
-   ssh root@192.168.1.52 "pct exec 114 -- su - postgres -c \"psql -c \\\"CREATE ROLE twenty LOGIN PASSWORD '<pw>';\\\" -c 'CREATE DATABASE twenty OWNER twenty;'\""
-   ssh root@192.168.1.52 "pct exec 114 -- su - postgres -c 'psql -d twenty -c \"CREATE EXTENSION IF NOT EXISTS \\\"uuid-ossp\\\";\" -c \"CREATE EXTENSION IF NOT EXISTS pg_trgm;\"'"
+   ```sql
+   CREATE ROLE twenty LOGIN PASSWORD '<pw>';
+   CREATE DATABASE twenty OWNER twenty;
+   -- then, connected to the twenty database, as postgres:
+   CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+   CREATE EXTENSION IF NOT EXISTS "unaccent";
    ```
-   Twenty creates a schema per workspace, so `twenty` must own the database.
+   Run it through the credential-less path:
+   `ssh root@192.168.1.52 "pct exec 114 -- su - postgres -c 'psql -f /tmp/x.sql'"`.
+
+   Twenty's `setup-db` creates the `public` and `core` schemas plus one schema per
+   workspace, so `twenty` must own the database. `uuid-ossp` and `unaccent` are
+   *trusted* extensions in PG 15, so the owner could install them itself — we
+   pre-create them as `postgres` anyway so the app never needs superuser. FDW
+   extensions (`postgres_fdw`, `wrappers`, `mysql_fdw`) are only touched when
+   `IS_FDW_ENABLED=true`; leave it off and PG 15.19 on LXC 114 is sufficient
+   (upstream's own Postgres image is also PG 15).
 2. Populate the four Infisical keys above.
 3. DNS: `crm.plotlens.ai` CNAME → `corbello.ddns.net`.
 4. `kubectl apply -f apps/twenty/argocd-application.yaml` (once, by hand).
