@@ -110,7 +110,7 @@ All public services route through **LXC 100 (`proxy`)** which terminates TLS. K3
 | Alastar | — | alastar | Bull Board, webhook-receiver, Qdrant |
 | Investigations | — | investigations | ArchiveBox, theHarvester |
 | Trading | — | trading | moltbot-trading |
-| Twenty CRM | https://crm.plotlens.ai | crm | server + worker; shared Postgres (.83) / Redis (.86). See `docs/runbooks/twenty.md` |
+| Twenty CRM | https://crm.plotlens.ai | crm | server + worker; shared Postgres (.83) + own Redis. See `docs/runbooks/twenty.md` |
 
 **Observability stack** (all in `observability`): Prometheus (kube-prometheus-stack), Alertmanager, Loki, Promtail, Blackbox Exporter, Node Exporter, Proxmox Exporter.
 

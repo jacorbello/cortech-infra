@@ -9,7 +9,7 @@ GitOps-managed from `apps/twenty/`.
 | Namespace | `crm` (Deployments `twenty-server`, `twenty-worker`) |
 | Image | `twentycrm/twenty:v2.31.1` (pinned in `apps/twenty/base/*-deployment.yaml`) |
 | Postgres | LXC 114 — `192.168.1.83:5432/twenty`, role `twenty` (owns the DB) |
-| Redis | `192.168.1.86:6379` DB 3 |
+| Redis | dedicated `twenty-redis` StatefulSet in `crm` (5Gi `nfs-node3` PVC, AOF on) |
 | Attachments | PVC `twenty-data`, 20Gi RWX on `nfs-node3` |
 | TLS | certbot lineage `crm.plotlens.ai` on proxy LXC 100 |
 | ArgoCD | app `twenty`, auto-sync + selfHeal |
@@ -19,10 +19,13 @@ GitOps-managed from `apps/twenty/`.
 Infisical project `db72a923-…` (PlotLens), env `dev`, path `/twenty`. Synced into
 the `twenty-secrets` Secret by `InfisicalSecret`; both Deployments `envFrom` it.
 
+`REDIS_URL` is *not* a secret and lives in the ConfigMap — the in-cluster Redis has
+no password. The shared Redis at `.86` was rejected: it requires auth and already
+carries the Infisical workers' traffic, and `apps/postiz` sets the same precedent.
+
 | Key | Notes |
 |---|---|
 | `PG_DATABASE_URL` | `postgres://twenty:<pw>@192.168.1.83:5432/twenty` |
-| `REDIS_URL` | `redis://192.168.1.86:6379/3` |
 | `APP_SECRET` | `openssl rand -base64 32` |
 | `ENCRYPTION_KEY` | `openssl rand -base64 32` |
 

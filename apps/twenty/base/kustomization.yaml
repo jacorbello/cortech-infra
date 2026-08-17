@@ -6,6 +6,8 @@ resources:
   - infisical-secret.yaml
   - configmap.yaml
   - pvc.yaml
+  - redis/statefulset.yaml
+  - redis/service.yaml
   - server-deployment.yaml
   - worker-deployment.yaml
   - service.yaml

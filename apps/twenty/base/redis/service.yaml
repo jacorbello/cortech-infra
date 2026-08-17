@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: twenty-redis
+  namespace: crm
+  labels:
+    app: twenty-redis
+    app.kubernetes.io/part-of: twenty
+spec:
+  type: ClusterIP
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis
+  selector:
+    app: twenty-redis
