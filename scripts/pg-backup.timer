@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily Postgres dumps from LXC 114 to node3 NFS
+
+[Timer]
+OnCalendar=*-*-* 03:15:00
+RandomizedDelaySec=10m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

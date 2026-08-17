@@ -1,0 +1,8 @@
+[Unit]
+Description=Postgres dumps from LXC 114 to node3 NFS
+After=network-online.target remote-fs.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/pg-backup.sh
