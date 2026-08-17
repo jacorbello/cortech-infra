@@ -16,6 +16,9 @@ spec:
       labels:
         app: twenty-worker
     spec:
+      # Must match the server — both write to the same RWX share as uid 1000.
+      securityContext:
+        fsGroup: 1000
       containers:
         - name: worker
           image: twentycrm/twenty:v2.31.1
