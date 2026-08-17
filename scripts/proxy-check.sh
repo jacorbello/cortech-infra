@@ -16,6 +16,14 @@ live() { ssh "${MASTER}" "pct exec ${CTID} -- cat '$1'" 2>/dev/null; }
 
 status=0
 
+# Fail loudly if the proxy is unreachable. Without this, every per-file check
+# below reports "MISSING on proxy" and an unreachable host reads as catastrophic
+# drift.
+if ! ssh -o ConnectTimeout=10 "${MASTER}" "pct status ${CTID}" > /dev/null 2>&1; then
+  echo "ERROR: cannot reach LXC ${CTID} via ${MASTER} — connection problem, not drift."
+  exit 2
+fi
+
 echo "== authoritative: proxy/conf.d/ (must match)"
 for f in "${REPO_ROOT}"/proxy/conf.d/*; do
   name=$(basename "${f}")

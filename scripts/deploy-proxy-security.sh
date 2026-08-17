@@ -8,7 +8,23 @@ HA=/etc/nginx/sites-available/homeassistant
 
 echo "== backup"
 pct exec 100 -- cp "$HA" "$HA.bak-$STAMP"
-pct exec 100 -- sh -c "test -f $SEC && cp $SEC $SEC.bak-$STAMP || true"
+# Record whether security.conf already existed. Rollback must RESTORE a
+# pre-existing one, not delete it — deleting would strip global headers from
+# every vhost on a failed deploy.
+if pct exec 100 -- test -f "$SEC"; then
+  SEC_EXISTED=1
+  pct exec 100 -- cp "$SEC" "$SEC.bak-$STAMP"
+else
+  SEC_EXISTED=0
+fi
+
+rollback_sec() {
+  if [ "$SEC_EXISTED" -eq 1 ]; then
+    pct exec 100 -- cp "$SEC.bak-$STAMP" "$SEC"
+  else
+    pct exec 100 -- rm -f "$SEC"
+  fi
+}
 
 echo "== install conf.d/security.conf"
 pct exec 100 -- sh -c "echo IyBHbG9iYWwgc2VjdXJpdHkgZGVmYXVsdHMgZm9yIGV2ZXJ5IHZob3N0IG9uIHRoZSBwcm94eS4KIwojIExpdmVzIGluIGNvbmYuZC8gZGVsaWJlcmF0ZWx5OiBjZXJ0Ym90IHJld3JpdGVzIHRoZSBmaWxlcyBpbiBzaXRlcy1hdmFpbGFibGUvCiMgaW4gcGxhY2UsIHNvIHRob3NlIGNhbiBuZXZlciBiZSByZXBvLWF1dGhvcml0YXRpdmUuIGNvbmYuZC8gaXMgY2VydGJvdC1mcmVlLAojIHdoaWNoIG1ha2VzIGl0IHRoZSBvbmUgcGxhY2Ugc2hhcmVkIHBvbGljeSBjYW4gbGl2ZSBhbmQgc3RheSBpbiBzeW5jIHdpdGggZ2l0LgojCiMgSW5jbHVkZWQgZnJvbSBuZ2lueC5jb25mIHZpYSBgaW5jbHVkZSAvZXRjL25naW54L2NvbmYuZC8qLmNvbmY7YCBiZWZvcmUKIyBzaXRlcy1lbmFibGVkLCBzbyB0aGVzZSBhcHBseSB0byBhbGwgc2VydmVyIGJsb2Nrcy4KCiMgVExTIGZsb29yLiBuZ2lueC5jb25mIHN0aWxsIHNoaXBzIHRoZSBzdG9jayBgc3NsX3Byb3RvY29scyBUTFN2MSBUTFN2MS4xCiMgVExTdjEuMiBUTFN2MS4zYC4gQ2VydGJvdC1tYW5hZ2VkIHZob3N0cyBvdmVycmlkZSB0aGF0IHdpdGggdGhlaXIgb3duCiMgb3B0aW9ucy1zc2wtbmdpbnguY29uZiBpbmNsdWRlLCBidXQgYW55IHZob3N0IGxhY2tpbmcgdGhhdCBpbmNsdWRlIGluaGVyaXRzCiMgdGhlIGdsb2JhbCB2YWx1ZSBhbmQgd291bGQgYWNjZXB0IFRMUyAxLjAvMS4xLiBTZXR0aW5nIGl0IGhlcmUgcmFpc2VzIHRoZQojIGZsb29yIGZvciB0aG9zZS4Kc3NsX3Byb3RvY29scyBUTFN2MS4yIFRMU3YxLjM7CgojIEhTVFMgZm9yIGV2ZXJ5IHNpdGUuIEFsbCBwdWJsaWMgaG9zdG5hbWVzIGFyZSBUTFMtb25seSBhbmQgcmVkaXJlY3QgOjgwIOKGkiA6NDQzCiMgYWxyZWFkeSwgc28gdGhlcmUgaXMgbm8gcGxhaW50ZXh0IHZob3N0IHRoaXMgY2FuIHN0cmFuZC4KIwojIENBVVRJT046IG5naW54IGFkZF9oZWFkZXIgaW5oZXJpdGFuY2UgaXMgYWxsLW9yLW5vdGhpbmcuIEEgc2VydmVyIG9yIGxvY2F0aW9uCiMgYmxvY2sgdGhhdCBkZWNsYXJlcyBBTlkgYWRkX2hlYWRlciBvZiBpdHMgb3duIGRpc2NhcmRzIGV2ZXJ5IGhlYWRlciBpbmhlcml0ZWQKIyBmcm9tIGhlcmUuIElmIHlvdSBhZGQgYSBwZXItc2l0ZSBoZWFkZXIsIHJlLWRlY2xhcmUgdGhpcyBsaW5lIGFsb25nc2lkZSBpdC4KYWRkX2hlYWRlciBTdHJpY3QtVHJhbnNwb3J0LVNlY3VyaXR5ICJtYXgtYWdlPTMxNTM2MDAwOyBpbmNsdWRlU3ViRG9tYWlucyIgYWx3YXlzOwoKIyBDaGVhcCwgbm9uLWJyZWFraW5nIGhhcmRlbmluZy4gRGVsaWJlcmF0ZWx5IG9taXRzIENvbnRlbnQtU2VjdXJpdHktUG9saWN5OgojIGEgZ2xvYmFsIENTUCB3b3VsZCBicmVhayBhcHAgVUlzIGFuZCBoYXMgdG8gYmUgYXV0aG9yZWQgcGVyLXNpdGUuCmFkZF9oZWFkZXIgWC1Db250ZW50LVR5cGUtT3B0aW9ucyAibm9zbmlmZiIgYWx3YXlzOwphZGRfaGVhZGVyIFJlZmVycmVyLVBvbGljeSAic3RyaWN0LW9yaWdpbi13aGVuLWNyb3NzLW9yaWdpbiIgYWx3YXlzOwoKIyBEbyBub3QgYWR2ZXJ0aXNlIHRoZSBuZ2lueCBwYXRjaCB2ZXJzaW9uIGluIHJlc3BvbnNlcyBvciBlcnJvciBwYWdlcy4Kc2VydmVyX3Rva2VucyBvZmY7Cg== | base64 -d > $SEC"
@@ -19,7 +35,7 @@ pct exec 100 -- sh -c "echo c2VydmVyIHsKICAgIHNlcnZlcl9uYW1lIGhhLmNvcmJlbGxvLmlv
 echo "== validate"
 if ! pct exec 100 -- nginx -t; then
   echo "CONFIG INVALID - rolling back"
-  pct exec 100 -- rm -f "$SEC"
+  rollback_sec
   pct exec 100 -- cp "$HA.bak-$STAMP" "$HA"
   exit 1
 fi
@@ -41,7 +57,7 @@ done
 
 if [ "$fail" -ne 0 ]; then
   echo "ROLLING BACK"
-  pct exec 100 -- rm -f "$SEC"
+  rollback_sec
   pct exec 100 -- cp "$HA.bak-$STAMP" "$HA"
   pct exec 100 -- nginx -s reload
   exit 1
