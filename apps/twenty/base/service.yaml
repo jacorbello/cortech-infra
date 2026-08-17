@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: twenty
+  namespace: crm
+  labels:
+    app: twenty-server
+    app.kubernetes.io/part-of: twenty
+spec:
+  type: ClusterIP
+  selector:
+    app: twenty-server
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http

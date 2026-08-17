@@ -1,0 +1,17 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: twenty
+  namespace: crm
+  labels:
+    app: twenty-server
+    app.kubernetes.io/part-of: twenty
+spec:
+  entryPoints:
+    - web  # TLS terminates on the proxy LXC (100), not here
+  routes:
+    - match: Host(`crm.plotlens.ai`)
+      kind: Rule
+      services:
+        - name: twenty
+          port: 3000
