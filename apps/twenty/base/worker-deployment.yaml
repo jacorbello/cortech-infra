@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: twenty-worker
+  namespace: crm
+  labels:
+    app: twenty-worker
+    app.kubernetes.io/part-of: twenty
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: twenty-worker
+  template:
+    metadata:
+      labels:
+        app: twenty-worker
+    spec:
+      containers:
+        - name: worker
+          image: twentycrm/twenty:v2.31.1
+          command: ["yarn", "worker:prod"]
+          envFrom:
+            - configMapRef:
+                name: twenty-config
+            - secretRef:
+                name: twenty-secrets
+          env:
+            # Both already run on the server — a second migrator would race it.
+            - name: DISABLE_DB_MIGRATIONS
+              value: "true"
+            - name: DISABLE_CRON_JOBS_REGISTRATION
+              value: "true"
+          volumeMounts:
+            - name: data
+              mountPath: /app/packages/twenty-server/.local-storage
+          resources:
+            requests:
+              cpu: 250m
+              memory: 1Gi
+            limits:
+              memory: 3Gi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: twenty-data

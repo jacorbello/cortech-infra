@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: twenty-server
+  namespace: crm
+  labels:
+    app: twenty-server
+    app.kubernetes.io/part-of: twenty
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate  # the server runs DB migrations on boot — never two versions at once
+  selector:
+    matchLabels:
+      app: twenty-server
+  template:
+    metadata:
+      labels:
+        app: twenty-server
+    spec:
+      containers:
+        - name: server
+          image: twentycrm/twenty:v2.31.1
+          ports:
+            - name: http
+              containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: twenty-config
+            - secretRef:
+                name: twenty-secrets
+          volumeMounts:
+            - name: data
+              mountPath: /app/packages/twenty-server/.local-storage
+          resources:
+            requests:
+              cpu: 500m
+              memory: 2Gi
+            limits:
+              memory: 4Gi
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 8
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 180
+            periodSeconds: 30
+            failureThreshold: 3
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: twenty-data

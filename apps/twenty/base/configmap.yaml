@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: twenty-config
+  namespace: crm
+data:
+  NODE_PORT: "3000"
+  # Used for generated links (emails, OAuth callbacks) and HTTPS/secure-cookie detection.
+  SERVER_URL: "https://crm.plotlens.ai"
+  # ponytail: local fs on an RWX NFS PVC instead of MinIO S3 — no credentials to wire.
+  # Switch to STORAGE_TYPE=s3 if attachment volume outgrows the share.
+  STORAGE_TYPE: "local"
+  # Most settings live in the DB and are editable at Settings -> Admin Panel.
+  IS_CONFIG_VARIABLES_IN_DB_ENABLED: "true"
+  IS_MULTIWORKSPACE_ENABLED: "false"
+  TZ: "UTC"
