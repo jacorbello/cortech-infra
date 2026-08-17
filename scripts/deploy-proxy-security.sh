@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# Installs global security headers on proxy LXC 100 and reverts the now-redundant
+# per-site HSTS on the homeassistant vhost. Validates and auto-rolls-back.
+set -Eeuo pipefail
+STAMP=$(date +%Y%m%d-%H%M%S)
+SEC=/etc/nginx/conf.d/security.conf
+HA=/etc/nginx/sites-available/homeassistant
+
+echo "== backup"
+pct exec 100 -- cp "$HA" "$HA.bak-$STAMP"
+# Record whether security.conf already existed. Rollback must RESTORE a
+# pre-existing one, not delete it — deleting would strip global headers from
+# every vhost on a failed deploy.
+if pct exec 100 -- test -f "$SEC"; then
+  SEC_EXISTED=1
+  pct exec 100 -- cp "$SEC" "$SEC.bak-$STAMP"
+else
+  SEC_EXISTED=0
+fi
+
+rollback_sec() {
+  if [ "$SEC_EXISTED" -eq 1 ]; then
+    pct exec 100 -- cp "$SEC.bak-$STAMP" "$SEC"
+  else
+    pct exec 100 -- rm -f "$SEC"
+  fi
+}
+
+echo "== install conf.d/security.conf"
+pct exec 100 -- sh -c "echo IyBHbG9iYWwgc2VjdXJpdHkgZGVmYXVsdHMgZm9yIGV2ZXJ5IHZob3N0IG9uIHRoZSBwcm94eS4KIwojIExpdmVzIGluIGNvbmYuZC8gZGVsaWJlcmF0ZWx5OiBjZXJ0Ym90IHJld3JpdGVzIHRoZSBmaWxlcyBpbiBzaXRlcy1hdmFpbGFibGUvCiMgaW4gcGxhY2UsIHNvIHRob3NlIGNhbiBuZXZlciBiZSByZXBvLWF1dGhvcml0YXRpdmUuIGNvbmYuZC8gaXMgY2VydGJvdC1mcmVlLAojIHdoaWNoIG1ha2VzIGl0IHRoZSBvbmUgcGxhY2Ugc2hhcmVkIHBvbGljeSBjYW4gbGl2ZSBhbmQgc3RheSBpbiBzeW5jIHdpdGggZ2l0LgojCiMgSW5jbHVkZWQgZnJvbSBuZ2lueC5jb25mIHZpYSBgaW5jbHVkZSAvZXRjL25naW54L2NvbmYuZC8qLmNvbmY7YCBiZWZvcmUKIyBzaXRlcy1lbmFibGVkLCBzbyB0aGVzZSBhcHBseSB0byBhbGwgc2VydmVyIGJsb2Nrcy4KCiMgVExTIGZsb29yLiBuZ2lueC5jb25mIHN0aWxsIHNoaXBzIHRoZSBzdG9jayBgc3NsX3Byb3RvY29scyBUTFN2MSBUTFN2MS4xCiMgVExTdjEuMiBUTFN2MS4zYC4gQ2VydGJvdC1tYW5hZ2VkIHZob3N0cyBvdmVycmlkZSB0aGF0IHdpdGggdGhlaXIgb3duCiMgb3B0aW9ucy1zc2wtbmdpbnguY29uZiBpbmNsdWRlLCBidXQgYW55IHZob3N0IGxhY2tpbmcgdGhhdCBpbmNsdWRlIGluaGVyaXRzCiMgdGhlIGdsb2JhbCB2YWx1ZSBhbmQgd291bGQgYWNjZXB0IFRMUyAxLjAvMS4xLiBTZXR0aW5nIGl0IGhlcmUgcmFpc2VzIHRoZQojIGZsb29yIGZvciB0aG9zZS4Kc3NsX3Byb3RvY29scyBUTFN2MS4yIFRMU3YxLjM7CgojIEhTVFMgZm9yIGV2ZXJ5IHNpdGUuIEFsbCBwdWJsaWMgaG9zdG5hbWVzIGFyZSBUTFMtb25seSBhbmQgcmVkaXJlY3QgOjgwIOKGkiA6NDQzCiMgYWxyZWFkeSwgc28gdGhlcmUgaXMgbm8gcGxhaW50ZXh0IHZob3N0IHRoaXMgY2FuIHN0cmFuZC4KIwojIENBVVRJT046IG5naW54IGFkZF9oZWFkZXIgaW5oZXJpdGFuY2UgaXMgYWxsLW9yLW5vdGhpbmcuIEEgc2VydmVyIG9yIGxvY2F0aW9uCiMgYmxvY2sgdGhhdCBkZWNsYXJlcyBBTlkgYWRkX2hlYWRlciBvZiBpdHMgb3duIGRpc2NhcmRzIGV2ZXJ5IGhlYWRlciBpbmhlcml0ZWQKIyBmcm9tIGhlcmUuIElmIHlvdSBhZGQgYSBwZXItc2l0ZSBoZWFkZXIsIHJlLWRlY2xhcmUgdGhpcyBsaW5lIGFsb25nc2lkZSBpdC4KYWRkX2hlYWRlciBTdHJpY3QtVHJhbnNwb3J0LVNlY3VyaXR5ICJtYXgtYWdlPTMxNTM2MDAwOyBpbmNsdWRlU3ViRG9tYWlucyIgYWx3YXlzOwoKIyBDaGVhcCwgbm9uLWJyZWFraW5nIGhhcmRlbmluZy4gRGVsaWJlcmF0ZWx5IG9taXRzIENvbnRlbnQtU2VjdXJpdHktUG9saWN5OgojIGEgZ2xvYmFsIENTUCB3b3VsZCBicmVhayBhcHAgVUlzIGFuZCBoYXMgdG8gYmUgYXV0aG9yZWQgcGVyLXNpdGUuCmFkZF9oZWFkZXIgWC1Db250ZW50LVR5cGUtT3B0aW9ucyAibm9zbmlmZiIgYWx3YXlzOwphZGRfaGVhZGVyIFJlZmVycmVyLVBvbGljeSAic3RyaWN0LW9yaWdpbi13aGVuLWNyb3NzLW9yaWdpbiIgYWx3YXlzOwoKIyBEbyBub3QgYWR2ZXJ0aXNlIHRoZSBuZ2lueCBwYXRjaCB2ZXJzaW9uIGluIHJlc3BvbnNlcyBvciBlcnJvciBwYWdlcy4Kc2VydmVyX3Rva2VucyBvZmY7Cg== | base64 -d > $SEC"
+
+echo "== drop per-site HSTS from homeassistant vhost"
+pct exec 100 -- sh -c "echo c2VydmVyIHsKICAgIHNlcnZlcl9uYW1lIGhhLmNvcmJlbGxvLmlvOwogICAgCiAgICAjIEluY3JlYXNlIHByb3h5IHRpbWVvdXRzIGZvciBIb21lIEFzc2lzdGFudAogICAgcHJveHlfY29ubmVjdF90aW1lb3V0IDYwczsKICAgIHByb3h5X3NlbmRfdGltZW91dCA2MHM7CiAgICBwcm94eV9yZWFkX3RpbWVvdXQgNjBzOwogICAgCiAgICBsb2NhdGlvbiAvIHsKICAgICAgICBwcm94eV9wYXNzIGh0dHA6Ly8xOTIuMTY4LjEuNjE6ODEyMzsKICAgICAgICBwcm94eV9zZXRfaGVhZGVyIEhvc3QgJGhvc3Q7CiAgICAgICAgcHJveHlfc2V0X2hlYWRlciBYLVJlYWwtSVAgJHJlbW90ZV9hZGRyOwogICAgICAgIHByb3h5X3NldF9oZWFkZXIgWC1Gb3J3YXJkZWQtRm9yICRwcm94eV9hZGRfeF9mb3J3YXJkZWRfZm9yOwogICAgICAgIHByb3h5X3NldF9oZWFkZXIgWC1Gb3J3YXJkZWQtUHJvdG8gJHNjaGVtZTsKICAgICAgICAKICAgICAgICAjIFdlYlNvY2tldCBzdXBwb3J0IChpbXBvcnRhbnQgZm9yIEhvbWUgQXNzaXN0YW50KQogICAgICAgIHByb3h5X2h0dHBfdmVyc2lvbiAxLjE7CiAgICAgICAgcHJveHlfc2V0X2hlYWRlciBVcGdyYWRlICRodHRwX3VwZ3JhZGU7CiAgICAgICAgcHJveHlfc2V0X2hlYWRlciBDb25uZWN0aW9uICJ1cGdyYWRlIjsKICAgICAgICAKICAgICAgICAjIEhvbWUgQXNzaXN0YW50IHNwZWNpZmljIGhlYWRlcnMKICAgICAgICBwcm94eV9zZXRfaGVhZGVyIFgtRm9yd2FyZGVkLUhvc3QgJHNlcnZlcl9uYW1lOwogICAgICAgIHByb3h5X2J1ZmZlcmluZyBvZmY7CiAgICB9CgogICAgbGlzdGVuIDQ0MyBzc2w7ICMgbWFuYWdlZCBieSBDZXJ0Ym90CiAgICBzc2xfY2VydGlmaWNhdGUgL2V0Yy9sZXRzZW5jcnlwdC9saXZlL2hhLmNvcmJlbGxvLmlvL2Z1bGxjaGFpbi5wZW07ICMgbWFuYWdlZCBieSBDZXJ0Ym90CiAgICBzc2xfY2VydGlmaWNhdGVfa2V5IC9ldGMvbGV0c2VuY3J5cHQvbGl2ZS9oYS5jb3JiZWxsby5pby9wcml2a2V5LnBlbTsgIyBtYW5hZ2VkIGJ5IENlcnRib3QKICAgIGluY2x1ZGUgL2V0Yy9sZXRzZW5jcnlwdC9vcHRpb25zLXNzbC1uZ2lueC5jb25mOyAjIG1hbmFnZWQgYnkgQ2VydGJvdAogICAgc3NsX2RocGFyYW0gL2V0Yy9sZXRzZW5jcnlwdC9zc2wtZGhwYXJhbXMucGVtOyAjIG1hbmFnZWQgYnkgQ2VydGJvdAoKCn0Kc2VydmVyIHsKICAgIGlmICgkaG9zdCA9IGhhLmNvcmJlbGxvLmlvKSB7CiAgICAgICAgcmV0dXJuIDMwMSBodHRwczovLyRob3N0JHJlcXVlc3RfdXJpOwogICAgfSAjIG1hbmFnZWQgYnkgQ2VydGJvdAoKCiAgICBsaXN0ZW4gODA7CiAgICBzZXJ2ZXJfbmFtZSBoYS5jb3JiZWxsby5pbzsKICAgIHJldHVybiA0MDQ7ICMgbWFuYWdlZCBieSBDZXJ0Ym90CgoKfQ== | base64 -d > $HA"
+
+echo "== validate"
+if ! pct exec 100 -- nginx -t; then
+  echo "CONFIG INVALID - rolling back"
+  rollback_sec
+  pct exec 100 -- cp "$HA.bak-$STAMP" "$HA"
+  exit 1
+fi
+
+echo "== reload"
+pct exec 100 -- nginx -s reload
+sleep 2
+
+echo "== verify HSTS on a site that never had it, plus HA"
+fail=0
+for h in grafana.corbello.io ha.corbello.io rancher.corbello.io; do
+  if curl -sI "https://$h/" | grep -qi strict-transport-security; then
+    echo "  ok    $h"
+  else
+    echo "  FAIL  $h"
+    fail=1
+  fi
+done
+
+if [ "$fail" -ne 0 ]; then
+  echo "ROLLING BACK"
+  rollback_sec
+  pct exec 100 -- cp "$HA.bak-$STAMP" "$HA"
+  pct exec 100 -- nginx -s reload
+  exit 1
+fi
+echo "OK - global security headers live"
