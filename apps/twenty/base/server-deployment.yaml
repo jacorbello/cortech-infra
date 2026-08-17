@@ -18,6 +18,10 @@ spec:
       labels:
         app: twenty-server
     spec:
+      # The image runs as uid/gid 1000 (node) but the NFS PVC mounts root:root 0755.
+      # csi-driver-nfs has fsGroupPolicy: File, so kubelet applies this to the mount.
+      securityContext:
+        fsGroup: 1000
       containers:
         - name: server
           image: twentycrm/twenty:v2.31.1
