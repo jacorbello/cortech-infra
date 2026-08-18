@@ -19,6 +19,12 @@ all, so those are reported in a separate section and must be checked by hand.
 
 | Device | Model | IP | Notes |
 |--------|-------|-----|-------|
+| Courtney's lamp | Kasa HS103 | .23 | `tplink`, adopted 2026-08-18 |
+| Jeremy's lamp | Kasa HS103 | .79 | `tplink`, adopted 2026-08-18 |
+| My Swag | Kasa HS100 | .117 | `tplink`, adopted 2026-08-18 |
+| Brother printer | MFC-J6960DW | .21 | `brother`, adopted 2026-08-18 — toner, page counts, status |
+| ASUS ZenWiFi BQ16 Pro | router | .1 | `upnp`, adopted 2026-08-18 — WAN status, throughput, external IP |
+| Thread border router | — | — | `thread`, adopted 2026-08-18 |
 | Upstairs thermostat | ecobee3 lite | .39 | Primary HVAC. Paired via `homekit_controller`, NOT the ecobee integration |
 | Juliettes Room | ecobee EBERS41 | — | Remote room sensor |
 | Lukes Room | ecobee EBERS41 | — | Remote room sensor |
@@ -54,8 +60,9 @@ owns the hardware.
 | Courtney's lamp | .23 | HS103 | legacy (tcp/9999) | none |
 | Jeremy's lamp | .79 | HS103 | legacy (tcp/9999) | none |
 | My Swag | .117 | HS100 | legacy (tcp/9999) | none |
-| Wall switch | .234 | HS200 | KLAP (tcp/80) | TP-Link cloud login |
-| Dimmer switch | .248 | HS220 | KLAP (tcp/80) | TP-Link cloud login |
+| Wall switch (`1A11`) | .234 | HS200 | KLAP (tcp/80) | TP-Link cloud login |
+| Dimmer switch (`A407`) | .248 | HS220 | KLAP (tcp/80) | TP-Link cloud login |
+| Dimmer switch (`2964`) | .209 | HS220 | KLAP (tcp/80) | TP-Link cloud login |
 
 All use the `tplink` integration, but the fleet is split across two firmware
 generations. The three legacy devices answer the plaintext protocol on 9999 and adopt
@@ -96,10 +103,41 @@ Decora Smart — `decora_wifi` (cloud) or Matter, depending on generation.
 
 | Device | IP | Vendor |
 |--------|-----|--------|
-| Roku (`Master`) | .225 | `roku` integration |
+| Roku Express 4K (`Master`) | .225 | `roku` integration — **blocked**, see below |
 | Apple device (`Living-Room`) | .20 | Apple TV — `apple_tv` integration |
 | Amazon Echo | .108, .129, .159, .172 | Four devices; no local integration |
 | Nintendo Switch | .119 | None |
+
+### Blocked on a device-side setting
+
+The Roku at `.225` (Roku Express 4K, "Master", primary bedroom) cannot be adopted
+until external control is re-enabled on the device itself. Its unauthenticated
+`/query/device-info` endpoint returns `200`, but the control endpoints
+`/query/apps` and `/query/media-player` both return `403` — so the config flow fails
+with `cannot_connect` even though the network path is fine (verified from the Proxmox
+master, the HA VM host, and inside the HA core container, all `200`).
+
+Fix with the physical remote: **Settings → System → Advanced system settings →
+Control by mobile apps → Network access → Default** (or Permissive).
+
+### Discovered but needing credentials
+
+HA has pending discovery flows for these; each needs an account or key before it can
+be completed:
+
+| Integration | What it covers | Needs |
+|-------------|----------------|-------|
+| `tplink` (3 flows) | HS200 `.234`, HS220 `.248`, HS220 `.209` | TP-Link cloud login |
+| `ecobee` | Both thermostats + remote sensors | API key from `developer.ecobee.com` |
+| `smartthings` | Samsung range `.3`, microwave `.217` | Samsung account |
+| `vesync` | Unidentified Levoit/VeSync hardware | VeSync account |
+| `overkiz` | Gateway `1612-0320-2380` | Somfy/Overkiz account |
+| `apple_tv` | Apple TV 4K "Living Room" `.20` | PIN shown on the TV during pairing |
+
+`vesync` and `overkiz` were not in any earlier sweep of this network — both were found
+by HA's own DHCP and zeroconf discovery, which sees devices an ARP sweep cannot
+identify. Worth running `scripts/ha-device-audit.sh` alongside HA's discovery list
+rather than treating the sweep as complete.
 
 ### Other
 

@@ -34,8 +34,10 @@ import os
 import re
 import sys
 
-registry = json.loads(open(sys.argv[1]).read())["data"]["devices"]
-scan_raw = open(sys.argv[2]).read()
+# Explicit UTF-8: device names carry smart quotes ("Courtney’s lamp") and the
+# locale default mangles them into mojibake on a non-UTF-8 shell.
+registry = json.loads(open(sys.argv[1], encoding="utf-8").read())["data"]["devices"]
+scan_raw = open(sys.argv[2], encoding="utf-8").read()
 
 # HA registers itself, its add-ons and its service integrations as "devices".
 # They are not hardware on the LAN, so counting them as adopted-but-unmatchable
@@ -47,9 +49,28 @@ NON_PHYSICAL = {
     "shopping_list", "go2rtc", "analytics",
 }
 
+def demojibake(text):
+    """Undo `qm guest exec` returning UTF-8 file bytes decoded as cp1252.
+
+    "Courtney\u2019s lamp" arrives as "Courtney\u00e2\u20ac\u2122s lamp".
+    Re-encoding through cp1252 restores it. Note cp1252, not latin-1: the
+    mangled form contains \u20ac and \u2122, which have no latin-1 code point
+    at all, so a latin-1 round-trip silently fails and leaves the mojibake.
+
+    Text that is not mojibake fails the encode/decode and is returned
+    untouched, so this is safe to apply blindly.
+    """
+    for codec in ("cp1252", "latin-1"):
+        try:
+            return text.encode(codec).decode("utf-8")
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            continue
+    return text
+
+
 adopted_by_mac, mac_less = {}, []
 for dev in registry:
-    name = dev.get("name_by_user") or dev.get("name") or "(unnamed)"
+    name = demojibake(dev.get("name_by_user") or dev.get("name") or "(unnamed)")
     if any(domain in NON_PHYSICAL for domain, _ in dev.get("identifiers", [])):
         continue
     macs = [v.lower() for k, v in dev.get("connections", []) if k == "mac"]
@@ -130,7 +151,7 @@ PYEOF
 if [ "${1:-}" = "--self-test" ]; then
   cat > "${WORK}/reg.json" << 'EOF'
 {"data": {"devices": [
-  {"name": "Lamp", "connections": [["mac", "AA:BB:CC:00:00:01"]]},
+  {"name": "Courtney\u00e2\u20ac\u2122s lamp", "connections": [["mac", "AA:BB:CC:00:00:01"]]},
   {"name": "Sleepy", "connections": [["mac", "aa:bb:cc:00:00:02"]]},
   {"name": "Upstairs", "connections": []}
 ]}}
@@ -154,7 +175,8 @@ EOF
   fail=0
   check() { grep -q "$1" <<< "${out}" || { echo "FAIL: $2"; fail=1; }; }
   check "adopted and on the network (1)" "expected 1 matched (case-insensitive MAC join)"
-  check "192.168.1.23 .*Lamp" "Lamp not matched to .23"
+  check "192.168.1.23 .*Courtney.s lamp" "lamp not matched to .23"
+  check "Courtney’s lamp" "mojibake from qm guest exec was not repaired"
   check "NOT matched to Home Assistant (1)" "expected 1 orphan; the MAC-less scan host must not count"
   check "no MAC, so cannot be matched (1)" "expected Upstairs in the MAC-less section"
   check "absent from the sweep (1)" "expected Sleepy as adopted-but-absent"
@@ -176,7 +198,7 @@ fi
 # registry itself before the join sees it.
 # shellcheck disable=SC2029  # client-side expansion is intended
 ssh "${MASTER}" "qm guest exec -t 60 ${VMID} -- /bin/cat ${HA_STORAGE}/core.device_registry" \
-  | python3 -c 'import json,sys; sys.stdout.write(json.load(sys.stdin)["out-data"])' \
+  | PYTHONIOENCODING=utf-8 python3 -c 'import json,sys; sys.stdout.write(json.load(sys.stdin)["out-data"])' \
     > "${WORK}/reg.json"
 
 # shellcheck disable=SC2029  # client-side expansion is intended
