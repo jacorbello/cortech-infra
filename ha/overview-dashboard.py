@@ -22,8 +22,17 @@ def heading(text, icon=None):
         c["icon"] = icon
     return c
 
-def tile(entity, **kw):
+# Sections lay cards out on a 12-column grid and default every card to full
+# width, which is what made the printer section a single tall stack. Sizes are
+# set explicitly: HALF puts two cards per row, QUARTER four.
+FULL = {"grid_options": {"columns": 12}}
+HALF = {"grid_options": {"columns": 6}}
+QUARTER = {"grid_options": {"columns": 3}}
+
+
+def tile(entity, size=HALF, **kw):
     c = {"type": "tile", "entity": entity}
+    c.update(size)
     c.update(kw)
     return c
 
@@ -33,6 +42,7 @@ TOGGLE = {"features": [{"type": "toggle"}]}
 # difference between a dashboard and a list of entities.
 alerts = {
     "type": "grid",
+    "column_span": 3,
     "cards": [
         {
             "type": "conditional",
@@ -56,7 +66,7 @@ climate = {
     "type": "grid",
     "cards": [
         heading("Climate", "mdi:thermometer"),
-        {"type": "thermostat", "entity": "climate.upstairs", "features": [{"type": "climate-hvac-modes"}]},
+        {"type": "thermostat", "entity": "climate.upstairs", "features": [{"type": "climate-hvac-modes"}], **FULL},
         tile("sensor.upstairs_current_temperature", name="Upstairs"),
         tile("sensor.upstairs_current_humidity", name="Humidity"),
         tile("sensor.juliettes_room_temperature", name="Juliette's room"),
@@ -80,7 +90,7 @@ people = {
     "type": "grid",
     "cards": [
         heading("People", "mdi:account"),
-        tile("person.jeremy_corbello", name="Jeremy"),
+        tile("person.jeremy_corbello", FULL, name="Jeremy"),
         tile("sensor.jeremys_iphone_battery_level", name="iPhone battery"),
         tile("sensor.jeremys_iphone_watch_battery_level", name="Watch battery"),
     ],
@@ -93,7 +103,7 @@ network = {
         tile("binary_sensor.zenwifi_bq16_pro_77f8_wan_status", name="WAN"),
         tile("sensor.zenwifi_bq16_pro_77f8_download_speed", name="Down"),
         tile("sensor.zenwifi_bq16_pro_77f8_upload_speed", name="Up"),
-        tile("sensor.zenwifi_bq16_pro_77f8_external_ip", name="External IP"),
+        tile("sensor.zenwifi_bq16_pro_77f8_external_ip", FULL, name="External IP"),
     ],
 }
 
@@ -101,18 +111,18 @@ printer = {
     "type": "grid",
     "cards": [
         heading("Printer", "mdi:printer"),
-        tile("sensor.mfc_j6960dw_status", name="Status"),
+        tile("sensor.mfc_j6960dw_status", FULL, name="Status"),
         # Gauges rather than tiles: ink level is a "how full" question, and the
         # severity bands make a low cartridge legible without reading the number.
         {"type": "gauge", "entity": "sensor.mfc_j6960dw_black_toner_remaining", "name": "Black",
-         "min": 0, "max": 100, "severity": {"green": 40, "yellow": 20, "red": 0}},
+         "min": 0, "max": 100, "severity": {"green": 40, "yellow": 20, "red": 0}, **QUARTER},
         {"type": "gauge", "entity": "sensor.mfc_j6960dw_cyan_toner_remaining", "name": "Cyan",
-         "min": 0, "max": 100, "severity": {"green": 40, "yellow": 20, "red": 0}},
+         "min": 0, "max": 100, "severity": {"green": 40, "yellow": 20, "red": 0}, **QUARTER},
         {"type": "gauge", "entity": "sensor.mfc_j6960dw_magenta_toner_remaining", "name": "Magenta",
-         "min": 0, "max": 100, "severity": {"green": 40, "yellow": 20, "red": 0}},
+         "min": 0, "max": 100, "severity": {"green": 40, "yellow": 20, "red": 0}, **QUARTER},
         {"type": "gauge", "entity": "sensor.mfc_j6960dw_yellow_toner_remaining", "name": "Yellow",
-         "min": 0, "max": 100, "severity": {"green": 40, "yellow": 20, "red": 0}},
-        tile("sensor.mfc_j6960dw_page_counter", name="Pages printed"),
+         "min": 0, "max": 100, "severity": {"green": 40, "yellow": 20, "red": 0}, **QUARTER},
+        tile("sensor.mfc_j6960dw_page_counter", FULL, name="Pages printed"),
     ],
 }
 
@@ -120,19 +130,19 @@ media = {
     "type": "grid",
     "cards": [
         heading("Media", "mdi:television"),
-        tile("media_player.playstation_5", name="PlayStation 5"),
+        tile("media_player.playstation_5", FULL, name="PlayStation 5"),
         tile("sensor.shdwcld_online_status", name="PSN status"),
         {
             "type": "conditional",
             "conditions": [{"condition": "state", "entity": "sensor.shdwcld_now_playing", "state_not": "unknown"}],
-            "card": tile("sensor.shdwcld_now_playing", name="Now playing"),
+            "card": tile("sensor.shdwcld_now_playing", FULL, name="Now playing"),
         },
         # The TV reports `unavailable` when powered off, which renders as a dead
         # tile. Hide it rather than show a permanently greyed-out card.
         {
             "type": "conditional",
             "conditions": [{"condition": "state", "entity": "media_player.lg_webos_tv_05ad", "state_not": "unavailable"}],
-            "card": tile("media_player.lg_webos_tv_05ad", name="Living room TV"),
+            "card": tile("media_player.lg_webos_tv_05ad", FULL, name="Living room TV"),
         },
     ],
 }
@@ -181,6 +191,16 @@ config = {
         },
     ]
 }
+
+# A conditional card is sized by its own grid_options, not by the card it wraps,
+# so an unsized wrapper falls back to full width and breaks the row it sits in.
+# Lift the inner card's width onto the wrapper.
+for _section in config["views"][0]["sections"]:
+    for _card in _section["cards"]:
+        if _card.get("type") == "conditional" and "grid_options" not in _card:
+            _inner = _card.get("card", {}).get("grid_options")
+            if _inner:
+                _card["grid_options"] = _inner
 
 out = os.environ.get(
     "OUT", os.path.join(os.path.dirname(os.path.abspath(__file__)), "overview-dashboard.json")
