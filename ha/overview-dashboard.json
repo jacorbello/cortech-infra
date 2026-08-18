@@ -1,0 +1,529 @@
+{
+  "views": [
+    {
+      "type": "sections",
+      "title": "Home",
+      "path": "home",
+      "icon": "mdi:home",
+      "max_columns": 3,
+      "badges": [
+        {
+          "type": "entity",
+          "entity": "person.jeremy_corbello"
+        },
+        {
+          "type": "entity",
+          "entity": "weather.forecast_home"
+        },
+        {
+          "type": "entity",
+          "entity": "sensor.upstairs_current_temperature",
+          "name": "Inside"
+        },
+        {
+          "type": "entity",
+          "entity": "binary_sensor.zenwifi_bq16_pro_77f8_wan_status",
+          "name": "WAN"
+        }
+      ],
+      "sections": [
+        {
+          "type": "grid",
+          "column_span": 3,
+          "cards": [
+            {
+              "type": "conditional",
+              "conditions": [
+                {
+                  "condition": "state",
+                  "entity": "binary_sensor.zenwifi_bq16_pro_77f8_wan_status",
+                  "state": "off"
+                }
+              ],
+              "card": {
+                "type": "markdown",
+                "content": "## Internet is down\nThe router reports no WAN connectivity."
+              }
+            },
+            {
+              "type": "conditional",
+              "conditions": [
+                {
+                  "condition": "numeric_state",
+                  "entity": "sensor.mfc_j6960dw_black_toner_remaining",
+                  "below": 20
+                }
+              ],
+              "card": {
+                "type": "markdown",
+                "content": "## Printer: black ink low\n{{ states('sensor.mfc_j6960dw_black_toner_remaining') }}% remaining."
+              }
+            },
+            {
+              "type": "conditional",
+              "conditions": [
+                {
+                  "condition": "state",
+                  "entity": "sensor.backup_backup_manager_state",
+                  "state_not": "idle"
+                }
+              ],
+              "card": {
+                "type": "entities",
+                "title": "Backup running",
+                "entities": [
+                  "sensor.backup_backup_manager_state"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Climate",
+              "heading_style": "title",
+              "icon": "mdi:thermometer"
+            },
+            {
+              "type": "thermostat",
+              "entity": "climate.upstairs",
+              "features": [
+                {
+                  "type": "climate-hvac-modes"
+                }
+              ],
+              "grid_options": {
+                "columns": 12
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.upstairs_current_temperature",
+              "grid_options": {
+                "columns": 6
+              },
+              "name": "Upstairs"
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.upstairs_current_humidity",
+              "grid_options": {
+                "columns": 6
+              },
+              "name": "Humidity"
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.juliettes_room_temperature",
+              "grid_options": {
+                "columns": 6
+              },
+              "name": "Juliette's room"
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.lukes_room_temperature",
+              "grid_options": {
+                "columns": 6
+              },
+              "name": "Luke's room"
+            },
+            {
+              "type": "tile",
+              "entity": "binary_sensor.juliettes_room_occupancy",
+              "grid_options": {
+                "columns": 6
+              },
+              "name": "Juliette \u2014 occupied"
+            },
+            {
+              "type": "tile",
+              "entity": "binary_sensor.lukes_room_occupancy",
+              "grid_options": {
+                "columns": 6
+              },
+              "name": "Luke \u2014 occupied"
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Lights & plugs",
+              "heading_style": "title",
+              "icon": "mdi:lamp"
+            },
+            {
+              "type": "tile",
+              "entity": "switch.courtneys_lamp",
+              "grid_options": {
+                "columns": 6
+              },
+              "name": "Courtney's lamp",
+              "features": [
+                {
+                  "type": "toggle"
+                }
+              ]
+            },
+            {
+              "type": "tile",
+              "entity": "switch.jeremys_lamp",
+              "grid_options": {
+                "columns": 6
+              },
+              "name": "Jeremy's lamp",
+              "features": [
+                {
+                  "type": "toggle"
+                }
+              ]
+            },
+            {
+              "type": "tile",
+              "entity": "switch.my_swag",
+              "grid_options": {
+                "columns": 6
+              },
+              "name": "My Swag",
+              "features": [
+                {
+                  "type": "toggle"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "People",
+              "heading_style": "title",
+              "icon": "mdi:account"
+            },
+            {
+              "type": "tile",
+              "entity": "person.jeremy_corbello",
+              "grid_options": {
+                "columns": 12
+              },
+              "name": "Jeremy"
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.jeremys_iphone_battery_level",
+              "grid_options": {
+                "columns": 6
+              },
+              "name": "iPhone battery"
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.jeremys_iphone_watch_battery_level",
+              "grid_options": {
+                "columns": 6
+              },
+              "name": "Watch battery"
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Network",
+              "heading_style": "title",
+              "icon": "mdi:wan"
+            },
+            {
+              "type": "tile",
+              "entity": "binary_sensor.zenwifi_bq16_pro_77f8_wan_status",
+              "grid_options": {
+                "columns": 6
+              },
+              "name": "WAN"
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.zenwifi_bq16_pro_77f8_download_speed",
+              "grid_options": {
+                "columns": 6
+              },
+              "name": "Down"
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.zenwifi_bq16_pro_77f8_upload_speed",
+              "grid_options": {
+                "columns": 6
+              },
+              "name": "Up"
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.zenwifi_bq16_pro_77f8_external_ip",
+              "grid_options": {
+                "columns": 12
+              },
+              "name": "External IP"
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Printer",
+              "heading_style": "title",
+              "icon": "mdi:printer"
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.mfc_j6960dw_status",
+              "grid_options": {
+                "columns": 12
+              },
+              "name": "Status"
+            },
+            {
+              "type": "gauge",
+              "entity": "sensor.mfc_j6960dw_black_toner_remaining",
+              "name": "Black",
+              "min": 0,
+              "max": 100,
+              "severity": {
+                "green": 40,
+                "yellow": 20,
+                "red": 0
+              },
+              "grid_options": {
+                "columns": 3
+              }
+            },
+            {
+              "type": "gauge",
+              "entity": "sensor.mfc_j6960dw_cyan_toner_remaining",
+              "name": "Cyan",
+              "min": 0,
+              "max": 100,
+              "severity": {
+                "green": 40,
+                "yellow": 20,
+                "red": 0
+              },
+              "grid_options": {
+                "columns": 3
+              }
+            },
+            {
+              "type": "gauge",
+              "entity": "sensor.mfc_j6960dw_magenta_toner_remaining",
+              "name": "Magenta",
+              "min": 0,
+              "max": 100,
+              "severity": {
+                "green": 40,
+                "yellow": 20,
+                "red": 0
+              },
+              "grid_options": {
+                "columns": 3
+              }
+            },
+            {
+              "type": "gauge",
+              "entity": "sensor.mfc_j6960dw_yellow_toner_remaining",
+              "name": "Yellow",
+              "min": 0,
+              "max": 100,
+              "severity": {
+                "green": 40,
+                "yellow": 20,
+                "red": 0
+              },
+              "grid_options": {
+                "columns": 3
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.mfc_j6960dw_page_counter",
+              "grid_options": {
+                "columns": 12
+              },
+              "name": "Pages printed"
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Media",
+              "heading_style": "title",
+              "icon": "mdi:television"
+            },
+            {
+              "type": "tile",
+              "entity": "media_player.playstation_5",
+              "grid_options": {
+                "columns": 12
+              },
+              "name": "PlayStation 5"
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.shdwcld_online_status",
+              "grid_options": {
+                "columns": 6
+              },
+              "name": "PSN status"
+            },
+            {
+              "type": "conditional",
+              "conditions": [
+                {
+                  "condition": "state",
+                  "entity": "sensor.shdwcld_now_playing",
+                  "state_not": "unknown"
+                }
+              ],
+              "card": {
+                "type": "tile",
+                "entity": "sensor.shdwcld_now_playing",
+                "grid_options": {
+                  "columns": 12
+                },
+                "name": "Now playing"
+              },
+              "grid_options": {
+                "columns": 12
+              }
+            },
+            {
+              "type": "conditional",
+              "conditions": [
+                {
+                  "condition": "state",
+                  "entity": "media_player.lg_webos_tv_05ad",
+                  "state_not": "unavailable"
+                }
+              ],
+              "card": {
+                "type": "tile",
+                "entity": "media_player.lg_webos_tv_05ad",
+                "grid_options": {
+                  "columns": 12
+                },
+                "name": "Living room TV"
+              },
+              "grid_options": {
+                "columns": 12
+              }
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "System",
+              "heading_style": "title",
+              "icon": "mdi:server"
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.backup_last_successful_automatic_backup",
+              "grid_options": {
+                "columns": 6
+              },
+              "name": "Last backup"
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.backup_next_scheduled_automatic_backup",
+              "grid_options": {
+                "columns": 6
+              },
+              "name": "Next backup"
+            },
+            {
+              "type": "conditional",
+              "conditions": [
+                {
+                  "condition": "state",
+                  "entity": "update.home_assistant_core_update",
+                  "state": "on"
+                }
+              ],
+              "card": {
+                "type": "tile",
+                "entity": "update.home_assistant_core_update",
+                "grid_options": {
+                  "columns": 6
+                },
+                "name": "Core update"
+              },
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "conditional",
+              "conditions": [
+                {
+                  "condition": "state",
+                  "entity": "update.home_assistant_operating_system_update",
+                  "state": "on"
+                }
+              ],
+              "card": {
+                "type": "tile",
+                "entity": "update.home_assistant_operating_system_update",
+                "grid_options": {
+                  "columns": 6
+                },
+                "name": "OS update"
+              },
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "conditional",
+              "conditions": [
+                {
+                  "condition": "state",
+                  "entity": "update.home_assistant_supervisor_update",
+                  "state": "on"
+                }
+              ],
+              "card": {
+                "type": "tile",
+                "entity": "update.home_assistant_supervisor_update",
+                "grid_options": {
+                  "columns": 6
+                },
+                "name": "Supervisor update"
+              },
+              "grid_options": {
+                "columns": 6
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

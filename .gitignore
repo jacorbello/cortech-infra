@@ -64,3 +64,4 @@ go.work.sum
 __pycache__/
 *.pyc
 .venv/
+ha/*.json.backup
