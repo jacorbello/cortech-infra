@@ -1,0 +1,16 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: parley
+  namespace: parley
+  labels:
+    app.kubernetes.io/name: parley
+spec:
+  entryPoints:
+    - web  # TLS terminates on the proxy LXC (100), not here
+  routes:
+    - match: Host(`parley.corbello.io`)
+      kind: Rule
+      services:
+        - name: parley
+          port: 80

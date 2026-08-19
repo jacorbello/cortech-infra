@@ -1,0 +1,43 @@
+# NOTE: Application CRs are not self-managed — `kubectl apply -f` this file by hand
+# after merging. Editing it in git alone does nothing.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: parley
+  namespace: argocd
+spec:
+  project: default
+  sources:
+    # Source 1: upstream Helm chart, straight from the OCI registry.
+    # Pin the version — the chart refuses moving tags, and rolling back onto an
+    # image older than the migrations that have already run is refused by Parley
+    # itself. Roll forward.
+    - repoURL: ghcr.io/lets-parley/charts
+      chart: parley
+      targetRevision: 0.4.1
+      helm:
+        releaseName: parley
+        valueFiles:
+          - $values/apps/parley/values.yaml
+    # Source 2: the pieces the chart doesn't ship — namespace, Infisical secret,
+    # NetworkPolicy, IngressRoute.
+    - repoURL: https://github.com/jacorbello/cortech-infra.git
+      targetRevision: main
+      path: apps/parley/extras
+    # Source 3 (ref-only): same repo, resolves $values above.
+    - repoURL: https://github.com/jacorbello/cortech-infra.git
+      targetRevision: main
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: parley
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true
+  info:
+    - name: "sync-wave"
+      value: "1"

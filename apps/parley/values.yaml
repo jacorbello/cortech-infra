@@ -1,0 +1,39 @@
+# Helm values for the upstream Parley chart (ghcr.io/lets-parley/charts).
+# Consumed by apps/parley/argocd-application.yaml via the $values source ref.
+
+replicaCount: 2
+
+baseURL: https://parley.corbello.io
+
+database:
+  existingSecret: parley
+  secretKey: database-url
+
+auth:
+  mode: oidc
+  oidc:
+    issuer: https://keycloak.corbello.io/realms/parley
+    clientID: parley
+    # The chart requires a client secret when mode is oidc, so the Keycloak
+    # client is registered confidential rather than public.
+    existingSecret: parley
+    secretKey: oidc-client-secret
+
+# Parley reads the client address by checking the immediate socket peer against
+# this list, then walking X-Forwarded-For right-to-left to the first untrusted
+# entry. The peer is always a Traefik pod, whose IP is dynamic, so the CIDR has
+# to be the pod network — extras/networkpolicy.yaml is what actually restricts
+# who may reach these pods. Traefik's own forwardedHeaders.trustedIPs was
+# narrowed to 192.168.1.100/32 so the same forgery can't be staged one hop up.
+trustProxyHeaders: true
+trustedProxyCIDRs: "10.42.0.0/16,192.168.1.100/32"
+
+# TLS terminates on the proxy LXC (100); routing is a Traefik IngressRoute in
+# extras/, not the chart's Ingress — ArgoCD-managed apps here need IngressRoute.
+ingress:
+  enabled: false
+
+# Both k3s-wrk-1 and k3s-wrk-2 carry this label; the chart's soft
+# topologySpreadConstraint needs two eligible nodes to spread the replicas.
+nodeSelector:
+  role: core-app
