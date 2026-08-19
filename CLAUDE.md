@@ -52,7 +52,7 @@ You can run remote commands via `ssh root@192.168.1.52 "<command>"`. Inventory r
 - **2 worker VMs** (203-204): k3s-wrk-1 (`.94`, `role=core-app`), k3s-wrk-2 (`.95`, `role=compute`)
 - **1 persistent worker** (206): k3s-wrk-3 (`.97`, on cortech-node3, 48 vCPU / ~193 GiB, `role=batch-compute`, `lifecycle=persistent`, untainted). Workhorse — carries Rancher/ArgoCD/Traefik/Harbor + more. NIC is single-queue virtio (`queues=` unset); enable multiqueue if egress softirq loss recurs.
 - **1 GPU inference worker** (207): k3s-wrk-4 (`.98`, on cortech-node3, 16 vCPU / 32 GiB, Ubuntu 24.04, K3s v1.34.5, `role=gpu-inference`, tainted `nvidia.com/gpu:NoSchedule`)
-- **K8s namespaces:** `observability`, `cattle-system` (Rancher), `argocd`, `harbor`, `plotlens`, `plotlens-website`, `sonarqube`, `infisical`, `arc-systems`, `arc-runners`, `platform`, `security`, `cert-manager`, plus project namespaces (`alastar`, `investigations`, `trading`, `crm`)
+- **K8s namespaces:** `observability`, `cattle-system` (Rancher), `argocd`, `harbor`, `plotlens`, `plotlens-website`, `sonarqube`, `infisical`, `arc-systems`, `arc-runners`, `platform`, `security`, `cert-manager`, plus project namespaces (`alastar`, `investigations`, `trading`, `crm`, `parley`)
 - **Kubeconfig** at `/root/.kube/config` on cortech master
 
 ### Traffic Flow
@@ -111,6 +111,7 @@ All public services route through **LXC 100 (`proxy`)** which terminates TLS. K3
 | Investigations | — | investigations | ArchiveBox, theHarvester |
 | Trading | — | trading | moltbot-trading |
 | Twenty CRM | https://crm.plotlens.ai | crm | server + worker; shared Postgres (.83) + own Redis. See `docs/runbooks/twenty.md` |
+| Parley | https://parley.corbello.io | parley | Planning poker + standups. Upstream Helm chart (`ghcr.io/lets-parley/charts`), 2 replicas, shared Postgres (.83), OIDC via Keycloak realm `parley`. See `docs/runbooks/parley.md` |
 
 **Observability stack** (all in `observability`): Prometheus (kube-prometheus-stack), Alertmanager, Loki, Promtail, Blackbox Exporter, Node Exporter, Proxmox Exporter.
 
