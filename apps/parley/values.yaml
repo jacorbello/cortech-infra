@@ -7,7 +7,7 @@ baseURL: https://parley.corbello.io
 
 database:
   existingSecret: parley
-  secretKey: database-url
+  secretKey: DATABASE_URL
 
 auth:
   mode: oidc
@@ -17,7 +17,7 @@ auth:
     # The chart requires a client secret when mode is oidc, so the Keycloak
     # client is registered confidential rather than public.
     existingSecret: parley
-    secretKey: oidc-client-secret
+    secretKey: OIDC_CLIENT_SECRET
 
 # Parley reads the client address by checking the immediate socket peer against
 # this list, then walking X-Forwarded-For right-to-left to the first untrusted
