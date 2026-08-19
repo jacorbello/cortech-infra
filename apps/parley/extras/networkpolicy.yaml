@@ -1,0 +1,34 @@
+# Parley trusts the whole pod CIDR in trustedProxyCIDRs, because the immediate
+# peer is always a Traefik pod and those IPs are dynamic. That trust is only
+# safe if nothing ELSE in the cluster can open a connection to these pods and
+# hand them a forged X-Forwarded-For — this policy is what makes that true.
+#
+# Selector note: kube-system carries exactly one matchable label,
+# kubernetes.io/metadata.name (auto-applied by Kubernetes). A guessed label
+# here fails CLOSED and takes Parley offline, so don't "tidy" it.
+#
+# Enforcement: k3s runs an embedded kube-router policy controller and denies
+# with iptables DROP, not REJECT — a blocked connection HANGS rather than being
+# refused. Test with an explicit --max-time and expect a timeout.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: parley-allow-traefik
+  namespace: parley
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: parley
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+      ports:
+        - protocol: TCP
+          port: 8080

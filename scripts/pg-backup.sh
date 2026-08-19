@@ -12,7 +12,7 @@ set -Eeuo pipefail
 CT="${CT:-114}"
 DEST="${DEST:-/mnt/db-backups}"
 RETENTION_DAYS="${RETENTION_DAYS:-14}"
-DEFAULT_DBS="twenty outreach"
+DEFAULT_DBS="twenty outreach parley"
 
 dbs=("$@")
 if [ ${#dbs[@]} -eq 0 ]; then
