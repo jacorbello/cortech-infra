@@ -74,7 +74,7 @@ Non-secret config lives in the `twenty-config` ConfigMap and, because
 kubectl -n crm get pods
 kubectl -n crm logs deploy/twenty-server --tail=50
 kubectl -n crm get secret twenty-secrets -o jsonpath='{.data}' | tr ',' '\n' | cut -d'"' -f2
-curl -H 'Host: crm.plotlens.ai' -I http://192.168.1.90:30278/    # via Traefik
+curl -H 'Host: crm.plotlens.ai' -I http://192.168.1.110/    # via Traefik
 curl -I https://crm.plotlens.ai                                   # public
 ```
 

@@ -99,7 +99,7 @@ ssh root@192.168.1.52 "kubectl -n parley get pods -o wide; kubectl -n parley get
 
 # is it the app or the ingress?  (in-cluster, via Traefik)
 ssh root@192.168.1.52 "curl -s -o /dev/null -w '%{http_code}\n' \
-  -H 'Host: parley.corbello.io' http://192.168.1.90:30278/readyz"
+  -H 'Host: parley.corbello.io' http://192.168.1.110/readyz"
 
 # boot settings — cookie_secure, auth_mode, allowed_ws_origin
 ssh root@192.168.1.52 "kubectl -n parley logs -l app.kubernetes.io/name=parley \

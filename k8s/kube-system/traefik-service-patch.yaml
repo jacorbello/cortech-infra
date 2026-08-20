@@ -16,6 +16,14 @@
 # Verified 2026-08-20 after cutover: a pod sending a forged X-Forwarded-For to
 # 192.168.1.110 is logged by the backend as its own pod IP, not the forged
 # value, while real external client addresses arrive intact.
+#
+# The NodePorts (30278/30252) are deliberately left in place. Setting
+# allocateLoadBalancerNodePorts: false does NOT deallocate ports that already
+# exist — it only prevents future allocation — so it was reverted rather than
+# left set as a no-op. Removing them needs an explicit nodePort: 0 patch, which
+# was judged not worth the ingress risk: a LAN host reaching Traefik on the
+# NodePort presents its own address, which is not 192.168.1.100, so it gains no
+# X-Forwarded-For trust. Closing that path is tracked separately.
 patch:
   metadata:
     annotations:
