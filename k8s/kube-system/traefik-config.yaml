@@ -1,0 +1,41 @@
+# Traefik chart overrides for the K3s-bundled release.
+#
+# Applied by the k3s HelmChart controller; NOT managed by ArgoCD. Kept here so a
+# change to it shows up in a diff — it used to live only on the cluster, which is
+# how the trustedIPs regression below reached production unreviewed.
+#
+#   kubectl apply -f k8s/kube-system/traefik-config.yaml
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    additionalArguments:
+      # This must match the peer Traefik actually sees, which is NOT the proxy LXC.
+      # svc/traefik is externalTrafficPolicy: Cluster, so the NodePort SNATs
+      # 192.168.1.100 to a flannel address (10.42.x.x) before Traefik gets the
+      # connection. A /32 on the proxy's real IP therefore matches nothing, and
+      # Traefik silently discards nginx's X-Forwarded-* on every site behind it.
+      #
+      # That broke Harbor pushes: harbor-registry builds the blob-upload Location
+      # header from the perceived scheme, so a discarded X-Forwarded-Proto: https
+      # handed the Docker client an http:// upload URL and every push stalled after
+      # the 202 (Family-Friendly-Inc/plotlens#6988).
+      #
+      # ponytail: trusting the whole pod CIDR means any pod can forge
+      # X-Forwarded-For through Traefik. Upgrade path is PROXY protocol between
+      # nginx and this entrypoint (preferred), or externalTrafficPolicy: Local plus
+      # a /32 once Traefik runs on every node the .90 VIP can float to.
+      - "--entryPoints.web.forwardedHeaders.trustedIPs=10.42.0.0/16"
+      - "--entryPoints.websecure.forwardedHeaders.trustedIPs=10.42.0.0/16"
+    deployment:
+      replicas: 2
+    topologySpreadConstraints:
+      - labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: traefik
+        maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: DoNotSchedule

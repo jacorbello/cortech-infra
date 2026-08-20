@@ -22,9 +22,15 @@ auth:
 # Parley reads the client address by checking the immediate socket peer against
 # this list, then walking X-Forwarded-For right-to-left to the first untrusted
 # entry. The peer is always a Traefik pod, whose IP is dynamic, so the CIDR has
-# to be the pod network — extras/networkpolicy.yaml is what actually restricts
-# who may reach these pods. Traefik's own forwardedHeaders.trustedIPs was
-# narrowed to 192.168.1.100/32 so the same forgery can't be staged one hop up.
+# to be the pod network — the chart's NetworkPolicy (networkPolicy.enabled below)
+# is what actually restricts who may reach these pods.
+#
+# There is NO second guard upstream of Traefik right now. This block used to claim
+# forwardedHeaders.trustedIPs was narrowed to 192.168.1.100/32; that /32 can never
+# match, because the NodePort SNATs the proxy LXC's address away before Traefik
+# sees it, so it only stripped X-Forwarded-* cluster-wide. It is 10.42.0.0/16
+# again — see k8s/kube-system/traefik-config.yaml and the follow-up issue for the
+# upgrade path (PROXY protocol, or externalTrafficPolicy: Local plus a /32).
 trustProxyHeaders: true
 trustedProxyCIDRs: "10.42.0.0/16,192.168.1.100/32"
 
