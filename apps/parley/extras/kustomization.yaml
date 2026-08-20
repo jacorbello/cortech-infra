@@ -4,5 +4,4 @@ namespace: parley
 resources:
   - namespace.yaml
   - infisical-secret.yaml
-  - networkpolicy.yaml
   - ingressroute.yaml
