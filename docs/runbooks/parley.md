@@ -51,9 +51,18 @@ ssh root@192.168.1.52 "pct exec 100 -- grep -R 'X-Forwarded-For' \
 `trustedProxyCIDRs` includes the whole pod CIDR, because the peer is always a Traefik pod
 and those IPs are dynamic. On its own that would let *any* pod in the cluster forge a
 client address. Since chart 0.4.4 the policy comes from the chart itself —
-`networkPolicy.enabled: true` in `apps/parley/values.yaml` — and Traefik's own
-`forwardedHeaders.trustedIPs` was narrowed to `192.168.1.100/32` so the same forgery can't
-be staged one hop upstream. Removing either one silently reopens the hole.
+`networkPolicy.enabled: true` in `apps/parley/values.yaml`. Removing it silently reopens
+the hole, and it is currently the **only** thing standing between a rogue pod and a forged
+client address.
+
+There is no second guard one hop upstream. This section used to claim Traefik's
+`forwardedHeaders.trustedIPs` was narrowed to `192.168.1.100/32` for that purpose. The
+`/32` never matched: `svc/traefik` is `externalTrafficPolicy: Cluster`, so the NodePort
+SNATs the proxy LXC's `192.168.1.100` to a `10.42.x.x` flannel address before Traefik sees
+the connection. The narrowing bought no protection and instead stripped `X-Forwarded-*`
+from every site behind Traefik — which broke Harbor pushes for a day
+(Family-Friendly-Inc/plotlens#6988). It is back to `10.42.0.0/16`; see
+`k8s/kube-system/traefik-config.yaml`.
 
 The selector must stay `kubernetes.io/metadata.name: kube-system` — that is the only
 matchable label on that namespace, and a wrong selector fails **closed**, taking Parley
