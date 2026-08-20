@@ -86,9 +86,23 @@ Each step is verifiable and reversible on its own.
 0. **Prove `.110` is unclaimed at apply time** — `ip neigh show 192.168.1.110` and
    `arping -D -I vmbr0 192.168.1.110` from the Proxmox master. The reservations doc is
    hand-maintained and has drifted before; do not trust it alone.
-1. **Install MetalLB** (L2), `IPAddressPool` = `192.168.1.110/32`, `L2Advertisement`.
-   Traefik picks up the IP. Nothing routes there yet.
+1. **Install MetalLB.** Not present today (`helm list -A` shows no release, no
+   `metallb-system` namespace), so this is a fresh install:
+   ```bash
+   helm repo add metallb https://metallb.github.io/metallb
+   helm install metallb metallb/metallb -n metallb-system --create-namespace \
+     --version <pin at install time>
+   ```
+   Then apply an `IPAddressPool` (`192.168.1.110/32`) and an `L2Advertisement`, both in
+   `metallb-system`. Traefik picks up the IP; nothing routes there yet.
    Verify: `curl -H 'Host: rancher.corbello.io' http://192.168.1.110`.
+
+   Two placement facts, both checked: `strictARP` is **not** required here — it applies
+   only to kube-proxy in IPVS mode, and k3s runs the embedded kube-proxy in iptables mode
+   (no `kube-proxy` ConfigMap exists). And the speaker DaemonSet needs no tolerations for
+   this design: wrk-5 and wrk-6 are untainted. If Traefik is ever moved onto a tainted
+   node (the 3 control-plane servers, or wrk-4's `nvidia.com/gpu`), the speaker must be
+   given a matching toleration or MetalLB cannot announce from it.
 2. **Add a PodDisruptionBudget** (`minAvailable: 1`) for `kube-system/traefik`, pairing
    with the existing `maxSkew: 1` hostname spread. Must precede the `etp` flip: with
    `Local`, an eviction that zeroes ready endpoints on the announcing node takes the VIP
@@ -98,23 +112,35 @@ Each step is verifiable and reversible on its own.
    **Rollback is the snapshot, not `git checkout`** — `scripts/proxy-check.sh` documents
    `proxy/sites/` as non-authoritative because certbot rewrites those files in place, and
    live filenames already drift from repo ones.
-4. **Set `externalTrafficPolicy: Local`.** This is where SNAT stops. Rollback: patch back
+4. **Widen the trust list transitionally to `10.42.0.0/16,192.168.1.100/32`.** This step
+   exists purely to remove a window. Flipping `etp` first would leave Traefik seeing
+   `.100` — a peer *not* in the current `10.42.0.0/16` list — so it would ignore
+   `X-Forwarded-For` entirely and every request would collapse to one apparent client
+   until step 6 landed. Trusting both the old and new peer means the flip is seamless.
+5. **Set `externalTrafficPolicy: Local`.** This is where SNAT stops. Rollback: patch back
    to `Cluster`, ~10s.
-5. **Set `trustedIPs=192.168.1.100/32`.** This is the step that actually closes the
-   SNAT-forgery path.
-6. **Set `allocateLoadBalancerNodePorts: false`**, after confirming nothing still targets
-   30278/30252 — including `docs/runbooks/parley.md:102` and `docs/runbooks/twenty.md:77`,
+6. **Narrow `trustedIPs` to `192.168.1.100/32`.** This is the step that actually closes
+   the SNAT-forgery path.
+7. **Pin the NodePorts, then remove them.** Set `spec.ports[].nodePort` explicitly to
+   30278/30252 *before* setting `allocateLoadBalancerNodePorts: false`, so that re-enabling
+   the field during a rollback deterministically restores the same numbers — 13 nginx
+   confs and 2 runbooks reference them. Do this only after confirming nothing still
+   targets them, including `docs/runbooks/parley.md:102` and `docs/runbooks/twenty.md:77`,
    whose health-check commands must be updated to `.110` in this same PR.
 
 ## Verification
 
 - `curl -sI` across all 13 migrated hostnames plus 3 untouched LXC hostnames, before and
   after. All must return their pre-change status.
-- harbor-registry logs a real WAN address while `trustedIPs` is `/32` — today that
-  combination logs `10.42.3.x`. This is the pass condition for the whole change.
-- **Negative test, valid only after step 5.** From a scratch pod, send
+- **Generate the traffic, don't wait for it.** During a maintenance window nothing else
+  will hit Harbor, so after step 6 (the `/32` narrowing) run a pull from an external host —
+  `docker pull harbor.corbello.io/plotlens/plotlens-api:<tag>` — then
+  `kubectl -n harbor logs deploy/harbor-registry --since=5m | grep remoteaddr`.
+  A real WAN address while `trustedIPs` is `/32` is the pass condition for the whole
+  change; today that combination logs `10.42.3.x`.
+- **Negative test, valid only after step 6.** From a scratch pod, send
   `X-Forwarded-For: 1.2.3.4` with `Host: harbor.corbello.io` to `.110` and confirm
-  harbor-registry's `remoteaddr` does not show `1.2.3.4`. Run before step 5 it will
+  harbor-registry's `remoteaddr` does not show `1.2.3.4`. Run before step 6 it will
   "fail" by design, because the trust list is still wide. Creating the pod is a mutation
   — it belongs in the controlled window.
 - Confirm both ACME paths still work: certbot on LXC 100 for LXC hostnames, cert-manager
@@ -127,23 +153,34 @@ having its own rewritten into the trust list.
 
 **Does not close:** raw source-IP spoofing. No Pod Security Admission is enforced on any
 of the 44 namespaces, so `hostNetwork` and `NET_RAW` are unrestricted, and reverse-path
-filtering is inconsistent — `rp_filter=2` (loose) on wrk-5/wrk-6, but `0` (none) on
-srv-1, srv-2 and wrk-1. A pod that can be created with those capabilities can emit a
-packet claiming `src=192.168.1.100`.
+filtering is largely absent — `rp_filter=0` (none) on **6 of 9 nodes** (srv-1, srv-2,
+srv-3, wrk-1, wrk-2, wrk-3) and `2` (loose) only on wrk-4, wrk-5 and wrk-6. A pod that can
+be created with those capabilities can emit a packet claiming `src=192.168.1.100`.
 
-The practical cost of that attack is high: over TCP a blind-spoofed source cannot complete
-a handshake, and no service account that could create such a pod exists today —
-`kubectl auth can-i create pods` is `no` for all five `arc-runners` service accounts,
-including `moltbot-deployer`, and there is no kubeconfig secret in that namespace. So the
-attacker must already hold create-pod rights, which means the cluster is already
-compromised. This is the floor of IP-based trust on a flat L2, not a regression — but
-"forgery closed" is the wrong phrase and is not used here.
+Two things bound that attack, and one does not bound it as much as it first appears.
+
+Over TCP, a blind-spoofed source cannot complete a handshake — the SYN-ACK goes to the
+real `.100` — so the attacker needs to be on-path, not merely able to emit a packet.
+
+Who can create such a pod is the weaker bound. CI runners cannot: `kubectl auth can-i
+create pods` is `no` for all six `arc-runners` service accounts (including `default` and
+`moltbot-deployer`), and that namespace holds no kubeconfig secret. But
+`argocd-application-controller` is bound to a ClusterRole granting
+`apiGroups:['*'] resources:['*'] verbs:['*']`, and `rancher` and `rancher-webhook` are
+bound to `cluster-admin`. With no PSA on any namespace, **anyone who can merge to a
+GitOps-synced repo, or who holds Rancher access, can create a `hostNetwork`/`NET_RAW` pod
+without compromising anything else.** That is a materially lower bar than "the cluster is
+already compromised," and it is why the PSA follow-up is listed rather than deferred
+indefinitely.
+
+This is the floor of IP-based trust on a flat L2 — it is not made worse by this change —
+but "forgery closed" is the wrong phrase and is not used here.
 
 **Accepted:** MetalLB L2 means any host on VLAN 1 can ARP-claim `.110`. This is the same
 exposure `.90` already carries. Documented, not redesigned.
 
 **Not addressed:** any pod can still reach Traefik's ClusterIP or pod IPs directly on
-`:8000`/`:8443`, bypassing nginx. Step 6 closes LAN-external NodePort reachability only.
+`:8000`/`:8443`, bypassing nginx. Step 7 closes LAN-external NodePort reachability only.
 That intra-cluster path grants no XFF trust (the source is the pod's own `10.42.x.x`), so
 it does not undermine this design, but the "bypass closed" framing would overstate it.
 
@@ -157,7 +194,9 @@ it does not undermine this design, but the "bypass closed" framing would oversta
 
 ## Review
 
-Design reviewed by review-mesh over two rounds (claims / security / outage). Round 1
-blocked on the `.91` pinning and the missing PDB; round 2 returned WARN with no blockers.
-Data-loss and false-green mandates were not dispatched — no migration or SQL, no test or
-CI step. The CI-escalation claim raised in round 2 was checked and did not hold.
+Design reviewed by review-mesh over three rounds (claims / security / outage); the
+round-by-round findings are recorded in the issue #76 thread rather than asserted here, so
+they are checkable. Data-loss and false-green mandates were not dispatched in any round —
+no migration or SQL, no test or CI step. Two claims raised by reviewers were checked and
+did not hold as stated: CI runners cannot create pods (round 2), and `strictARP` is not
+required under k3s's iptables kube-proxy (round 3).
