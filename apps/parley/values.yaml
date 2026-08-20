@@ -37,3 +37,24 @@ ingress:
 # topologySpreadConstraint needs two eligible nodes to spread the replicas.
 nodeSelector:
   role: core-app
+
+# The chart ships this as of 0.4.4 and its docs use exactly our topology as the
+# worked example, so we no longer carry a hand-rolled one in extras/.
+#
+# This is what makes a pod-CIDR trustedProxyCIDRs safe: the pod network is
+# reachable from every workload in the cluster, so without a policy any pod
+# could open a connection to the Service and name its own client address.
+#
+# Off by default upstream, deliberately — a NetworkPolicy in a cluster whose CNI
+# ignores them does nothing at all. k3s enforces via an embedded kube-router
+# controller using iptables DROP, so a denied connection HANGS rather than being
+# refused. Test with an explicit --max-time and expect a timeout.
+#
+# The namespace matches on kubernetes.io/metadata.name, which is the only
+# matchable label kube-system carries. A wrong selector fails CLOSED.
+networkPolicy:
+  enabled: true
+  ingressController:
+    namespace: kube-system
+    podSelector:
+      app.kubernetes.io/name: traefik

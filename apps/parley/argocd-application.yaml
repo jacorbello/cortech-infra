@@ -14,13 +14,13 @@ spec:
     # itself. Roll forward.
     - repoURL: ghcr.io/lets-parley/charts
       chart: parley
-      targetRevision: 0.4.1
+      targetRevision: 0.4.4
       helm:
         releaseName: parley
         valueFiles:
           - $values/apps/parley/values.yaml
     # Source 2: the pieces the chart doesn't ship — namespace, Infisical secret,
-    # NetworkPolicy, IngressRoute.
+    # IngressRoute. (The NetworkPolicy moved into the chart in 0.4.4.)
     - repoURL: https://github.com/jacorbello/cortech-infra.git
       targetRevision: main
       path: apps/parley/extras

@@ -8,7 +8,7 @@ frontend compiled in, plus Postgres — no second service, no Node runtime.
 | Namespace | `parley` |
 | Chart | `ghcr.io/lets-parley/charts` chart `parley`, pinned in `apps/parley/argocd-application.yaml` |
 | Values | `apps/parley/values.yaml` |
-| Extras | `apps/parley/extras/` — namespace, InfisicalSecret, NetworkPolicy, IngressRoute |
+| Extras | `apps/parley/extras/` — namespace, InfisicalSecret, IngressRoute |
 | Ingress | nginx LXC 100 (`proxy/sites/parley.corbello.io.conf`) → Traefik → Service |
 | Database | shared Postgres LXC 114 (`192.168.1.83`), database `parley` |
 | Auth | OIDC, Keycloak realm `parley`, confidential client `parley` |
@@ -50,25 +50,37 @@ ssh root@192.168.1.52 "pct exec 100 -- grep -R 'X-Forwarded-For' \
 
 `trustedProxyCIDRs` includes the whole pod CIDR, because the peer is always a Traefik pod
 and those IPs are dynamic. On its own that would let *any* pod in the cluster forge a
-client address. `apps/parley/extras/networkpolicy.yaml` restricts ingress to Traefik, and
-Traefik's own `forwardedHeaders.trustedIPs` was narrowed to `192.168.1.100/32` so the same
-forgery can't be staged one hop upstream. Removing either one silently reopens the hole.
+client address. Since chart 0.4.4 the policy comes from the chart itself —
+`networkPolicy.enabled: true` in `apps/parley/values.yaml` — and Traefik's own
+`forwardedHeaders.trustedIPs` was narrowed to `192.168.1.100/32` so the same forgery can't
+be staged one hop upstream. Removing either one silently reopens the hole.
 
 The selector must stay `kubernetes.io/metadata.name: kube-system` — that is the only
 matchable label on that namespace, and a wrong selector fails **closed**, taking Parley
 offline.
 
-### There is no access log
+### There is no access log (but proxy trust is now debuggable)
 
-Parley emits no per-request or per-connection logging at any level, by design. Any
+Parley emits no per-request or per-connection logging at `info`, by design. Any
 troubleshooting step of the form "grep the logs for X" will produce silence — which reads
-as a passing check. Use behavioral tests instead.
+as a passing check.
+
+Since v0.4.4 there is one exception worth knowing: at `LOG_LEVEL=debug` Parley logs the
+socket peer, the trust decision, the forwarding chain and the resolved client address —
+and nothing else, no cookies or tokens. That replaces the old way of verifying proxy
+configuration, which was to deliberately trigger a room-code lockout and infer the answer
+from who got locked out. To use it, set `logLevel: debug` in values, sync, make a request,
+then set it back.
 
 ### `/readyz` does not check OIDC
 
 It pings the DB pool and the fanout listener. Discovery is deferred to first sign-in, so a
 wrong issuer, client ID, or client secret leaves readiness green. Only a real browser
 sign-in exercises the identity path.
+
+Since v0.4.4 a one-time boot probe reports whether the issuer is reachable — check the
+boot logs for it. It deliberately does not gate readiness: a provider outage should fail
+sign-ins, not stop the server booting.
 
 ## Common tasks
 
@@ -110,6 +122,8 @@ websocat -H 'Origin: https://parley.corbello.io' \
 Drive a vote/reveal and confirm both sockets receive it.
 
 ## Checking the NetworkPolicy is enforced
+
+The policy is rendered by the chart; `kubectl -n parley get networkpolicy` should show it.
 
 k3s denies with iptables **DROP**, so a blocked connection hangs. A timeout is the pass;
 "connection refused" or a 200 means the policy is not working. Always cap the wait:
