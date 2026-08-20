@@ -1,0 +1,25 @@
+# The Traefik Service is created by the k3s-bundled chart, so these fields are
+# applied as patches rather than owned by a manifest here. This file records the
+# intended state so a cluster rebuild does not silently lose it.
+#
+#   kubectl -n kube-system patch svc traefik --type merge -p '<the patch below, as JSON>'
+#
+# loadBalancerIP + the metallb.io/address-pool annotation claim 192.168.1.110
+# from the 'ingress' pool (k8s/metallb/ipaddresspool.yaml).
+#
+# externalTrafficPolicy: Local is what stops kube-proxy masquerading the source,
+# which is the entire point — it is what lets forwardedHeaders.trustedIPs be a
+# /32 instead of the whole pod CIDR. It is safe here only because MetalLB
+# announces the IP solely from nodes with a Ready Traefik pod, and because a PDB
+# keeps one alive (traefik-pdb.yaml).
+#
+# Verified 2026-08-20 after cutover: a pod sending a forged X-Forwarded-For to
+# 192.168.1.110 is logged by the backend as its own pod IP, not the forged
+# value, while real external client addresses arrive intact.
+patch:
+  metadata:
+    annotations:
+      metallb.io/address-pool: ingress
+  spec:
+    loadBalancerIP: 192.168.1.110
+    externalTrafficPolicy: Local
