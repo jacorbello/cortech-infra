@@ -1,7 +1,7 @@
 # Give Traefik a LoadBalancer IP so it sees the real client address
 
 **Issue:** [#76](https://github.com/jacorbello/cortech-infra/issues/76)
-**Status:** design approved, not yet implemented
+**Status:** implemented 2026-08-20
 **Date:** 2026-08-20
 
 ## Problem

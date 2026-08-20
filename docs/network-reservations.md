@@ -26,6 +26,11 @@ VIP flapping, NFS mount timeouts, and hosts dropping off the LAN entirely.
 - Keep **.90 (kube-vip VIP)** out of the DHCP pool — it is a floating VIP with
   no fixed MAC (advertised by whichever k3s server holds it), so it cannot be a
   normal reservation.
+- Keep **.110 (Traefik ingress VIP)** out of the DHCP pool for the same reason.
+  MetalLB announces it in L2 mode from whichever node currently runs a Ready
+  Traefik pod, so its MAC moves. Every `*.corbello.io` service hosted in K3s
+  reaches Traefik through this address — nginx on LXC 100 proxies to it. See
+  `docs/superpowers/specs/2026-08-20-traefik-loadbalancer-source-ip-design.md`.
 
 ## WAN / public ingress
 

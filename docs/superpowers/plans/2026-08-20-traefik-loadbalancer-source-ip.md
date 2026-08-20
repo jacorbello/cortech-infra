@@ -49,11 +49,18 @@
 
 - [ ] **Step 1: Prove `.110` is unclaimed, right now**
 
+`arping` is **not installed** on the Proxmox master, so use the equivalent: force ARP
+resolution and read the neighbour table, from two vantage points.
+
 ```bash
-ssh root@192.168.1.52 "ip neigh show 192.168.1.110; arping -D -I vmbr0 -c 3 192.168.1.110; echo exit=\$?"
+ssh root@192.168.1.52 'ping -c 5 -W 1 192.168.1.110 >/dev/null 2>&1
+  ip neigh show 192.168.1.110
+  pct exec 100 -- bash -c "ping -c 3 -W 1 192.168.1.110 >/dev/null 2>&1; ip neigh show 192.168.1.110"'
 ```
 
-Expected: no MAC in `ip neigh`, `arping -D` exits `0` (no duplicate found). **If anything answers, STOP** — pick another address and update the spec. The reservations doc is hand-maintained and has drifted before; this probe is the authority.
+Expected: `INCOMPLETE` from both, meaning nothing answered ARP. A `lladdr <MAC>` means the
+address is in use — **STOP**, pick another and update the spec. The reservations doc is
+hand-maintained and has drifted before; this probe is the authority.
 
 - [ ] **Step 2: Write the MetalLB values and pool manifests**
 
