@@ -87,6 +87,8 @@ proxy. Anything else that appears in the router's forwarding table should be rem
 | .97  | k3s-wrk-3                 | VM 206   | `BC:24:11:32:1E:EB` | static |
 | .98  | k3s-wrk-4                 | VM 207   | `BC:24:11:F8:88:C2` | static |
 | .100 | proxy (NGINX)             | LXC 100  | `BC:24:11:00:74:62` | static |
+| .101 | k3s-wrk-5                 | VM 209   | `BC:24:11:96:A5:1A` | static |
+| .102 | k3s-wrk-6                 | VM 210   | `BC:24:11:8F:B9:B6` | static |
 | .114 | cortech-node3 + NFS server| host     | `b4:96:91:6b:ed:39` | static |
 | .118 | minio-01                  | LXC 123  | `BC:24:11:88:D3:DB` | static |
 | .150 | nomad                     | LXC 124  | `BC:24:11:C5:8F:83` | static |
