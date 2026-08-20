@@ -14,7 +14,7 @@ spec:
     # itself. Roll forward.
     - repoURL: ghcr.io/lets-parley/charts
       chart: parley
-      targetRevision: 0.4.4
+      targetRevision: 0.5.0
       helm:
         releaseName: parley
         valueFiles:

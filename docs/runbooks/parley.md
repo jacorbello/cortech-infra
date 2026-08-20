@@ -149,3 +149,15 @@ NFS share. Note that is a single on-cluster copy verified only by `gzip -t` and 
 `CREATE TABLE` count — it is not a tested restore. The whole-instance
 `pg_basebackup` + WAL on LXC 114 is the other layer, but restoring it rolls back every
 co-tenant database to the same timestamp.
+
+## Replica spread across a rollout
+
+Chart 0.5.0 adds `matchLabelKeys: [pod-template-hash]` to the spread constraint, so skew is
+computed within one revision. Before that, a `maxSurge: 1` rollout could satisfy
+`maxSkew: 1` by stacking both new pods on one node, and because `whenUnsatisfiable` is
+`ScheduleAnyway` nothing ever re-evaluated — the install stayed collapsed until something
+else evicted a pod. We hit this on the 0.4.1 -> 0.4.4 upgrade.
+
+`ScheduleAnyway` is still correct here and does not need tightening to `DoNotSchedule`.
+Still worth a `kubectl -n parley get pods -o wide` after any upgrade: two Running replicas
+and a healthy PDB do not tell you they are on different nodes.
