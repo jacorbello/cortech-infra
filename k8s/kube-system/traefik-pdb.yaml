@@ -1,0 +1,18 @@
+# Traefik is the only ingress path for every K8s-hosted service, and with
+# externalTrafficPolicy: Local the MetalLB speaker announces 192.168.1.110 only
+# from a node with a Ready Traefik pod. Losing both replicas at once therefore
+# takes the ingress IP down entirely, not just one backend — the address stops
+# being answered rather than failing over.
+#
+# Pairs with the chart's maxSkew:1 hostname spread (k8s/kube-system/traefik-config.yaml),
+# which keeps the two replicas on separate nodes in the first place.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: traefik

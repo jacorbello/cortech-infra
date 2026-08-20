@@ -28,8 +28,8 @@ spec:
       # X-Forwarded-For through Traefik. Upgrade path is PROXY protocol between
       # nginx and this entrypoint (preferred), or externalTrafficPolicy: Local plus
       # a /32 once Traefik runs on every node the .90 VIP can float to.
-      - "--entryPoints.web.forwardedHeaders.trustedIPs=10.42.0.0/16"
-      - "--entryPoints.websecure.forwardedHeaders.trustedIPs=10.42.0.0/16"
+      - "--entryPoints.web.forwardedHeaders.trustedIPs=192.168.1.100/32"
+      - "--entryPoints.websecure.forwardedHeaders.trustedIPs=192.168.1.100/32"
     deployment:
       replicas: 2
     topologySpreadConstraints:

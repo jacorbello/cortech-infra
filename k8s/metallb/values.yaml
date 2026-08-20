@@ -1,0 +1,29 @@
+# MetalLB in L2 mode, providing the single ingress address (192.168.1.110) that
+# Traefik's LoadBalancer Service claims.
+#
+# Why this exists: nginx on LXC 100 used to reach Traefik through a NodePort,
+# which SNATs the source before Traefik sees it. That forced
+# forwardedHeaders.trustedIPs wide open (10.42.0.0/16), letting any pod forge
+# X-Forwarded-For. A real LoadBalancer IP plus externalTrafficPolicy: Local
+# delivers without SNAT, so the trust list can be a /32.
+#
+# strictARP is deliberately NOT set: it applies only to kube-proxy in IPVS mode,
+# and k3s runs the embedded kube-proxy in iptables mode (no kube-proxy ConfigMap
+# exists on this cluster).
+#
+# The speaker DaemonSet needs no tolerations for this design — Traefik runs on
+# k3s-wrk-5/wrk-6, both untainted. If Traefik is ever moved onto a tainted node
+# (the 3 control-plane servers, or wrk-4's nvidia.com/gpu), the speaker must get
+# a matching toleration or MetalLB cannot announce the IP from it.
+#
+# Installed: chart 0.16.1 (2026-08-20).
+#
+# That chart version also deploys frr-k8s (a DaemonSet plus a statuscleaner) by
+# default. We do not use FRR/BGP — the L2Advertisement above is served by the
+# speaker pods — so those are unused. Left at the chart default rather than
+# disabled, because turning them off is a change we have not tested and this
+# path carries all public ingress.
+speaker:
+  logLevel: info
+controller:
+  logLevel: info

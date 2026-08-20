@@ -52,6 +52,9 @@ You can run remote commands via `ssh root@192.168.1.52 "<command>"`. Inventory r
 - **2 worker VMs** (203-204): k3s-wrk-1 (`.94`), k3s-wrk-2 (`.95`) — both `role=core-app`, 4 vCPU / 8 GiB each
 - **2 core-app workers** (209-210): k3s-wrk-5 (`.101`), k3s-wrk-6 (`.102`) on cortech-node3, 8 vCPU / 32 GiB each, `role=core-app`. Added because the pool was at 91-97% of memory requests on the two 8 GiB nodes; they also give core-app a third fault domain so a spread survives losing `cortech`
 - **1 persistent worker** (206): k3s-wrk-3 (`.97`, on cortech-node3, 48 vCPU / ~193 GiB, `role=batch-compute`, `lifecycle=persistent`, untainted). Workhorse — carries Rancher/ArgoCD/Traefik/Harbor + more. NIC is single-queue virtio (`queues=` unset); enable multiqueue if egress softirq loss recurs.
+- **2 general workers** (209-210): k3s-wrk-5 (`.101`) and k3s-wrk-6 (`.102`), both on cortech-node3, untainted. Traefik
+  currently runs here, which is what MetalLB's L2 announcement of the ingress VIP follows — moving
+  Traefik onto a tainted node requires giving the MetalLB speaker a matching toleration.
 - **1 GPU inference worker** (207): k3s-wrk-4 (`.98`, on cortech-node3, 16 vCPU / 32 GiB, Ubuntu 24.04, K3s v1.34.5, `role=gpu-inference`, tainted `nvidia.com/gpu:NoSchedule`)
 - **K8s namespaces:** `observability`, `cattle-system` (Rancher), `argocd`, `harbor`, `plotlens`, `plotlens-website`, `sonarqube`, `infisical`, `arc-systems`, `arc-runners`, `platform`, `security`, `cert-manager`, plus project namespaces (`alastar`, `investigations`, `trading`, `crm`, `parley`)
 - **Kubeconfig** at `/root/.kube/config` on cortech master
@@ -59,10 +62,17 @@ You can run remote commands via `ssh root@192.168.1.52 "<command>"`. Inventory r
 ### Traffic Flow
 
 ```
-Internet → corbello.ddns.net → PCT 100 "proxy" (NGINX + certbot TLS) → K3s Traefik / LXC services
+Internet → corbello.ddns.net → PCT 100 "proxy" (NGINX + certbot TLS)
+                                 ├─ K3s services → 192.168.1.110 (Traefik ingress VIP, MetalLB L2)
+                                 └─ LXC services → direct to the guest
 ```
 
-All public services route through **LXC 100 (`proxy`)** which terminates TLS. K3s services are reached via Traefik on the API VIP.
+All public services route through **LXC 100 (`proxy`)** which terminates TLS. K3s services are
+reached via Traefik on the **ingress VIP `192.168.1.110`** — not the API VIP. That Service is
+`externalTrafficPolicy: Local`, so Traefik sees the proxy's real address (`192.168.1.100`) rather
+than a SNAT'd one, which is what lets `forwardedHeaders.trustedIPs` be a `/32` instead of the whole
+pod CIDR. Changing either of those together breaks client-IP handling for every service behind it —
+see `docs/superpowers/specs/2026-08-20-traefik-loadbalancer-source-ip-design.md`.
 
 `corbello.ddns.net` is a No-IP dynamic record that every public hostname CNAMEs to; it is kept pointed at the current WAN IP by `noip-duc.service` on LXC 100 (see `noip-duc/`). If it goes stale, *all* public ingress goes dark. See `docs/network-reservations.md` for the WAN/forwarding details.
 

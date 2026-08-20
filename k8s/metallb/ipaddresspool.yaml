@@ -1,0 +1,25 @@
+# The ingress VIP. Single address, and autoAssign is false so it is handed out
+# only to the Service that names it explicitly (kube-system/traefik) — nothing
+# else in the cluster can accidentally acquire the address every public
+# hostname depends on.
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: ingress
+  namespace: metallb-system
+spec:
+  addresses:
+    - 192.168.1.110/32
+  autoAssign: false
+---
+# L2 mode: whichever node currently runs a ready Traefik pod answers ARP for the
+# address. That is what makes externalTrafficPolicy: Local safe here without
+# pinning Traefik to named nodes.
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: ingress
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+    - ingress
