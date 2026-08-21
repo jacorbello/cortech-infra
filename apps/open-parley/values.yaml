@@ -1,0 +1,56 @@
+# Helm values for a SECOND Parley install: no auth, anyone with the link picks a
+# name and sits down. Consumed by apps/open-parley/argocd-application.yaml.
+#
+# This one is reachable from the public internet with no sign-in, so read the
+# trustProxyHeaders block below before changing anything: in open mode the
+# client address is the only thing bounding identity creation.
+
+replicaCount: 1
+
+baseURL: https://open-parley.corbello.io
+
+database:
+  # Its own database on the shared Postgres (LXC 114, .83) — NOT the `parley`
+  # database. Migrations are per-database and an anonymous public instance has
+  # no business sharing a schema with the authenticated one.
+  existingSecret: open-parley
+  secretKey: DATABASE_URL
+
+# open — anyone with the link picks a name and sits down. No identity provider.
+auth:
+  mode: open
+
+# Same reasoning as apps/parley/values.yaml, and it matters MORE here.
+#
+# Upstream: "the room-code passcode throttle and the open-mode identity-creation
+# quota both key off that address." With no auth in front, that quota is the
+# only thing standing between this instance and unbounded identity creation from
+# the internet. If X-Forwarded-For resolved wrong, every visitor would share one
+# bucket and the whole internet would be rate-limited as a single client.
+#
+# The peer is always a Traefik pod with a dynamic IP, so the CIDR must be the pod
+# network; networkPolicy below is what actually restricts who can reach the pods.
+trustProxyHeaders: true
+trustedProxyCIDRs: "10.42.0.0/16,192.168.1.100/32"
+
+# TLS terminates on the proxy LXC (100); routing is a Traefik IngressRoute in
+# extras/, not the chart's Ingress — ArgoCD-managed apps here need IngressRoute.
+ingress:
+  enabled: false
+
+nodeSelector:
+  role: core-app
+
+# No podDisruptionBudget stanza: the chart only renders one above replicaCount 1,
+# and a budget in front of a single pod blocks every eviction and hangs
+# `kubectl drain` forever. Leaving it at the chart default is correct here.
+
+# Restricts ingress to Traefik pods. Without it, any workload in the cluster
+# could hit this Service directly and name its own client address, which in open
+# mode means minting identities past the quota.
+networkPolicy:
+  enabled: true
+  ingressController:
+    namespace: kube-system
+    podSelector:
+      app.kubernetes.io/name: traefik
